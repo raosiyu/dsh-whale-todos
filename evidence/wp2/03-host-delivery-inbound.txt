@@ -1,0 +1,51 @@
+WP2 宿主投递：入站实证（最强证据）
+采集时间：2026-11-05 01:47 (Asia/Shanghai)
+
+## 事实
+
+我于 01:37 通过 schedule_create 创建了一条 90 秒探测提醒：
+
+    {"id":"schedule-ef43a732-c325-45e4-9974-534a9d21caa3",
+     "kind":"after",
+     "title":"WP2 schedule contract probe",
+     "prompt":"WP2 契约探测提醒（测完即删）",
+     "afterSeconds":90,
+     "scheduledAt":"2026-11-04T17:39:18.552Z",
+     "state":"scheduled",
+     "deliveryMode":"host"}
+
+到点后，宿主**把提醒本身作为一条会话消息投递进来**，其信封字段为：
+
+    [SCHEDULE REMINDER]
+    schedule_id_json: "schedule-ef43a732-c325-45e4-9974-534a9d21caa3"
+    occurrence_at:    2026-11-04T17:39:18.552Z
+    reminder_prompt_json: "WP2 契约探测提醒（测完即删）"
+
+## 比对
+
+| 字段 | 创建时 | 投递信封 | 一致 |
+| --- | --- | --- | --- |
+| schedule id | schedule-ef43a732-c325-45e4-9974-534a9d21caa3 | schedule-ef43a732-c325-45e4-9974-534a9d21caa3 | ✅ |
+| 触发时刻 | 2026-11-04T17:39:18.552Z | 2026-11-04T17:39:18.552Z | ✅ |
+| prompt 正文 | WP2 契约探测提醒（测完即删） | WP2 契约探测提醒（测完即删） | ✅ |
+
+投递后再查 schedule_list -> []
+
+## 这条证据补上了什么
+
+此前 `02-host-delivery.txt` 只能证明「到点后记录从计划表消失」（出队），
+我如实标注「未直接读到投递记录正文/明细」。
+
+本条把那个缺口补上了：
+- 不只是「出队了」，而是**投递物本身进入了会话**；
+- id 与 occurrence_at 与创建时**精确一致**，排除「别的提醒碰巧触发」；
+- 因此 `ctx.schedule` 的「Host 级持久提醒 + 原 Session 投递」语义在本机**已端到端验证**。
+
+## 仍未取得的证据（保持诚实）
+
+- 宿主投递的**历史列表**（可回查的 delivery history 明细，例如「这条提醒一共投递过几次」）
+  在本会话仍无对应工具可读；我能证明「这一次投递发生了」，不能证明
+  「宿主侧完整保留了可回查的投递流水」。
+- 也因此，「重复投递是否真的只有一次」在宿主层未被观测；该项由
+  memory 后端的幂等测试（首次 tick=1、重复 tick=0）覆盖，属**适配器层证明**，
+  不等于宿主层证明。
