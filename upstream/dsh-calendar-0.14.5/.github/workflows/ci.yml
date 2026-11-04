@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # lib/ 是入库的发布产物：构建结果必须与提交内容一致，否则说明有人改了 lib 没改 src。
+      - run: pnpm run build
+      - run: git diff --exit-code -- lib
+      # lib/client.js 是手写的网页端源码（不走 tsc），只做语法自检。
+      - run: node --check lib/client.js
+      - run: pnpm test

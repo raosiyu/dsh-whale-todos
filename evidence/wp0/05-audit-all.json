@@ -1,0 +1,80 @@
+{
+  "advisories": {
+    "1243066": {
+      "findings": [
+        {
+          "version": "4.6.5",
+          "paths": [
+            ".>@deepseek-ai/dsh-commands>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-commands>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-commands>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session-projection>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-commands>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session-projection>zod",
+            ".>@deepseek-ai/dsh-commands>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-system-prompt>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-commands>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-commands>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-commands>zod",
+            ".>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-system-prompt>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session-projection>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session-projection>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-system-prompt>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-ptc-runtime>@deepseek-ai/dsh-sandbox>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-ptc-runtime>@deepseek-ai/dsh-sandbox>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session-projection>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session-projection>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-system-prompt>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-sandbox>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-sandbox>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-session-projection>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-session-projection>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>@deepseek-ai/dsh-system-prompt>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-sandbox-policy>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-system-prompt>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-user-approval>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-user-approval>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-user-approval>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session-projection>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-user-approval>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-session-projection>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-user-approval>@deepseek-ai/dsh-agent>@deepseek-ai/dsh-system-prompt>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-user-approval>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-user-approval>@deepseek-ai/dsh-session>@deepseek-ai/dsh-llm>zod",
+            ".>@deepseek-ai/dsh-tools>@deepseek-ai/dsh-user-approval>@deepseek-ai/dsh-system-prompt>@deepseek-ai/dsh-llm>zod"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243066,
+      "title": "Zod can exhaust memory while validating oversized constrained collections",
+      "module_name": "zod",
+      "vulnerable_versions": "<4.6.6",
+      "patched_versions": ">=4.6.6",
+      "severity": "high",
+      "cwe": "CWE-770",
+      "github_advisory_id": "GHSA-mrhx-c7xc-m3w5",
+      "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5"
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 1,
+      "critical": 0
+    },
+    "dependencies": 4,
+    "devDependencies": 111,
+    "optionalDependencies": 21,
+    "totalDependencies": 115
+  }
+}

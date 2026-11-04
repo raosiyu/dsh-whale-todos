@@ -1,0 +1,585 @@
+/**
+ * iCal 解析与生成：用 ical.js 处理 VEVENT 的字段提取、round-trip 序列化与重复展开。
+ * 输入输出统一 ISO 8601（含时区偏移）：全天事件用 YYYY-MM-DD，定时事件转 UTC（Z）。
+ *
+ * @module dsh-calendar/ical
+ */
+
+import { randomUUID } from 'node:crypto'
+import ICAL from 'ical.js'
+import { tzlib_get_ical_block, tzlib_get_timezones } from 'timezones-ical-library'
+import { assertIsoTime } from './time.js'
+
+const supportedZones = new Set(tzlib_get_timezones() as string[])
+/** Install missing IANA definitions in this resource before hydrating any dates. */
+function prepareTimezones(calendar: ICAL.Component): void {
+  const defined = new Set(calendar.getAllSubcomponents('vtimezone').map(zone => String(zone.getFirstPropertyValue('tzid'))))
+  for (const event of calendar.getAllSubcomponents('vevent')) for (const property of event.getAllProperties()) {
+    const tzid = property.getParameter('tzid')
+    if (typeof tzid !== 'string' || tzid === 'UTC' || defined.has(tzid)) continue
+    if (!supportedZones.has(tzid)) throw new Error('无法识别日程时区 ' + tzid + '，请从原日历重新导出完整的 VTIMEZONE')
+    const block = (tzlib_get_ical_block(tzid) as string[])[0]
+    if (!block) throw new Error('缺少日程时区定义：' + tzid)
+    calendar.addSubcomponent(new ICAL.Component(ICAL.parse(block)))
+    defined.add(tzid)
+  }
+}
+
+export function isRecurringResource(data: string): boolean {
+  const calendar = new ICAL.Component(ICAL.parse(data))
+  return calendar.getAllSubcomponents('vevent').some(event => ['rrule', 'rdate', 'exdate', 'recurrence-id'].some(name => event.hasProperty(name)))
+}
+
+/** 一个暴露给模型的日历事件（或重复系列的一个展开实例）。 */
+export interface CalendarEvent {
+  /** 稳定标识（CalDAV href），calendar_update / calendar_delete 用它。 */
+  uid: string
+  /** 与 uid 相同的完整对象 URL，便于调试。 */
+  href: string
+  /** iCal 里的 UID 原始值（可能为空）。 */
+  icalUid?: string
+  /** 服务器 ETag（内部用于并发安全更新）。 */
+  etag?: string
+  summary: string
+  description?: string
+  location?: string
+  /** 开始时间，ISO 8601（定时事件为 UTC，全天为 YYYY-MM-DD）。 */
+  start: string
+  /** 结束时间，同上；无 DTEND/DURATION 时等于 start。 */
+  end: string
+  allDay: boolean
+  /** 重复规则原样返回（未展开时）；展开后的实例不带此字段。 */
+  rrule?: string
+  /** 是否为重复系列展开出的实例；非重复事件为 false。 */
+  isOccurrence?: boolean
+  /** 系列原开始时间（仅 isOccurrence 为 true 的实例存在）。 */
+  seriesStart?: string
+  status?: string
+  transparency?: string
+  url?: string
+  created?: string
+  lastModified?: string
+}
+
+/** 展开重复事件超出迭代预算：显式报错，避免把「没走到窗口」静默当成「窗口内没有实例」。 */
+export class ExpansionLimitError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ExpansionLimitError'
+  }
+}
+
+/** 新建 / 更新事件时需要的字段。 */
+export interface EventFields {
+  summary: string
+  start: string
+  end: string
+  description?: string
+  location?: string
+  allDay?: boolean
+  /** 重复规则（RFC 5545 RRULE 语法），如 FREQ=WEEKLY;COUNT=4。 */
+  rrule?: string
+  /** iCal UID；创建时缺省则自动生成，更新时用于保留原 UID。 */
+  icalUid?: string
+}
+
+function pad(value: number): string {
+  return value < 10 ? '0' + value : String(value)
+}
+
+function isDateOnly(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+/** 把任意 hydrated 值安全转成字符串。 */
+function asString(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined
+  if (typeof value === 'string') return value
+  if (typeof value === 'object' && 'toICALString' in (value as Record<string, unknown>)) {
+    const rendered = (value as { toICALString(): string }).toICALString()
+    return typeof rendered === 'string' ? rendered : undefined
+  }
+  return String(value)
+}
+
+/** ICAL.Time -> ISO 8601：全天 YYYY-MM-DD，定时转 UTC（Z，去毫秒）。 */
+function icalTimeToIso(time: ICAL.Time): string {
+  if (time.isDate) {
+    return pad(time.year) + '-' + pad(time.month) + '-' + pad(time.day)
+  }
+  return time.toJSDate().toISOString().replace(/\.\d{3}Z$/, 'Z')
+}
+
+/** 把 ISO 字符串转成 epoch 毫秒，用于时间窗口比较。 */
+function isoToEpochMs(value: string): number {
+  return new Date(value).getTime()
+}
+
+function timePropertyValue(vevent: ICAL.Component, name: string): ICAL.Time | undefined {
+  const value = vevent.getFirstPropertyValue(name)
+  return value instanceof ICAL.Time ? value : undefined
+}
+
+/** 计算事件时长：优先 DTEND，其次 DURATION；两者皆无返回 null（时长视为 0）。 */
+function veventDuration(vevent: ICAL.Component, dtstart: ICAL.Time): ICAL.Duration | null {
+  const dtend = timePropertyValue(vevent, 'dtend')
+  if (dtend !== undefined) return dtend.subtractDate(dtstart)
+  const duration = vevent.getFirstPropertyValue('duration')
+  return duration instanceof ICAL.Duration ? duration : null
+}
+
+/**
+ * 解析一段 iCal 文本中的首个 VEVENT 为 CalendarEvent；解析失败返回 null。
+ * @param data - iCal 文本（通常来自服务器的 calendar-data）。
+ * @param href - CalDAV 对象 href，作为稳定 uid。
+ * @param etag - 服务器 ETag。
+ */
+export function parseEventFromICal(data: string, href: string, etag?: string): CalendarEvent | null {
+  let vcal: ICAL.Component
+  try {
+    vcal = new ICAL.Component(ICAL.parse(data))
+  } catch {
+    return null
+  }
+  prepareTimezones(vcal)
+  const vevent = masterVevent(vcal)
+  if (vevent === null) return null
+  return veventToEvent(vevent, href, etag)
+}
+
+/** 把单个 VEVENT 组件映射为 CalendarEvent（不展开重复）。 */
+function veventToEvent(vevent: ICAL.Component, href: string, etag?: string): CalendarEvent | null {
+  const icalUid = asString(vevent.getFirstPropertyValue('uid'))
+  const summary = asString(vevent.getFirstPropertyValue('summary')) ?? ''
+  const description = asString(vevent.getFirstPropertyValue('description'))
+  const location = asString(vevent.getFirstPropertyValue('location'))
+  const status = asString(vevent.getFirstPropertyValue('status'))
+  const transparency = asString(vevent.getFirstPropertyValue('transp'))
+  const url = asString(vevent.getFirstPropertyValue('url'))
+  const created = timePropertyValue(vevent, 'created')
+  const lastModified = timePropertyValue(vevent, 'last-modified')
+
+  const dtstartProp = vevent.getFirstProperty('dtstart')
+  const dtstart = dtstartProp === null ? undefined : (dtstartProp.getFirstValue() instanceof ICAL.Time ? dtstartProp.getFirstValue() as ICAL.Time : undefined)
+  if (dtstart === undefined) return null
+  const dtendProp = vevent.getFirstProperty('dtend')
+  const dtend = dtendProp === null ? undefined : (dtendProp.getFirstValue() instanceof ICAL.Time ? dtendProp.getFirstValue() as ICAL.Time : undefined)
+  const duration = vevent.getFirstPropertyValue('duration')
+
+  const start = icalTimeToIso(dtstart)
+  const allDay = dtstart.isDate === true
+  let end = dtend === undefined ? undefined : icalTimeToIso(dtend)
+  if (end === undefined && duration instanceof ICAL.Duration) {
+    const endTime = dtstart.clone()
+    endTime.addDuration(duration)
+    end = icalTimeToIso(endTime)
+  }
+  if (end === undefined) end = start
+
+  const rruleValue = vevent.getFirstPropertyValue('rrule')
+  const rrule = rruleValue instanceof ICAL.Recur ? rruleValue.toString() : undefined
+
+  const event: CalendarEvent = {
+    uid: href,
+    href,
+    summary,
+    start,
+    end,
+    allDay,
+    ...(icalUid !== undefined ? { icalUid } : {}),
+    ...(etag !== undefined ? { etag } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(location !== undefined ? { location } : {}),
+    ...(rrule !== undefined ? { rrule } : {}),
+    ...(status !== undefined ? { status } : {}),
+    ...(transparency !== undefined ? { transparency } : {}),
+    ...(url !== undefined ? { url } : {}),
+    ...(created !== undefined ? { created: icalTimeToIso(created) } : {}),
+    ...(lastModified !== undefined ? { lastModified: icalTimeToIso(lastModified) } : {}),
+  }
+  return event
+}
+
+/** 挑选系列主 VEVENT：优先不带 RECURRENCE-ID 的那个，避免把单次实例覆盖当成系列本身。 */
+function masterVevent(vcal: ICAL.Component): ICAL.Component | null {
+  const vevents = vcal.getAllSubcomponents('vevent')
+  return vevents.find((vevent) => !vevent.hasProperty('recurrence-id')) ?? vevents[0] ?? null
+}
+
+/** 把实例时间规整成可比较的键：全天按日期，定时按 epoch 秒。 */
+function recurrenceKey(time: ICAL.Time): string {
+  return time.isDate === true ? 'D:' + icalTimeToIso(time) : 'T:' + time.toUnixTime()
+}
+
+/** 由一次 occurrence 起始时间构造实例行。 */
+function buildOccurrence(base: CalendarEvent, occurrenceStart: ICAL.Time, duration: ICAL.Duration | null): CalendarEvent {
+  const start = icalTimeToIso(occurrenceStart)
+  let end = start
+  if (duration !== null) {
+    const endTime = occurrenceStart.clone()
+    endTime.addDuration(duration)
+    end = icalTimeToIso(endTime)
+  }
+  return {
+    uid: base.uid,
+    href: base.href,
+    summary: base.summary,
+    start,
+    end,
+    allDay: base.allDay,
+    isOccurrence: true,
+    seriesStart: base.start,
+    ...(base.icalUid !== undefined ? { icalUid: base.icalUid } : {}),
+    ...(base.etag !== undefined ? { etag: base.etag } : {}),
+    ...(base.description !== undefined ? { description: base.description } : {}),
+    ...(base.location !== undefined ? { location: base.location } : {}),
+    ...(base.status !== undefined ? { status: base.status } : {}),
+    ...(base.transparency !== undefined ? { transparency: base.transparency } : {}),
+    ...(base.url !== undefined ? { url: base.url } : {}),
+    ...(base.created !== undefined ? { created: base.created } : {}),
+    ...(base.lastModified !== undefined ? { lastModified: base.lastModified } : {}),
+  }
+}
+
+/**
+ * 用带 RECURRENCE-ID 的覆盖 VEVENT 构造实例行：字段以覆盖 VEVENT 为准，
+ * 稳定标识（uid/href/etag）与 seriesStart 继承系列主 VEVENT。
+ * 覆盖 VEVENT 缺少可用 DTSTART 时用 RECURRENCE-ID 兜底，避免实例被静默丢弃。
+ */
+function buildOverrideEvent(base: CalendarEvent, vevent: ICAL.Component): CalendarEvent | null {
+  const parsed = veventToEvent(vevent, base.href, base.etag)
+  if (parsed !== null) {
+    return {
+      ...parsed,
+      uid: base.uid,
+      href: base.href,
+      isOccurrence: true,
+      seriesStart: base.start,
+      ...(parsed.icalUid === undefined && base.icalUid !== undefined ? { icalUid: base.icalUid } : {}),
+      ...(parsed.transparency === undefined && base.transparency !== undefined ? { transparency: base.transparency } : {}),
+    }
+  }
+  const recurrenceId = timePropertyValue(vevent, 'recurrence-id')
+  if (recurrenceId === undefined) return null
+  return {
+    uid: base.uid,
+    href: base.href,
+    summary: asString(vevent.getFirstPropertyValue('summary')) ?? base.summary,
+    start: icalTimeToIso(recurrenceId),
+    end: icalTimeToIso(recurrenceId),
+    allDay: recurrenceId.isDate === true,
+    isOccurrence: true,
+    seriesStart: base.start,
+    ...(base.icalUid !== undefined ? { icalUid: base.icalUid } : {}),
+    ...(base.etag !== undefined ? { etag: base.etag } : {}),
+    ...(base.description !== undefined ? { description: base.description } : {}),
+    ...(base.location !== undefined ? { location: base.location } : {}),
+  }
+}
+
+/**
+ * 解析并（可选）展开一个 VEVENT：非重复事件原样返回（isOccurrence: false）；
+ * 重复事件用 ICAL.RecurExpansion 在 [rangeStart, rangeEnd] 内展开，最多返回
+ * maxOccurrences 个实例（isOccurrence: true + seriesStart）。
+ *
+ * 同一 VCALENDAR 里带 RECURRENCE-ID 的 VEVENT 是单次实例的覆盖（改期/改标题）：
+ * 展开时用覆盖 VEVENT 替换对应原实例；原实例被 EXDATE 排除或原时间在窗口外时，
+ * 只要覆盖后的实例落在窗口内仍单独返回，避免实例被静默丢弃。
+ * @param data - iCal 文本。
+ * @param href - CalDAV 对象 href，作为稳定 uid。
+ * @param etag - 服务器 ETag。
+ * @param rangeStart - 查询窗口起始（ISO 8601）。
+ * @param rangeEnd - 查询窗口结束（ISO 8601）。
+ * @param maxOccurrences - 每个事件最多展开的实例数（防死循环）。
+ * @throws {ExpansionLimitError} 迭代次数超出预算仍未能到达查询窗口时抛出。
+ */
+export function expandEventFromICal(
+  data: string,
+  href: string,
+  etag: string | undefined,
+  rangeStart: string,
+  rangeEnd: string,
+  maxOccurrences: number,
+  options: { strict?: boolean; overlap?: boolean; deadline?: number } = {},
+): CalendarEvent[] {
+  let vcal: ICAL.Component
+  try {
+    vcal = new ICAL.Component(ICAL.parse(data))
+  } catch {
+    if (options.strict) throw new ExpansionLimitError('无法完整解析日历资源，未给出空闲建议')
+    return []
+  }
+  prepareTimezones(vcal)
+  const master = masterVevent(vcal)
+  if (master === null) { if (options.strict) throw new ExpansionLimitError('日历资源缺少主日程，未给出空闲建议'); return [] }
+  const base = veventToEvent(master, href, etag)
+  if (base === null) { if (options.strict) throw new ExpansionLimitError('日程缺少开始时间，未给出空闲建议'); return [] }
+  if (options.strict && base.allDay && base.end === base.start) base.end = new Date(Date.parse(base.start) + 86400000).toISOString().slice(0, 10)
+  if (options.strict && Date.parse(base.end) < Date.parse(base.start)) throw new ExpansionLimitError('日程结束早于开始，未给出空闲建议')
+
+  // 收集 RECURRENCE-ID -> 覆盖 VEVENT，展开时按原实例时间替换。
+  const overrides = new Map<string, ICAL.Component>()
+  for (const candidate of vcal.getAllSubcomponents('vevent')) {
+    if (candidate === master) continue
+    const recurrenceId = timePropertyValue(candidate, 'recurrence-id')
+    if (recurrenceId === undefined) continue
+    overrides.set(recurrenceKey(recurrenceId), candidate)
+  }
+
+  if (!master.hasProperty('rrule') && !master.hasProperty('rdate')) {
+    return [{ ...base, isOccurrence: false }]
+  }
+
+  const dtstart = timePropertyValue(master, 'dtstart')
+  if (dtstart === undefined) return [{ ...base, isOccurrence: false }]
+
+  const rangeStartMs = isoToEpochMs(rangeStart)
+  const rangeEndMs = isoToEpochMs(rangeEnd)
+  const inRange = (event: CalendarEvent): boolean => {
+    if (options.strict && event.allDay && event.end === event.start) event.end = new Date(Date.parse(event.start) + 86400000).toISOString().slice(0, 10)
+    if (options.strict && Date.parse(event.end) < Date.parse(event.start)) throw new ExpansionLimitError('重复例外结束早于开始，未给出空闲建议')
+    const startMs = isoToEpochMs(event.start)
+    if (options.overlap) return startMs < rangeEndMs && isoToEpochMs(event.end) > rangeStartMs
+    return !Number.isNaN(startMs) && startMs >= rangeStartMs && startMs <= rangeEndMs
+  }
+
+  const duration = veventDuration(master, dtstart) ?? (options.strict && base.allDay ? ICAL.Duration.fromData({ days: 1 }) : null)
+  const expansion = new ICAL.RecurExpansion({ component: master, dtstart })
+  const occurrences: CalendarEvent[] = []
+  const consumedOverrides = new Set<string>()
+  const totalIterationCap = options.strict ? 100000 : Math.max(100000, maxOccurrences * 1000)
+  let budgetExhausted = false
+
+  try {
+    let iterations = 0
+    while (options.strict || occurrences.length < maxOccurrences) {
+      if (options.strict && occurrences.length > maxOccurrences) throw new ExpansionLimitError('重复日程实例过多，请缩小空闲查询范围')
+      iterations += 1
+      if (options.strict && iterations % 256 === 1 && Date.now() > (options.deadline ?? Infinity)) throw new ExpansionLimitError('空闲查询展开超时，请缩小范围')
+      if (iterations > totalIterationCap) {
+        budgetExhausted = true
+        break
+      }
+      const next = expansion.next() as ICAL.Time | null | undefined
+      if (next === null || next === undefined) break
+      const occMs = next.toUnixTime() * 1000
+      if (occMs > rangeEndMs) break
+      const key = recurrenceKey(next)
+      const overrideVevent = overrides.get(key)
+      if (overrideVevent !== undefined) {
+        // 该次实例已被单独覆盖：只输出覆盖后的字段与时间（覆盖后移出窗口则不再出现）。
+        consumedOverrides.add(key)
+        const overrideEvent = buildOverrideEvent(base, overrideVevent)
+        if (overrideEvent !== null && inRange(overrideEvent)) occurrences.push(overrideEvent)
+        continue
+      }
+      if (!options.overlap && occMs < rangeStartMs) continue
+      const occurrence = buildOccurrence(base, next, duration)
+      if (inRange(occurrence)) occurrences.push(occurrence)
+    }
+  } catch (error) {
+    if (options.strict) throw error instanceof ExpansionLimitError ? error : new ExpansionLimitError('重复规则无法完整展开，未给出空闲建议')
+    // 规则无法满足或迭代异常时，返回已成功展开的部分实例。
+  }
+
+  if (budgetExhausted) {
+    throw new ExpansionLimitError(
+      '重复事件「' + (base.summary !== '' ? base.summary : (base.icalUid ?? href)) + '」展开超过迭代上限（' +
+      totalIterationCap + ' 次）：该系列从 ' + base.start + ' 开始，未能在预算内到达查询窗口。' +
+      '请缩小 start/end 时间范围，或为该 RRULE 添加 COUNT/UNTIL 限制。',
+    )
+  }
+
+  // EXDATE 已把原时间排除、或原时间在窗口外但覆盖后移入窗口：覆盖实例仍需单独返回。
+  for (const [key, overrideVevent] of overrides) {
+    if (consumedOverrides.has(key)) continue
+    const overrideEvent = buildOverrideEvent(base, overrideVevent)
+    if (overrideEvent === null || !inRange(overrideEvent)) continue
+    if (occurrences.length >= maxOccurrences) { if (options.strict) throw new ExpansionLimitError('重复日程例外过多，请缩小空闲查询范围'); break }
+    occurrences.push(overrideEvent)
+  }
+
+  return occurrences
+}
+
+/** 生成随机 iCal UID（带 host 后缀，形如 UUID）。 */
+export function generateUid(): string {
+  return randomUUID()
+}
+
+/** 把字段生成一段完整 iCal 文本（单个 VEVENT）。 */
+export function buildICalString(fields: EventFields): string {
+  const vcal = new ICAL.Component('vcalendar')
+  // RFC 5545 必需属性：服务器不一定替我们补，创建路径显式输出。
+  vcal.addPropertyWithValue('version', '2.0')
+  vcal.addPropertyWithValue('prodid', '-//dsh-calendar//EN')
+  const vevent = new ICAL.Component('vevent')
+  vevent.addPropertyWithValue('uid', fields.icalUid ?? generateUid())
+  vevent.addPropertyWithValue('dtstamp', ICAL.Time.fromJSDate(new Date(), true))
+  vevent.addPropertyWithValue('summary', fields.summary)
+
+  const start = parseTime(fields.start, fields.allDay === true || isDateOnly(fields.start))
+  const end = parseTime(fields.end, fields.allDay === true || isDateOnly(fields.end))
+  vevent.addPropertyWithValue('dtstart', start)
+  vevent.addPropertyWithValue('dtend', end)
+
+  if (fields.description !== undefined && fields.description !== '') {
+    vevent.addPropertyWithValue('description', fields.description)
+  }
+  if (fields.location !== undefined && fields.location !== '') {
+    vevent.addPropertyWithValue('location', fields.location)
+  }
+  if (fields.rrule !== undefined && fields.rrule !== '') {
+    const rule = fields.rrule.trim()
+    if (!/^FREQ=/i.test(rule)) {
+      throw new Error('rrule 格式无效：' + fields.rrule + '（应为 RFC 5545 RRULE，如 FREQ=WEEKLY;COUNT=4）')
+    }
+    try {
+      vevent.addPropertyWithValue('rrule', ICAL.Recur.fromString(rule))
+    } catch (error) {
+      throw new Error('rrule 格式无效：' + fields.rrule)
+    }
+  }
+  vcal.addSubcomponent(vevent)
+  return vcal.toString()
+}
+
+/** 把 ICAL.Time 转成全天 DATE 值（保留原年月日）。 */
+function toDateValue(time: ICAL.Time): ICAL.Time {
+  return ICAL.Time.fromDateString(pad(time.year) + '-' + pad(time.month) + '-' + pad(time.day))
+}
+
+/** 把 ICAL.Time 转成 UTC 零点的定时值（allDay 由 true 改 false 时使用）。 */
+function toMidnightUtc(time: ICAL.Time): ICAL.Time {
+  return ICAL.Time.fromDateTimeString(pad(time.year) + '-' + pad(time.month) + '-' + pad(time.day) + 'T00:00:00Z')
+}
+
+/** 显式改 allDay 时同步 DTSTART/DTEND 的 DATE / DATE-TIME 表示。 */
+function convertTimeForAllDay(time: ICAL.Time, allDay: boolean): ICAL.Time {
+  if (allDay) return time.isDate === true ? time : toDateValue(time)
+  return time.isDate === true ? toMidnightUtc(time) : time
+}
+
+/** 在既有 VEVENT 上覆盖开始/结束时间（含 allDay 表示转换），未显式给出的时间不动。 */
+function applyEventTimes(vevent: ICAL.Component, changes: Partial<EventFields>): void {
+  const existingStart = timePropertyValue(vevent, 'dtstart')
+  const existingEnd = timePropertyValue(vevent, 'dtend')
+  const allDay = changes.allDay ?? (existingStart?.isDate === true)
+  const originalZone = vevent.getFirstProperty('dtstart')?.getParameter('tzid')
+  const writeTime = (name: string, time: ICAL.Time): void => {
+    const tzid = vevent.getFirstProperty(name)?.getParameter('tzid') ?? originalZone
+    if (!time.isDate && typeof tzid === 'string') {
+      const zone = vevent.parent?.getTimeZoneByID(tzid)
+      if (!zone) throw new Error('无法保留日程时区：' + tzid)
+      time = time.convertToZone(zone)
+    }
+    vevent.updatePropertyWithValue(name, time)
+    const property = vevent.getFirstProperty(name)!
+    if (!time.isDate && typeof tzid === 'string') property.setParameter('tzid', tzid)
+    else property.removeParameter('tzid')
+  }
+
+  let start: ICAL.Time | undefined
+  if (changes.start !== undefined) {
+    start = parseTime(changes.start, allDay || isDateOnly(changes.start))
+  } else if (existingStart !== undefined && changes.allDay !== undefined) {
+    start = convertTimeForAllDay(existingStart, allDay)
+  }
+  if (start !== undefined) writeTime('dtstart', start)
+
+  let end: ICAL.Time | undefined
+  if (changes.end !== undefined) {
+    end = parseTime(changes.end, allDay || isDateOnly(changes.end))
+  } else if (existingEnd !== undefined && changes.allDay !== undefined) {
+    end = convertTimeForAllDay(existingEnd, allDay)
+  }
+  if (end !== undefined) {
+    writeTime('dtend', end)
+    // DTEND 与 DURATION 互斥；显式给结束时间时移除原 DURATION，避免双份定义。
+    vevent.removeProperty('duration')
+  }
+}
+
+/**
+ * 在原 iCal 文本上做字段级覆盖：保留原 VCALENDAR / VEVENT 的全部属性
+ * （ATTENDEE、ORGANIZER、EXDATE、STATUS、CATEGORIES、VALARM 及未知属性等），
+ * 只替换 changes 里显式给出的字段；原文本缺少 RFC 5545 必需属性时补齐
+ * （VCALENDAR 的 VERSION/PRODID，VEVENT 的 UID/DTSTAMP）。
+ * 解析失败或没有 VEVENT 时返回 null，由调用方回退到整条重建。
+ * @param data - 原 iCal 文本（通常来自服务器的 calendar-data）。
+ * @param changes - 需要覆盖的字段；未提供的字段保留原值。
+ */
+export function updateICalString(data: string, changes: Partial<EventFields>): string | null {
+  let vcal: ICAL.Component
+  try {
+    vcal = new ICAL.Component(ICAL.parse(data))
+  } catch {
+    return null
+  }
+  prepareTimezones(vcal)
+  const vevent = masterVevent(vcal)
+  if (vevent === null) return null
+
+  const originalStart = timePropertyValue(vevent, 'dtstart')
+  const timeMoves = changes.start !== undefined && originalStart !== undefined &&
+    parseTime(changes.start, changes.allDay ?? originalStart.isDate).toUnixTime() !== originalStart.toUnixTime()
+  const typeChanges = changes.allDay !== undefined && changes.allDay !== originalStart?.isDate
+  const ruleChanges = changes.rrule !== undefined && changes.rrule.trim() !== String(vevent.getFirstPropertyValue('rrule') ?? '')
+  const hasExceptions = vevent.hasProperty('exdate') || vevent.hasProperty('rdate') || vcal.getAllSubcomponents('vevent').some(event => event.hasProperty('recurrence-id'))
+  if (hasExceptions && (timeMoves || typeChanges || ruleChanges)) {
+    throw new Error('系列含已取消、额外或单独改期的场次，不能整体改开始时间、全天类型或重复规则；请在原日历客户端编辑，现有日程未改动。')
+  }
+
+  if (!vcal.hasProperty('version')) vcal.addPropertyWithValue('version', '2.0')
+  if (!vcal.hasProperty('prodid')) vcal.addPropertyWithValue('prodid', '-//dsh-calendar//EN')
+
+  if (!vevent.hasProperty('uid')) {
+    vevent.addPropertyWithValue('uid', changes.icalUid ?? generateUid())
+  } else if (changes.icalUid !== undefined) {
+    vevent.updatePropertyWithValue('uid', changes.icalUid)
+  }
+  if (!vevent.hasProperty('dtstamp')) {
+    vevent.addPropertyWithValue('dtstamp', ICAL.Time.fromJSDate(new Date(), true))
+  }
+
+  // 字段级覆盖：updatePropertyWithValue 保留原属性参数（如 ATTENDEE 的 CN/PARTSTAT）。
+  if (changes.summary !== undefined) vevent.updatePropertyWithValue('summary', changes.summary)
+  if (changes.description !== undefined) vevent.updatePropertyWithValue('description', changes.description)
+  if (changes.location !== undefined) vevent.updatePropertyWithValue('location', changes.location)
+
+  if (changes.rrule !== undefined) {
+    const rule = changes.rrule.trim()
+    if (rule === '') {
+      vevent.removeProperty('rrule')
+    } else {
+      if (!/^FREQ=/i.test(rule)) {
+        throw new Error('rrule 格式无效：' + changes.rrule + '（应为 RFC 5545 RRULE，如 FREQ=WEEKLY;COUNT=4）')
+      }
+      try {
+        vevent.updatePropertyWithValue('rrule', ICAL.Recur.fromString(rule))
+      } catch (error) {
+        throw new Error('rrule 格式无效：' + changes.rrule)
+      }
+    }
+  }
+
+  if (changes.start !== undefined || changes.end !== undefined || changes.allDay !== undefined) {
+    applyEventTimes(vevent, changes)
+  }
+
+  return vcal.toString()
+}
+
+/** 把 ISO 字符串解析成 ICAL.Time（全天 YYYY-MM-DD 或转 UTC 的定时时间）。 */
+function parseTime(value: string, allDay: boolean): ICAL.Time {
+  assertIsoTime(value, '时间')
+  if (allDay || isDateOnly(value)) {
+    return ICAL.Time.fromDateString(value)
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('时间格式不合法：' + value + '（应为 ISO 8601，含时区偏移，如 2025-01-01T09:00:00+08:00）')
+  }
+  // 用 UTC 瞬间构造，序列化为带 Z 的稳定形式，避免时区歧义。
+  return ICAL.Time.fromJSDate(date, true)
+}

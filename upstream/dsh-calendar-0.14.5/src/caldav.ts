@@ -1,0 +1,446 @@
+/**
+ * CalDAV 访问层：用 tsdav 客户端对单个日历集合做 查询/新建/更新/删除。
+ * 直接用集合 URL 操作（createDAVClient 不带 defaultAccountType，跳过服务发现）。
+ *
+ * @module dsh-calendar/caldav
+ */
+
+import { createDAVClient } from 'tsdav'
+import { createHash } from 'node:crypto'
+import ICAL from 'ical.js'
+import { availabilityRequest, findAvailableTimes, type AvailabilityInput, type AvailabilityResult } from './availability.js'
+import { busyResource } from './availability-ical.js'
+import { createProxyFetch } from './proxy-fetch.js'
+import { createOAuthFetch, OAuthError } from './oauth.js'
+import type { ResolvedConfig } from './config.js'
+import {
+  buildICalString,
+  expandEventFromICal,
+  ExpansionLimitError,
+  generateUid,
+  parseEventFromICal,
+  updateICalString,
+  isRecurringResource,
+  type CalendarEvent,
+  type EventFields,
+} from './ical.js'
+
+type DAVClient = Awaited<ReturnType<typeof createDAVClient>>
+type DAVCalendarObject = { url: string; etag?: string; data?: unknown }
+
+/** CalDAV 操作错误：带中文指引。 */
+export class CalDAVError extends Error {
+  readonly status?: number
+  constructor(message: string, status?: number) {
+    super(message)
+    this.name = 'CalDAVError'
+    this.status = status
+  }
+}
+
+function ensureTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value : value + '/'
+}
+
+function normalizeUrl(value: string): string {
+  const trimmed = value.trim()
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed
+}
+
+function authenticationError(config: ResolvedConfig, status: number): CalDAVError {
+  const guidance = config.oauth !== undefined
+    ? '请检查 OAuth 授权范围、日历访问权限及 refreshToken；授权失效时请重新授权。Google CalDAV 不接受应用专用密码。'
+    : '请检查 username 与 password / DSH_CALENDAR_PASSWORD；iCloud 必须使用应用专用密码，其他服务请确认账号权限。Google CalDAV 需改用 OAuth 2.0。'
+  return new CalDAVError('账号认证失败（' + status + '）：' + guidance, status)
+}
+
+/** 把底层错误翻译成与当前认证方式匹配的指引。 */
+function translateError(error: unknown, action: string, config: ResolvedConfig): CalDAVError {
+  if (error instanceof CalDAVError) return error
+  // 展开超限是可操作的明确提示，不能被下面的 OAuth 通用文案覆盖。
+  if (error instanceof ExpansionLimitError) return new CalDAVError(error.message)
+  if (error instanceof OAuthError) return new CalDAVError(error.message, error.status)
+  const message = error instanceof Error ? error.message : String(error)
+  const status = (error as { status?: number })?.status
+  if (status === 401 || status === 403 || /401|403/.test(message)) {
+    return authenticationError(config, status ?? (/401/.test(message) ? 401 : 403))
+  }
+  if (config.oauth !== undefined) {
+    return new CalDAVError(action + ' 失败：CalDAV 响应或网络请求异常，请检查日历地址与服务权限。', status)
+  }
+  return new CalDAVError(action + ' 失败：' + message, status)
+}
+
+/** 对单个日历集合的封装。 */
+export class CalendarService {
+  private readonly collectionUrl: string
+  private clientPromise?: Promise<DAVClient>
+
+  constructor(private readonly config: ResolvedConfig) {
+    this.collectionUrl = ensureTrailingSlash(config.caldavUrl)
+  }
+
+  private client(): Promise<DAVClient> {
+    if (this.clientPromise === undefined) {
+      const transport = this.config.proxyUrl !== '' ? createProxyFetch(this.config.proxyUrl) : globalThis.fetch
+      const oauth = this.config.oauth
+      this.clientPromise = createDAVClient({
+        serverUrl: this.config.caldavUrl,
+        credentials: {},
+        // createDAVClient 的 Oauth 分支只在初始化时取头；改由 fetch 在每次请求时检查过期。
+        // tsdav's Basic encoder only accepts Latin-1. Encode our explicit
+        // credentials as UTF-8 so Chinese CalDAV account names work too.
+        authMethod: 'Custom',
+        authFunction: async (): Promise<Record<string, string>> => oauth === undefined
+          ? { authorization: 'Basic ' + Buffer.from(this.config.username + ':' + this.config.password, 'utf8').toString('base64') }
+          : {},
+        fetch: oauth === undefined ? transport : createOAuthFetch(oauth, transport, this.config.caldavUrl),
+      })
+    }
+    // 创建失败时清掉缓存，让下一次工具调用有机会重试，而不是永久复用 rejected promise。
+    return this.clientPromise.catch((error: unknown) => {
+      this.clientPromise = undefined
+      throw error
+    })
+  }
+
+  private calendar(): { url: string } {
+    return { url: this.collectionUrl }
+  }
+
+  /** 列出某时间段内的事件；expand 为 true 时在窗口内展开 RRULE。 */
+  async list(
+    startIso: string,
+    endIso: string,
+    options?: { expand?: boolean; maxOccurrences?: number },
+    signal?: AbortSignal,
+  ): Promise<CalendarEvent[]> {
+    const expand = options?.expand !== false
+    const maxOccurrences = options?.maxOccurrences ?? 30
+    signal?.throwIfAborted()
+    try {
+      const client = await this.client()
+      signal?.throwIfAborted()
+      const objects = await client.fetchCalendarObjects({
+        calendar: this.calendar(),
+        timeRange: { start: startIso, end: endIso },
+        urlFilter: (url: string) => typeof url === 'string' && url.length > 0,
+        ...(signal !== undefined ? { fetchOptions: { signal } } : {}),
+      })
+      signal?.throwIfAborted()
+      return expand
+        ? this.toExpandedEvents(objects, startIso, endIso, maxOccurrences)
+        : this.toEvents(objects)
+    } catch (error) {
+      signal?.throwIfAborted()
+      throw translateError(error, '读取日历', this.config)
+    }
+  }
+
+  /** 列出全部（或 timeRange 窗口内）事件，供客户端过滤用。 */
+  async all(signal?: AbortSignal, timeRange?: { start: string; end: string }): Promise<CalendarEvent[]> {
+    signal?.throwIfAborted()
+    try {
+      const client = await this.client()
+      signal?.throwIfAborted()
+      const objects = await client.fetchCalendarObjects({
+        calendar: this.calendar(),
+        ...(timeRange !== undefined ? { timeRange } : {}),
+        urlFilter: (url: string) => typeof url === 'string' && url.length > 0,
+        ...(signal !== undefined ? { fetchOptions: { signal } } : {}),
+      })
+      signal?.throwIfAborted()
+      return this.toEvents(objects)
+    } catch (error) {
+      signal?.throwIfAborted()
+      throw translateError(error, '读取日历', this.config)
+    }
+  }
+
+  private toEvents(objects: DAVCalendarObject[]): CalendarEvent[] {
+    const events: CalendarEvent[] = []
+    for (const object of objects) {
+      const event = parseEventFromICal(String(object.data ?? ''), object.url, object.etag)
+      if (event !== null) events.push(event)
+    }
+    return events
+  }
+
+  /** A complete read of the connected collection; never writes or reserves events. */
+  async availability(input: AvailabilityInput, signal?: AbortSignal): Promise<AvailabilityResult> {
+    const request = availabilityRequest(input), deadline = Date.now() + 20000, cancel = AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(20000)])
+    cancel.throwIfAborted()
+    const start = new Date(request.startMs - 2 * 86400000).toISOString(), end = new Date(request.endMs + 2 * 86400000).toISOString()
+    try {
+      const client = await this.client(); cancel.throwIfAborted()
+      const objects = await client.fetchCalendarObjects({ calendar: this.calendar(), timeRange: { start, end }, urlFilter: (url: string) => typeof url === 'string' && url.length > 0, fetchOptions: { signal: cancel } })
+      cancel.throwIfAborted()
+      if (objects.length > 1000) throw new Error('日历资源超过 1000 条，请缩小空闲查询范围')
+      const events: CalendarEvent[] = []; let bytes = 0
+      for (const object of objects) {
+        cancel.throwIfAborted(); const data = String(object.data ?? ''); bytes += Buffer.byteLength(data)
+        if (bytes > 8 * 1024 * 1024) throw new Error('日历资源总量超过 8 MiB，请缩小空闲查询范围')
+        if (Date.now() > deadline) throw new Error('空闲查询超时，请缩小范围')
+        events.push(...busyResource(data, object.url, start, end, request.timeZone, deadline))
+        if (events.length > 10000) throw new Error('日程实例超过 10000 条，请缩小空闲查询范围')
+      }
+      cancel.throwIfAborted(); const result = findAvailableTimes(events, input)
+      if (Date.now() > deadline) throw new Error('空闲查询超时，请缩小范围')
+      return result
+    } catch (error) { cancel.throwIfAborted(); throw translateError(error, '查询空闲时段', this.config) }
+  }
+
+  /** 列出并展开：每个对象经 expandEventFromICal 展开为若干实例行。 */
+  private toExpandedEvents(
+    objects: DAVCalendarObject[],
+    startIso: string,
+    endIso: string,
+    maxOccurrences: number,
+  ): CalendarEvent[] {
+    const events: CalendarEvent[] = []
+    for (const object of objects) {
+      events.push(...expandEventFromICal(
+        String(object.data ?? ''),
+        object.url,
+        object.etag,
+        startIso,
+        endIso,
+        maxOccurrences,
+      ))
+    }
+    return events
+  }
+
+  /** 按 uid（href）找到服务器对象（含 etag 与原始 data）。 */
+  private async findObject(uid: string, signal?: AbortSignal): Promise<DAVCalendarObject | undefined> {
+    signal?.throwIfAborted()
+    // 直接 multiget 已知 href；先限制到当前集合，不能把任意 URL 当作事件。
+    let target: string
+    try {
+      const collection = new URL(this.collectionUrl)
+      const object = new URL(uid.trim())
+      const relativePath = object.pathname.slice(collection.pathname.length)
+      const decodedPath = decodeURIComponent(relativePath)
+      if (object.origin !== collection.origin || object.username || object.password || object.hash
+        || !object.pathname.startsWith(collection.pathname) || !relativePath
+        || decodedPath.split(/[\\/]/).some(segment => segment === '.' || segment === '..')
+        || /%2f|%5c/i.test(relativePath)) throw new Error('invalid href')
+      target = normalizeUrl(object.href)
+    } catch {
+      throw new CalDAVError('uid 必须是当前日历中的事件地址：请用 calendar_list 或 calendar_search 重新获取。')
+    }
+    const client = await this.client()
+    signal?.throwIfAborted()
+    const objects = await client.fetchCalendarObjects({
+      calendar: this.calendar(),
+      objectUrls: [target],
+      urlFilter: (url: string) => normalizeUrl(url) === target,
+      ...(signal !== undefined ? { fetchOptions: { signal } } : {}),
+    })
+    signal?.throwIfAborted()
+    // 207 中单个 href 的 404 也可能被 tsdav 转成无 data 的对象，不能据此 PUT/DELETE。
+    return objects.find((object) => normalizeUrl(object.url) === target
+      && typeof object.data === 'string' && object.data.trim() !== '')
+  }
+
+  /** 新建事件，返回带 href/uid 的事件。 */
+  async create(fields: EventFields, signal?: AbortSignal): Promise<CalendarEvent> {
+    signal?.throwIfAborted()
+    const icalUid = fields.icalUid ?? generateUid()
+    const iCalString = buildICalString({ ...fields, icalUid })
+    const filename = 'event-' + createHash('sha256').update(icalUid).digest('hex') + '.ics'
+    // 本地 filename 只是 PUT 目标，服务器可以按自己的规则分配 href；先按本地猜测兜底。
+    let href = new URL(filename, this.collectionUrl).href
+    try {
+      const client = await this.client()
+      signal?.throwIfAborted()
+      const response = await client.createCalendarObject({
+        calendar: this.calendar(),
+        iCalString,
+        filename,
+        ...(signal !== undefined ? { fetchOptions: { signal } } : {}),
+      })
+      signal?.throwIfAborted()
+      assertOk(response, '新建事件', this.config)
+      href = await this.resolveCreatedHref(response, filename, signal)
+    } catch (error) {
+      signal?.throwIfAborted()
+      if (error instanceof CalDAVError) throw error
+      throw translateError(error, '新建事件', this.config)
+    }
+    const event = parseEventFromICal(iCalString, href)
+    if (event === null) throw new CalDAVError('新建事件失败：生成的 iCal 无法解析')
+    return event
+  }
+
+  /** 解析 PUT 响应的 Location；取不到时回读一次确认，避免把本地猜测的 href 当成 uid。 */
+  private async resolveCreatedHref(response: Response, filename: string, signal?: AbortSignal): Promise<string> {
+    const location = response.headers.get('location')?.trim()
+    if (location !== undefined && location !== '') {
+      try {
+        return new URL(location, this.collectionUrl).href
+      } catch {
+        // Location 不是合法 URL 时退回回读确认。
+      }
+    }
+    const guessed = new URL(filename, this.collectionUrl).href
+    const confirmed = await this.findObject(guessed, signal)
+    return confirmed === undefined ? guessed : confirmed.url
+  }
+
+  /** Complete UID inventory before import, including recurrence overrides outside the visible date window. */
+  async importSnapshot(signal?: AbortSignal): Promise<{ uids: Set<string>; events: CalendarEvent[] }> {
+    signal?.throwIfAborted()
+    try {
+      const client = await this.client()
+      const objects = await client.fetchCalendarObjects({ calendar: this.calendar(), ...(signal ? { fetchOptions: { signal } } : {}) })
+      signal?.throwIfAborted()
+      if (objects.length > 5000) throw new CalDAVError('当前日历超过 5000 个对象，无法完整检查重复；请使用较小的目标日历')
+      const uids = new Set<string>(); let bytes = 0
+      for (const object of objects) {
+        const data = String(object.data ?? '')
+        bytes += Buffer.byteLength(data)
+        if (bytes > 16 * 1024 * 1024) throw new CalDAVError('当前日历数据超过 16 MiB，无法完整检查重复')
+        let calendar: ICAL.Component
+        try { calendar = new ICAL.Component(ICAL.parse(data)) } catch { throw new CalDAVError('服务器包含无法读取的日程，重复检查未完成；请先检查目标日历') }
+        for (const event of calendar.getAllSubcomponents('vevent')) {
+          const uid = String(event.getFirstPropertyValue('uid') ?? '')
+          if (uid) uids.add(uid)
+        }
+      }
+      return { uids, events: this.toEvents(objects) }
+    } catch (error) { signal?.throwIfAborted(); throw translateError(error, '检查日历重复项', this.config) }
+  }
+
+  /** Insert one already reviewed UID resource; tsdav uses If-None-Match:* and never overwrites existing objects. */
+  async importRaw(uid: string, data: string, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
+    const calendar = new ICAL.Component(ICAL.parse(data))
+    const events = calendar.getAllSubcomponents('vevent')
+    if (!uid || !events.length || events.some(event => event.getFirstPropertyValue('uid') !== uid)) throw new CalDAVError('导入资源必须只包含同一 UID 的日程系列')
+    const filename = 'import-' + createHash('sha256').update(uid).digest('hex') + '.ics'
+    try {
+      const client = await this.client()
+      signal?.throwIfAborted()
+      const response = await client.createCalendarObject({ calendar: this.calendar(), filename, iCalString: data, ...(signal ? { fetchOptions: { signal } } : {}) })
+      signal?.throwIfAborted()
+      assertOk(response, '导入日程', this.config)
+    } catch (error) { signal?.throwIfAborted(); throw translateError(error, '导入日程', this.config) }
+  }
+
+  /** Read the resource master rather than a projected occurrence. */
+  async get(uid: string, signal?: AbortSignal): Promise<CalendarEvent> {
+    try {
+      const object = await this.findObject(uid, signal)
+      const event = object && parseEventFromICal(String(object.data ?? ''), object.url, object.etag)
+      if (!event) throw new CalDAVError('找不到或无法解析日程，请刷新日历后重试。')
+      return event
+    } catch (error) { signal?.throwIfAborted(); throw translateError(error, '读取系列事件', this.config) }
+  }
+
+  /** 按 uid 更新事件；未提供的字段保留原值。 */
+  async update(uid: string, changes: Partial<EventFields>, signal?: AbortSignal, scope?: 'series'): Promise<CalendarEvent> {
+    signal?.throwIfAborted()
+    let object: DAVCalendarObject | undefined
+    try {
+      object = await this.findObject(uid, signal)
+    } catch (error) {
+      signal?.throwIfAborted()
+      throw translateError(error, '查找事件', this.config)
+    }
+    if (object === undefined) {
+      throw new CalDAVError(
+        '找不到 uid 对应的事件：请用 calendar_list 或 calendar_search 重新获取最新 uid，' +
+        '该事件可能已被删除或 uid 已过期。',
+      )
+    }
+    const existing = parseEventFromICal(String(object.data ?? ''), object.url, object.etag)
+    if (!existing) throw new CalDAVError('无法解析原日程，更新已取消；请在原日历客户端检查。')
+    if (isRecurringResource(String(object.data ?? '')) && scope !== 'series') throw new CalDAVError('这是整个重复系列。请先向用户说明影响，确认后显式传 scope="series"；当前不支持只改某一次。')
+    const start = changes.start ?? existing?.start
+    const end = changes.end ?? existing?.end
+    if (start === undefined || end === undefined) {
+      throw new CalDAVError('无法确定事件的开始/结束时间：请同时提供 start 与 end。')
+    }
+      const startMs = new Date(start).getTime()
+      const endMs = new Date(end).getTime()
+      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs < startMs) {
+        throw new CalDAVError('更新时间范围无效：end 不能早于 start（' + end + ' < ' + start + '）。')
+      }
+    const merged: EventFields = {
+      summary: changes.summary ?? existing?.summary ?? '',
+      start,
+      end,
+      ...(changes.description !== undefined ? { description: changes.description } : existing?.description !== undefined ? { description: existing.description } : {}),
+      ...(changes.location !== undefined ? { location: changes.location } : existing?.location !== undefined ? { location: existing.location } : {}),
+      allDay: changes.allDay ?? existing?.allDay,
+        ...(changes.rrule !== undefined ? { rrule: changes.rrule } : existing?.rrule !== undefined ? { rrule: existing.rrule } : {}),
+      ...(existing?.icalUid !== undefined ? { icalUid: existing.icalUid } : {}),
+    }
+    // 字段级覆盖：保留原 VCALENDAR/VEVENT 的 ATTENDEE、VALARM 等属性，只改显式给出的字段。
+    // 原 calendar-data 无法解析时回退到整条重建，保持旧的可用行为。
+    const iCalString = updateICalString(String(object.data ?? ''), changes) ?? buildICalString(merged)
+    try {
+      const client = await this.client()
+      signal?.throwIfAborted()
+      const response = await client.updateCalendarObject({
+        calendarObject: { url: object.url, etag: object.etag, data: iCalString },
+        ...(signal !== undefined ? { fetchOptions: { signal } } : {}),
+      })
+      signal?.throwIfAborted()
+      assertOk(response, '更新事件', this.config)
+    } catch (error) {
+      signal?.throwIfAborted()
+      if (error instanceof CalDAVError) throw error
+      throw translateError(error, '更新事件', this.config)
+    }
+    const event = parseEventFromICal(iCalString, object.url, object.etag)
+    if (event === null) throw new CalDAVError('更新事件失败：生成的 iCal 无法解析')
+    return event
+  }
+
+  /** 按 uid 删除事件。 */
+  async delete(uid: string, signal?: AbortSignal, scope?: 'series'): Promise<{ uid: string; href: string }> {
+    signal?.throwIfAborted()
+    let object: DAVCalendarObject | undefined
+    try {
+      object = await this.findObject(uid, signal)
+    } catch (error) {
+      signal?.throwIfAborted()
+      throw translateError(error, '查找事件', this.config)
+    }
+    if (object === undefined) {
+      throw new CalDAVError(
+        '找不到 uid 对应的事件：请用 calendar_list 或 calendar_search 重新获取最新 uid，' +
+        '该事件可能已被删除或 uid 已过期。',
+      )
+    }
+    if (isRecurringResource(String(object.data ?? '')) && scope !== 'series') throw new CalDAVError('这是整个重复系列。请先向用户说明影响，确认后显式传 scope="series"；当前不支持只删某一次。')
+    try {
+      const client = await this.client()
+      signal?.throwIfAborted()
+      const response = await client.deleteCalendarObject({
+        calendarObject: { url: object.url, etag: object.etag },
+        ...(signal !== undefined ? { fetchOptions: { signal } } : {}),
+      })
+      signal?.throwIfAborted()
+      assertOk(response, '删除事件', this.config)
+    } catch (error) {
+      signal?.throwIfAborted()
+      if (error instanceof CalDAVError) throw error
+      throw translateError(error, '删除事件', this.config)
+    }
+    return { uid: object.url, href: object.url }
+  }
+}
+
+/** 校验 HTTP 响应，把 401/403 与其它非 2xx 转成中文错误。 */
+function assertOk(response: Response, action: string, config: ResolvedConfig): void {
+  if (response.status === 401 || response.status === 403) {
+    throw authenticationError(config, response.status)
+  }
+  if (!response.ok) {
+    throw new CalDAVError(action + ' 失败：服务器返回 ' + response.status +
+      (config.oauth === undefined ? ' ' + response.statusText : ''), response.status)
+  }
+}

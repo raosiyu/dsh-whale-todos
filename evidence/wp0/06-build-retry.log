@@ -1,0 +1,22 @@
+$ node -e "require('node:fs').rmSync('lib',{recursive:true,force:true})" && node scripts/build-info.mjs && tsc -p tsconfig.build.json && tsdown
+buildId wb-1303599fa040830d（212 个输入文件）→ lib/build-info.json
+ℹ tsdown v0.22.2 powered by rolldown v1.1.5
+ℹ config file: /Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/tsdown.config.ts 
+ℹ [@dely0/dsh-personal-workbench/client] entry: src/client/index.tsx
+ℹ [@dely0/dsh-personal-workbench/client] target: node22.19.0
+ℹ [@dely0/dsh-personal-workbench/client] tsconfig: tsconfig.json
+ℹ Build start
+
+ WARN  We recommend using the ESM format instead of CommonJS.
+The ESM format is compatible with modern platforms and runtimes, and most new libraries are now distributed only in ESM format.
+Learn more at https://nodejs.org/en/learn/modules/publishing-a-package#how-did-we-get-here
+
+ℹ [@dely0/dsh-personal-workbench/client] Hint: consider adding deps.onlyBundle option to avoid unintended bundling of dependencies, or set deps.onlyBundle: false to disable this hint.
+See more at https://tsdown.dev/options/dependencies#deps-onlybundle
+Detected dependencies in bundle:
+- scheduler
+- react-dom
+ℹ [@dely0/dsh-personal-workbench/client] lib/client.js  663.72 kB │ gzip: 201.23 kB
+ℹ [@dely0/dsh-personal-workbench/client] 1 files, total: 663.72 kB
+✔ [@dely0/dsh-personal-workbench/client] Build complete in 51ms
+BUILD_RETRY_EXIT=0

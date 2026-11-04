@@ -1,0 +1,4 @@
+node_modules/
+*.tgz
+*.log
+package.json.bak*

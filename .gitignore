@@ -1,0 +1,22 @@
+# 依赖与构建产物（上游快照内各自有 node_modules / lib，基线不纳入）
+node_modules/
+**/node_modules/
+lib/
+dist/
+.pnpm-store/
+
+# 本机临时与证据中的大文件（校验和日志保留，二进制不入库）
+*.tgz
+*.tar.gz
+.DS_Store
+
+# 本地敏感配置（凭据永不入库）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# 编辑器
+.vscode/
+.idea/

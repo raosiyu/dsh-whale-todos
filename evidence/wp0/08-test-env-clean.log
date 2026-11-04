@@ -1,0 +1,286 @@
+TAP version 13
+# (node:44586) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: AX-E15 原创无技能草稿确认：DB confirmed + publication.ready + 发现/解析可用 + 附件落地
+ok 1 - AX-E15 原创无技能草稿确认：DB confirmed + publication.ready + 发现/解析可用 + 附件落地
+  ---
+  duration_ms: 56.947167
+  type: 'test'
+  ...
+# Subtest: §6.4 owner 守卫：给了 sessionId 就必须是草稿的会话（HTTP 路径不传这个键）
+ok 2 - §6.4 owner 守卫：给了 sessionId 就必须是草稿的会话（HTTP 路径不传这个键）
+  ---
+  duration_ms: 44.905834
+  type: 'test'
+  ...
+# Subtest: AX-E16 MIT + 两个 install skill：许可链完整；未 ready 前发现与解析都读不到（installation-incomplete）
+ok 3 - AX-E16 MIT + 两个 install skill：许可链完整；未 ready 前发现与解析都读不到（installation-incomplete）
+  ---
+  duration_ms: 111.944209
+  type: 'test'
+  ...
+# Subtest: §6.2 发布门：同名 publication.json 坏掉 / ready=false 时同样跳过（不猜、不放行）
+ok 4 - §6.2 发布门：同名 publication.json 坏掉 / ready=false 时同样跳过（不猜、不放行）
+  ---
+  duration_ms: 49.950542
+  type: 'test'
+  ...
+# Subtest: AX-E17 重复确认幂等（同 expertId/confirmResult、文件数不增加）；重入被进程内互斥挡住
+ok 5 - AX-E17 重复确认幂等（同 expertId/confirmResult、文件数不增加）；重入被进程内互斥挡住
+  ---
+  duration_ms: 83.46225
+  type: 'test'
+  ...
+# Subtest: AX-E18 同名 skill 内容哈希不同：确认时拒绝、旧 skill 字节不变、不静默覆盖、无正式入口
+ok 6 - AX-E18 同名 skill 内容哈希不同：确认时拒绝、旧 skill 字节不变、不静默覆盖、无正式入口
+  ---
+  duration_ms: 26.73875
+  type: 'test'
+  ...
+# Subtest: AX-E18 同名冲突在确认前就已存在：确认也必须拒绝（重新校验，不看绿勾）
+ok 7 - AX-E18 同名冲突在确认前就已存在：确认也必须拒绝（重新校验，不看绿勾）
+  ---
+  duration_ms: 26.353291
+  type: 'test'
+  ...
+# Subtest: AX-E19 同完整哈希的 ready skill：明确复用、字节不变；补偿只撤回本次新建的东西
+ok 8 - AX-E19 同完整哈希的 ready skill：明确复用、字节不变；补偿只撤回本次新建的东西
+  ---
+  duration_ms: 214.430208
+  type: 'test'
+  ...
+# Subtest: §6.5 DB 已 confirmed 但 publication 未 ready：不回滚、按日志补齐并刷新；文件对不上才 repair-required
+ok 9 - §6.5 DB 已 confirmed 但 publication 未 ready：不回滚、按日志补齐并刷新；文件对不上才 repair-required
+  ---
+  duration_ms: 69.61975
+  type: 'test'
+  ...
+# Subtest: §6.5 DB 已 confirmed 但正式人格文档被改成别的内容：不覆盖、报 repair-required 并指出相对路径
+ok 10 - §6.5 DB 已 confirmed 但正式人格文档被改成别的内容：不覆盖、报 repair-required 并指出相对路径
+  ---
+  duration_ms: 67.344208
+  type: 'test'
+  ...
+# Subtest: AX-E23 活 owner 拒绝、死 owner 可回收、owner 状态不明不强删；绝不释放别人的锁
+ok 11 - AX-E23 活 owner 拒绝、死 owner 可回收、owner 状态不明不强删；绝不释放别人的锁
+  ---
+  duration_ms: 59.880042
+  type: 'test'
+  ...
+# Subtest: §6.3 ownerDbKey：别的 DB / 缺失 owner 的日志只跳过；本 DB 的日志才按 DB 状态补偿
+not ok 12 - §6.3 ownerDbKey：别的 DB / 缺失 owner 的日志只跳过；本 DB 的日志才按 DB 状态补偿
+  ---
+  duration_ms: 17.672625
+  type: 'test'
+  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:956:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'skipped-foreign-owner'
+    - 'rolled-back'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'rolled-back'
+  actual: 'skipped-foreign-owner'
+  operator: 'strictEqual'
+  stack: |-
+    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:1008:12
+    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:125:5)
+    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:957:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# (node:44587) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: AX-E20 发行前最后一次校验之后失败：连日志都还没写，磁盘与 DB 一个字节都没动
+ok 13 - AX-E20 发行前最后一次校验之后失败：连日志都还没写，磁盘与 DB 一个字节都没动
+  ---
+  duration_ms: 86.780125
+  type: 'test'
+  ...
+# Subtest: AX-E20 发布前 11 个故障点：草稿仍 pending/install-failed、无入口、只撤本次路径、暂存可重试
+ok 14 - AX-E20 发布前 11 个故障点：草稿仍 pending/install-failed、无入口、只撤本次路径、暂存可重试
+  ---
+  duration_ms: 1624.748791
+  type: 'test'
+  ...
+# Subtest: AX-E21 DB COMMIT 之后 5 个故障点：不回滚已确认数据、补齐 publication、重复确认幂等
+ok 15 - AX-E21 DB COMMIT 之后 5 个故障点：不回滚已确认数据、补齐 publication、重复确认幂等
+  ---
+  duration_ms: 537.359208
+  type: 'test'
+  ...
+# Subtest: AX-E20 真崩溃 @prepared：新实例按日志补偿，撤掉正式文件、暂存可重试
+ok 16 - AX-E20 真崩溃 @prepared：新实例按日志补偿，撤掉正式文件、暂存可重试
+  ---
+  duration_ms: 187.588042
+  type: 'test'
+  ...
+# Subtest: AX-E20 真崩溃 @files-published：新实例撤掉全部正式文件，且未被发现过
+ok 17 - AX-E20 真崩溃 @files-published：新实例撤掉全部正式文件，且未被发现过
+  ---
+  duration_ms: 229.891292
+  type: 'test'
+  ...
+# Subtest: AX-E21 真崩溃 @DB 已提交：新实例补齐 publication（不回滚），重复确认幂等
+ok 18 - AX-E21 真崩溃 @DB 已提交：新实例补齐 publication（不回滚），重复确认幂等
+  ---
+  duration_ms: 292.528292
+  type: 'test'
+  ...
+# Subtest: AX-E21 真崩溃 @ready：新实例只报 already-ready，一个字节都不改
+ok 19 - AX-E21 真崩溃 @ready：新实例只报 already-ready，一个字节都不改
+  ---
+  duration_ms: 137.38125
+  type: 'test'
+  ...
+# Subtest: AX-E23 恢复期锁三档：活/不明/别的主机都跳过且不碰别人的锁，死 owner 可回收
+not ok 20 - AX-E23 恢复期锁三档：活/不明/别的主机都跳过且不碰别人的锁，死 owner 可回收
+  ---
+  duration_ms: 6.98975
+  type: 'test'
+  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:983:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'skipped-foreign-owner'
+    - 'skipped-locked'
+               ^
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'skipped-locked'
+  actual: 'skipped-foreign-owner'
+  operator: 'strictEqual'
+  stack: |-
+    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1000:12
+    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
+    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:984:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AX-E22 主日志坏而备份完整：用备份继续（degraded），主日志坏了照样能补偿
+not ok 21 - AX-E22 主日志坏而备份完整：用备份继续（degraded），主日志坏了照样能补偿
+  ---
+  duration_ms: 48.132
+  type: 'test'
+  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1036:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'skipped-foreign-owner'
+    - 'rolled-back'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'rolled-back'
+  actual: 'skipped-foreign-owner'
+  operator: 'strictEqual'
+  stack: |-
+    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1071:12
+    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
+    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1037:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AX-E22 两份日志都坏：报 repair-required 且一个文件都不动，其它草稿照常恢复
+ok 22 - AX-E22 两份日志都坏：报 repair-required 且一个文件都不动，其它草稿照常恢复
+  ---
+  duration_ms: 47.500708
+  type: 'test'
+  ...
+# Subtest: AX-E22 ownerDbKey 缺失 / 空串 / null / 属于别的 DB：一律只跳过、一个文件都不动
+not ok 23 - AX-E22 ownerDbKey 缺失 / 空串 / null / 属于别的 DB：一律只跳过、一个文件都不动
+  ---
+  duration_ms: 6.635
+  type: 'test'
+  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1109:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    ownerDbKey 缺失（字段都没有）
+    + actual - expected
+    
+    + 'skipped-foreign-owner'
+    - 'rolled-back'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'rolled-back'
+  actual: 'skipped-foreign-owner'
+  operator: 'strictEqual'
+  stack: |-
+    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1138:16
+    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
+    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1110:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: 恢复视角：日志被删但草稿停在 installing → 确认拒绝安装，恢复不猜
+ok 24 - 恢复视角：日志被删但草稿停在 installing → 确认拒绝安装，恢复不猜
+  ---
+  duration_ms: 44.248792
+  type: 'test'
+  ...
+# Subtest: AX-E22 两个 DB 共享同一对根：B 库只补偿自己的草稿，A 库的受管人格跨 profile 仍可见
+not ok 25 - AX-E22 两个 DB 共享同一对根：B 库只补偿自己的草稿，A 库的受管人格跨 profile 仍可见
+  ---
+  duration_ms: 164.99475
+  type: 'test'
+  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1189:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'efb892957c3f5f5371c03ee69c53acaf271622763745277a2972fdfe81828e54'
+    - 'd74241d54aa24b1da1b358d0a9ae9761c3769efb50d5360ba554e871f940af7e'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'd74241d54aa24b1da1b358d0a9ae9761c3769efb50d5360ba554e871f940af7e'
+  actual: 'efb892957c3f5f5371c03ee69c53acaf271622763745277a2972fdfe81828e54'
+  operator: 'strictEqual'
+  stack: |-
+    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1212:12
+    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
+    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1190:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 20
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4424.03025
+CLEAN_ENV_EXIT=1

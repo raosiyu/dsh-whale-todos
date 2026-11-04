@@ -1,0 +1,51 @@
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.7.0.tgz
+? Verifying lockfile against supply-chain policies (115 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +95
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 95, reused 48, downloaded 0, added 48
+Progress: resolved 95, reused 48, downloaded 14, added 62
+Progress: resolved 95, reused 48, downloaded 36, added 84
+Progress: resolved 95, reused 48, downloaded 40, added 88
+Progress: resolved 95, reused 48, downloaded 41, added 89
+Progress: resolved 95, reused 48, downloaded 42, added 90
+Progress: resolved 95, reused 48, downloaded 43, added 90
+Progress: resolved 95, reused 48, downloaded 44, added 92
+[WARN] Request took 10413ms: https://registry.npmjs.org/react
+[WARN] Request took 13134ms: https://registry.npmjs.org/scheduler
+[WARN] Request took 19208ms: https://registry.npmjs.org/@types%2Fnode
+Progress: resolved 95, reused 48, downloaded 45, added 92
+[WARN] Request took 17371ms: https://registry.npmjs.org/typescript
+Progress: resolved 95, reused 48, downloaded 45, added 93
+Progress: resolved 95, reused 48, downloaded 46, added 93
+Progress: resolved 95, reused 48, downloaded 46, added 94
+[WARN] Request took 15332ms: https://registry.npmjs.org/typescript
+[WARN] GET https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] GET https://registry.npmjs.org/react-dom error (23). Will retry in 10 seconds. 2 retries left.
+[WARN] Request took 16303ms: https://registry.npmjs.org/react-dom
+✓ Lockfile passes supply-chain policies (115 entries in 1m 28.9s)
+[WARN] GET https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz error (23). Will retry in 1 minute. 1 retries left.
+Progress: resolved 95, reused 48, downloaded 46, added 94, done
+
+dependencies:
++ react 18.3.1
++ yaml 2.9.1
+
+devDependencies:
++ @deepseek-ai/cordis 4.0.4
++ @deepseek-ai/cordis-plugin-timer 1.1.6
++ @deepseek-ai/dsh-commands 0.2.0-rc.2
++ @deepseek-ai/dsh-host-webserver 0.2.0-rc.2
++ @deepseek-ai/dsh-llm 0.2.0-rc.2
++ @deepseek-ai/dsh-scope 0.2.0-rc.2
++ @deepseek-ai/dsh-system-prompt 0.2.0-rc.2
++ @deepseek-ai/dsh-tools 0.2.0-rc.2
++ @types/node 24.13.3
++ @types/react 18.3.31
++ @types/react-dom 18.3.7
++ react-dom 18.3.1
++ tsdown 0.22.2
++ typescript 5.7.3
+
+Done in 4m 10.5s using pnpm v11.7.0
