@@ -1,7 +1,7 @@
 $ node -e "require('node:fs').rmSync('lib',{recursive:true,force:true})" && node scripts/build-info.mjs && tsc -p tsconfig.build.json && tsdown
 buildId wb-1303599fa040830d（212 个输入文件）→ lib/build-info.json
 ℹ tsdown v0.22.2 powered by rolldown v1.1.5
-ℹ config file: /Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/tsdown.config.ts 
+ℹ config file: <home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/tsdown.config.ts 
 ℹ [@dely0/dsh-personal-workbench/client] entry: src/client/index.tsx
 ℹ [@dely0/dsh-personal-workbench/client] target: node22.19.0
 ℹ [@dely0/dsh-personal-workbench/client] tsconfig: tsconfig.json

@@ -1,6 +1,25 @@
-# dsh-workbench（WP0 基线）
+# dsh-workbench
 
-DSH 智能日历与待办工作台插件的独立开发仓库。**当前状态：WP0 完成，仅基座与验证，未实现业务功能、未安装到任何 DSH profile。**
+DSH 智能日历与待办工作台插件的独立开发仓库。
+
+**当前状态：WP0 + WP1 完成。** 已有可运行、可测试、可回退的 Event 日历域内核（`workbench-core/`，92 项测试全绿），**尚未接入 DSH Host、未实现 UI、未安装到任何 DSH profile**。
+
+| 工作包 | 状态 | 产出 |
+| --- | --- | --- |
+| WP0 | ✅ | 锁定上游、事件域源码级验证、证据链 |
+| WP1-0 | ✅ | 可复现构建环境、5 个失败测试修复、zod 安全升级 |
+| WP1-1~1-5 | ✅ | Event 日历域核心（校验/时区/重复/冲突/存储/ICS/统一入口） |
+| WP1-6 | ✅ | 脚本加固、证据脱敏、最终回归与交付报告 |
+| WP2+ | ⏸ | 未授权，未开始 |
+
+快速验证：
+
+```bash
+bash scripts/wp1-setup.sh                    # 可复现构建环境（含原生 binding 自愈）
+cd upstream/dely0-v1.17.2 && pnpm test       # 上游全量：1339 / 1337 pass / 0 fail / 2 skip
+cd workbench-core && node --test test/*.test.mjs   # 核心域：92 / 92 pass
+cd workbench-core && node demo/demo.mjs      # 功能演示
+```
 
 ## 来源与锁定版本
 
@@ -14,12 +33,14 @@ npm pack 交叉校验产物：`@dely0/dsh-personal-workbench@1.17.2`（sha256 `4
 ## 目录约定
 
 ```
-upstream/dely0-v1.17.2/        # 只读参考快照（任务/AI 基座），不改业务代码
+upstream/dely0-v1.17.2/        # 上游基座快照（唯一生产改动：canonicalDatabasePath 的 realpath 修复）
 upstream/dsh-calendar-0.14.5/  # 只读参考快照（日历域模块源）
-LICENSES/                      # 上游许可证原文 + 第三方署名（逐字复制）
+workbench-core/                # 核心域：零依赖 ESM（src/ + test/ + demo/）
+scripts/wp1-setup.sh           # 可复现构建环境
 docs/wp0/                      # WP0 验证报告、事件域结论、修订后 WP1 计划
-evidence/wp0/                  # 命令原始输出、校验和、检查日志
-src/                           # 未来实现代码（WP1 起），本包为空
+docs/wp1/                      # WP1 报告、Review 记录、最终交付
+evidence/wp0/ evidence/wp1-0/  # 命令原始输出（已脱敏本机路径）
+LICENSES/                      # 上游许可证原文 + 第三方署名（逐字复制）
 ```
 
 ## 署名与许可证

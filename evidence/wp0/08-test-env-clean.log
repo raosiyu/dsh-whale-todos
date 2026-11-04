@@ -72,7 +72,7 @@ not ok 12 - §6.3 ownerDbKey：别的 DB / 缺失 owner 的日志只跳过；本
   ---
   duration_ms: 17.672625
   type: 'test'
-  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:956:1'
+  location: '<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:956:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -87,9 +87,9 @@ not ok 12 - §6.3 ownerDbKey：别的 DB / 缺失 owner 的日志只跳过；本
   actual: 'skipped-foreign-owner'
   operator: 'strictEqual'
   stack: |-
-    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:1008:12
-    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:125:5)
-    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:957:3)
+    file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:1008:12
+    withFixture (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:125:5)
+    TestContext.<anonymous> (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertInstall.test.mjs:957:3)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
@@ -146,7 +146,7 @@ not ok 20 - AX-E23 恢复期锁三档：活/不明/别的主机都跳过且不�
   ---
   duration_ms: 6.98975
   type: 'test'
-  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:983:1'
+  location: '<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:983:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -162,9 +162,9 @@ not ok 20 - AX-E23 恢复期锁三档：活/不明/别的主机都跳过且不�
   actual: 'skipped-foreign-owner'
   operator: 'strictEqual'
   stack: |-
-    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1000:12
-    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
-    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:984:3)
+    file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1000:12
+    withFixture (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
+    TestContext.<anonymous> (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:984:3)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
@@ -177,7 +177,7 @@ not ok 21 - AX-E22 主日志坏而备份完整：用备份继续（degraded）�
   ---
   duration_ms: 48.132
   type: 'test'
-  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1036:1'
+  location: '<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1036:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -192,9 +192,9 @@ not ok 21 - AX-E22 主日志坏而备份完整：用备份继续（degraded）�
   actual: 'skipped-foreign-owner'
   operator: 'strictEqual'
   stack: |-
-    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1071:12
-    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
-    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1037:3)
+    file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1071:12
+    withFixture (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
+    TestContext.<anonymous> (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1037:3)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
@@ -213,7 +213,7 @@ not ok 23 - AX-E22 ownerDbKey 缺失 / 空串 / null / 属于别的 DB：一律�
   ---
   duration_ms: 6.635
   type: 'test'
-  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1109:1'
+  location: '<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1109:1'
   failureType: 'testCodeFailure'
   error: |-
     ownerDbKey 缺失（字段都没有）
@@ -228,9 +228,9 @@ not ok 23 - AX-E22 ownerDbKey 缺失 / 空串 / null / 属于别的 DB：一律�
   actual: 'skipped-foreign-owner'
   operator: 'strictEqual'
   stack: |-
-    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1138:16
-    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
-    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1110:3)
+    file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1138:16
+    withFixture (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
+    TestContext.<anonymous> (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1110:3)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
@@ -249,7 +249,7 @@ not ok 25 - AX-E22 两个 DB 共享同一对根：B 库只补偿自己的草稿�
   ---
   duration_ms: 164.99475
   type: 'test'
-  location: '/Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1189:1'
+  location: '<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1189:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -264,9 +264,9 @@ not ok 25 - AX-E22 两个 DB 共享同一对根：B 库只补偿自己的草稿�
   actual: 'efb892957c3f5f5371c03ee69c53acaf271622763745277a2972fdfe81828e54'
   operator: 'strictEqual'
   stack: |-
-    file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1212:12
-    withFixture (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
-    TestContext.<anonymous> (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1190:3)
+    file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1212:12
+    withFixture (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:200:5)
+    TestContext.<anonymous> (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/test/expertRecovery.test.mjs:1190:3)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.processPendingSubtests (node:internal/test_runner/test:744:18)

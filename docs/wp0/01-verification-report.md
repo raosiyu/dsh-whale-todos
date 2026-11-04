@@ -8,7 +8,7 @@ PUA：本轮有可见 🟠 阿里味输出，按要求**不记录评分**。
 
 | 授权要求 | 执行情况 | 证据 |
 | --- | --- | --- |
-| 1. 独立项目 `/Users/sylas/Developer/dsh-workbench` | ✅ 新建，执行前 `ls` 确认不存在；未修改鲸鱼娘工作区任何既有文件 | `evidence/wp0/` 日志、鲸鱼娘 `plugin/` git HEAD `79d7e24` 前后一致 |
+| 1. 独立项目 `dsh-workbench/`（本仓库根） | ✅ 新建，执行前 `ls` 确认不存在；未修改鲸鱼娘工作区任何既有文件 | `evidence/wp0/` 日志、鲸鱼娘 `plugin/` git HEAD `79d7e24` 前后一致 |
 | 2. 锁定 v1.17.2 / 0.14.5，核实源码、依赖、许可证 | ✅ 见 §1–§3 | `evidence/wp0/00-artifact-sha256.txt`、`LICENSES/` |
 | 3. 保留 MIT / BSD-3-Clause 署名，建 Git 基线 | ✅ 见 §4、§7 | `LICENSES/ATTRIBUTION.md`、git log |
 | 4. 验证 Event 实体/持久化/CRUD/真实日程；已有明确缺失证据不重复测试 | ✅ 源码级复核，见 `03-event-domain-verdict.md`；**未做落库实测**（按授权跳过） | `schema.ts:29-105`、`src/api/routes/`、`CalendarView.tsx` |
@@ -71,7 +71,7 @@ npm pack 交叉校验：`@dely0/dsh-personal-workbench@1.17.2`（`42836eea…`�
 **修复尝试（如实记录）**：
 - `pnpm install --force --ignore-scripts` → 仅回 `Already up to date`，空 binding 目录未恢复（**同一手法重试无效**）。
 - 换本质不同的手段：直接 `npm pack @rolldown/binding-darwin-arm64@1.1.5` 取原生 tarball（7,067,543 B，含 `rolldown-binding.darwin-arm64.node` 16.3 MB）手工落位到 pnpm 期望路径 → **`pnpm build` 重跑 EXIT 0**（`lib/client.js 663.72 kB`）。证明 build 红是下载中断的环境产物，不是上游 TS 代码缺陷。
-- 5 个测试失败的假说验证：初判「DSH Desktop 会话 `DSH_PROFILE*` 环境变量泄漏污染 fixture」。实测 shell 确有 `DSH_PROFILE=desktop` / `DSH_PROFILE_DIR=/Users/sylas/.dsh/profiles/desktop` / `DSH_HOME`；但用 `env -u` 全清后**单跑那 2 个文件仍 25 tests / 20 pass / 5 fail，失败项一字不差**（`08-test-env-clean.log`）→ **假说证伪，如实推翻**。
+- 5 个测试失败的假说验证：初判「DSH Desktop 会话 `DSH_PROFILE*` 环境变量泄漏污染 fixture」。实测 shell 确有 `DSH_PROFILE=desktop` / `DSH_PROFILE_DIR=<home>/.dsh/profiles/desktop` / `DSH_HOME`；但用 `env -u` 全清后**单跑那 2 个文件仍 25 tests / 20 pass / 5 fail，失败项一字不差**（`08-test-env-clean.log`）→ **假说证伪，如实推翻**。
 - 读 `test/expertInstall.test.mjs:1005-1010`：fixture 用 `sha256Hex(canonicalDatabasePath(dbPath))` 生成 `ownerDbKey` 写 journal，恢复逻辑却判为 `skipped-foreign-owner`（期望 `rolled-back`）。属上游**专家角色库安装/恢复**在本机 Node 22.23.2 + macOS 路径规范化下的既有测试缺陷，非 Event 域、非本包改动引入。
 - 按治理红线：**不改测试、不改评分器、不放宽验收、不伪造通过**。这 5 个失败作为「上游既有测试债」证据化交接给 WP1-0（构建环境收口）处理。
 
@@ -86,7 +86,7 @@ npm pack 交叉校验：`@dely0/dsh-personal-workbench@1.17.2`（`42836eea…`�
 
 ## 7. Git 基线
 
-- 独立 `git init` 于 `/Users/sylas/Developer/dsh-workbench`；**无 remote**（未推任何远程仓库）。
+- 独立 `git init` 于本仓库根 `dsh-workbench/`；**无 remote**（未推任何远程仓库）。
 - 基线 commit 见本文件末尾「交付清单」或 `git log -1 --stat`。
 - `.gitignore` 排除 `node_modules/`、`lib/`、`.pnpm-store/`、`*.tgz/.tar.gz`、`.env*`、`*.pem/*.key`；证据中的日志/校验和文本入库，二进制不入库。
 

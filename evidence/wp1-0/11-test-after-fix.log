@@ -2,7 +2,7 @@ $ pnpm build && node --test --test-concurrency=1 test/*.test.mjs
 $ node -e "require('node:fs').rmSync('lib',{recursive:true,force:true})" && node scripts/build-info.mjs && tsc -p tsconfig.build.json && tsdown
 buildId wb-4ae501f9ae1c8979（212 个输入文件）→ lib/build-info.json
 ℹ tsdown v0.22.2 powered by rolldown v1.1.5
-ℹ config file: /Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/tsdown.config.ts 
+ℹ config file: <home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/tsdown.config.ts 
 ℹ [@dely0/dsh-personal-workbench/client] entry: src/client/index.tsx
 ℹ [@dely0/dsh-personal-workbench/client] target: node22.19.0
 ℹ [@dely0/dsh-personal-workbench/client] tsconfig: tsconfig.json
@@ -4402,17 +4402,17 @@ ok 724 - 标签区：单行 + 「更多」浮层，且**不再只渲染前 12 �
   type: 'test'
   ...
 # Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
-#     at IdeaCardGrid (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
+#     at IdeaCardGrid (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
 # Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
-#     at IdeaCardGrid (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
+#     at IdeaCardGrid (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
 # Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
-#     at IdeaCardGrid (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
+#     at IdeaCardGrid (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
 # Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
-#     at IdeaCardGrid (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
+#     at IdeaCardGrid (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
 # Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
-#     at IdeaCardGrid (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
+#     at IdeaCardGrid (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
 # Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
-#     at IdeaCardGrid (file:///Users/sylas/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
+#     at IdeaCardGrid (file://<home>/Developer/dsh-workbench/upstream/dely0-v1.17.2/lib/client/components/IdeaCardGrid.js:55:32)
 # Subtest: KnowledgeList: 渲染出时间分组头与条数
 ok 725 - KnowledgeList: 渲染出时间分组头与条数
   ---

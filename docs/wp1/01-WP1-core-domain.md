@@ -84,3 +84,22 @@
 4. **未接入 DSH Host**：本包是领域内核，`ctx.storageDomain` / `ctx.tools` / `ctx.schedule` 接线属后续工作包。
 5. **未实现 UI**：无面板、无拖拽；那是 WP4/WP5。
 6. **时区库依赖 Intl**：依赖 Node 的 ICU 数据完整；极冷门时区可能无数据。
+
+## 八、审批门矩阵（显式声明，避免被当成漏项）
+
+| 操作 | 需确认 | 理由 |
+| --- | --- | --- |
+| `event.delete` | ✅ | 删除，需显式确认 |
+| `event.bulkDelete` | ✅ | 批量删除，影响面大 |
+| `event.import` | ✅ | ICS 导入会批量写入 |
+| `snapshot.replace` | ✅ | 整体覆盖存储，破坏性最强 |
+| `store.rollback` | ✅ | 回退存储状态 |
+| `event.create` | ❌ | 常规创建，UI 可自行二次确认 |
+| `event.update` | ❌ | 常规编辑（patch 白名单已限制可改字段） |
+| `event.restore` | ❌ | 撤销软删除，方向是恢复而非破坏 |
+| `task.upsert` | ❌ | 幂等写入（按 id 覆盖），由调用方负责语义 |
+| `store.backup` | ❌ | 只增加备份，不改变现有数据 |
+| 全部 `*.list/get/expand/freeSlots/conflicts/preview*/export*` | ❌ | 只读 |
+
+**判定口径**：区分「破坏性」（不可逆或批量）与「常规编辑」（可逆、单条、白名单受限）。破坏性一律 `confirmed: true`；常规编辑不强制，但 UI 层仍可加二次确认——**服务层不拦 ≠ UI 不提示**。
+该矩阵由 `test/service.test.mjs` 的「审批门矩阵」用例锁定：破坏性操作未确认时**必须**抛 `confirmation-required`。

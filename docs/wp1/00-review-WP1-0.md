@@ -28,7 +28,7 @@
 | --- | --- | --- |
 | 3 | 文档引用不存在的 `evidence/wp1-0/review-*.md` | 已改为指向本文件 |
 | 4 | `install.ts:263/266` 的 `catch {}` 不区分错误码，EACCES/ELOOP 也静默降级 | 记录为已知限制（概率极低、降级方向保守：只跳过不动文件）；未改代码，避免为极端场景引入新分支风险 |
-| 5 | `evidence/` 含 16 处 `/Users/sylas/...` 本机绝对路径 | 记录；仓库当前无 remote、不进 HTTP。后续公开前需脱敏（已列入 WP1-6 收口清单） |
+| 5 | `evidence/` 含 16 处本机绝对路径（`/Users/<name>/...`） | 记录；仓库当前无 remote、不进 HTTP。后续公开前需脱敏（已列入 WP1-6 收口清单） |
 | 6 | `scripts/wp1-setup.sh` 硬编码 rolldown binding `1.1.5` | 记录为已知限制：上游升级 rolldown 后需同步改脚本；WP1-6 收口时改为从 lockfile 读版本 |
 | 7 | node 版本越界只 WARN 不 exit，与「失败即退」表述不一致 | 记录；文档已注明这是 warn-only |
 | 8 | 两份测试日志各 336KB、内容近乎重复 | 记录；后续只留 final 一份 |

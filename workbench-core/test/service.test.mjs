@@ -220,3 +220,30 @@ test('服务：持久化——新实例读到同样数据', () => {
   const s2 = mk()
   assert.equal(s2.execute('event.list').length, 1)
 })
+
+test('审批门矩阵：所有破坏性操作都必须确认，常规编辑不强制', () => {
+  // 破坏性：删除 / 批量 / 导入（覆盖写）/ 快照替换 / 回滚 —— 必须确认
+  const destructive = ['event.delete', 'event.bulkDelete', 'event.import', 'snapshot.replace', 'store.rollback']
+  // 常规：创建 / 编辑 / 恢复 / 幂等 upsert —— 不强制（可被 UI 二次确认，但服务层不拦）
+  const routine = ['event.create', 'event.update', 'event.restore', 'task.upsert', 'store.backup']
+
+  const { svc } = mkSvc()
+  const ops = svc.listOps()
+  for (const op of [...destructive, ...routine]) {
+    assert.ok(ops.includes(op), `${op} 必须存在`)
+  }
+  // 破坏性操作在未确认时必须被拦（用一个能构造出合法 payload 的场景验证 delete）
+  const { event } = svc.execute('event.create', { event: timedEvent() })
+  for (const op of destructive) {
+    const payload = op === 'event.delete' ? { id: event.id }
+      : op === 'event.bulkDelete' ? { ids: [event.id] }
+      : op === 'event.import' ? { text: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR' }
+      : op === 'snapshot.replace' ? { text: '{}' }
+      : {}
+    assert.throws(
+      () => svc.execute(op, payload),
+      (err) => err instanceof WorkbenchError && err.code === ERROR_CODES.CONFIRMATION_REQUIRED,
+      `${op} 未确认时必须拒绝`,
+    )
+  }
+})
