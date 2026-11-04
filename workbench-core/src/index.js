@@ -93,3 +93,27 @@ export {
   DANGEROUS_OPS,
   createWorkbenchService,
 } from './service.js'
+
+export {
+  APPROVAL_MODES,
+  approvalFingerprint,
+  createHostApprovalGate,
+  approvalRequiredError,
+} from './approval-gate.js'
+
+export {
+  REMINDER_KINDS,
+  BACKENDS,
+  DEFAULT_LEAD_MINUTES,
+  reminderKeyOf,
+  compileReminder,
+  createMemoryBackend,
+  createHostBackend,
+  createScheduleAdapter,
+} from './schedule-adapter.js'
+
+export {
+  RECOVERY_SCENARIOS,
+  createReminderRecovery,
+  rebuildPlans,
+} from './reminder-recovery.js'

@@ -25,6 +25,7 @@ import { checkEventConflicts, findConflicts, findFreeSlots } from './conflict.js
 import { AUDIT_ACTIONS, createEventRepo } from './event-repo.js'
 import { expandEvents } from './recurrence.js'
 import { buildIcs, exportJson, parseIcs, parseJsonSnapshot } from './ics.js'
+import { approvalFingerprint, createHostApprovalGate } from './approval-gate.js'
 import { openStore } from './store.js'
 import { validateEventInput } from './event.js'
 
@@ -60,10 +61,45 @@ export function createWorkbenchService(options) {
     return input
   }
 
-  const requireConfirmation = (op, meta) => {
-    if (DANGEROUS_OPS.includes(op) && meta?.confirmed !== true) {
-      throw confirmationRequired(`危险操作 ${op} 需要显式确认（meta.confirmed = true）`, { op })
+  /**
+   * 审批门：**危险操作只认宿主签发的 token，不认 payload 里的 confirmed**。
+   *
+   * 这是 WP2 的硬约束：AI 能自己填 `confirmed: true`，所以那个字段没有任何
+   * 授权含义。真正的授权来自 `approvalGate`：由宿主（或测试注入的 issuer）
+   * 签发一次性凭证，服务层校验指纹 + 有效期 + 未使用后才放行。
+   */
+  const gate = options.approvalGate ?? createHostApprovalGate({
+    mode: options.approvalMode ?? 'host',
+    allowIsolated: options.allowIsolatedApproval === true,
+    request: options.requestApproval,
+    now: options.nowApproval,
+  })
+
+  const requireConfirmation = (op, meta, detail = {}) => {
+    if (!DANGEROUS_OPS.includes(op)) return
+    const check = gate.verify(
+      { op, target: detail.target, digest: detail.digest },
+      meta?.approvalToken,
+    )
+    if (!check.ok) {
+      throw confirmationRequired(
+        `危险操作 ${op} 需要宿主审批凭证（原因：${check.reason}）；payload 里的 confirmed 不被采信`,
+        { op, reason: check.reason },
+      )
     }
+  }
+
+  /** 供调用方（UI 或 Agent 工具）先申请审批，再带 token 调用 execute。 */
+  const requestApproval = async (op, detail = {}) => {
+    if (!DANGEROUS_OPS.includes(op)) {
+      return { approved: true, token: undefined, reason: 'op-not-requiring-approval' }
+    }
+    return gate.request({
+      op,
+      target: detail.target,
+      digest: detail.digest,
+      summary: detail.summary ?? op,
+    })
   }
 
   const ops = {
@@ -132,8 +168,8 @@ export function createWorkbenchService(options) {
     },
 
     'event.delete': (payload, meta) => {
-      requireConfirmation('event.delete', meta)
       const id = requireId(payload, 'id')
+      requireConfirmation('event.delete', meta, { target: id })
       return events.remove(id, { actor: meta?.actor })
     },
 
@@ -143,11 +179,11 @@ export function createWorkbenchService(options) {
     },
 
     'event.bulkDelete': (payload, meta) => {
-      requireConfirmation('event.bulkDelete', meta)
       const ids = payload?.ids
       if (!Array.isArray(ids) || ids.length === 0) {
         throw validationError('ids 必须是非空数组')
       }
+      requireConfirmation('event.bulkDelete', meta, { target: [...ids].map(String).sort().join(',') })
       const results = []
       for (const id of ids) {
         results.push(events.remove(String(id), { actor: meta?.actor }))
@@ -184,8 +220,8 @@ export function createWorkbenchService(options) {
     },
 
     'event.import': (payload, meta) => {
-      requireConfirmation('event.import', meta)
       const text = requireString(payload, 'text')
+      requireConfirmation('event.import', meta, { digest: String(text.length) })
       const parsed = parseIcs(text, { defaultTimeZone: payload.defaultTimeZone })
       if (parsed.errors.length > 0) {
         throw validationError('ICS 存在无法解析的条目，已中止导入', { errors: parsed.errors })
@@ -244,8 +280,8 @@ export function createWorkbenchService(options) {
     },
 
     'snapshot.replace': (payload, meta) => {
-      requireConfirmation('snapshot.replace', meta)
       const text = requireString(payload, 'text')
+      requireConfirmation('snapshot.replace', meta, { digest: String(text.length) })
       const parsed = parseJsonSnapshot(text)
       const backup = store.backup('before-snapshot-replace')
       try {
@@ -267,7 +303,7 @@ export function createWorkbenchService(options) {
     'store.backup': (payload = {}) => store.backup(payload.label ?? 'manual'),
     'store.listBackups': () => store.listBackups(),
     'store.rollback': (payload, meta) => {
-      requireConfirmation('store.rollback', meta)
+      requireConfirmation('store.rollback', meta, { target: payload?.name ?? 'latest' })
       return store.rollback(payload?.name)
     },
     'store.audit': (payload = {}) => events.auditLog({ entityId: payload.entityId }),
@@ -303,6 +339,8 @@ export function createWorkbenchService(options) {
   return {
     store,
     events,
+    approvalGate: gate,
+    requestApproval,
     defaultTimeZone,
     /**
      * 唯一入口。

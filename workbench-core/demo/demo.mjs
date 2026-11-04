@@ -10,13 +10,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  createScheduleAdapter,
   createWorkbenchService,
   instantToWall,
   wallToInstant,
 } from '../src/index.js'
 
 const dir = mkdtempSync(join(tmpdir(), 'wb-demo-'))
-const svc = createWorkbenchService({ dataDir: dir, defaultTimeZone: 'Asia/Shanghai' })
+const svc = createWorkbenchService({
+  dataDir: dir,
+  defaultTimeZone: 'Asia/Shanghai',
+  // 演示用隔离审批门：凭证由本进程签发，模拟「宿主批准后发凭证」。
+  // 生产必须用 mode:'host'，由真实宿主 ctx.approval 决定。
+  approvalMode: 'isolated',
+  allowIsolatedApproval: true,
+})
 const log = (...args) => console.log(...args)
 const at = (wall, tz = 'Asia/Shanghai') => wallToInstant(`${wall}:00`, tz).ms
 const show = (ms, tz = 'Asia/Shanghai') => instantToWall(ms, tz).replace('T', ' ')
@@ -99,22 +107,33 @@ const preview = svc.execute('event.previewIcs', { text: ics.text })
 log(`  预览：create=${preview.counts.create} skip=${preview.counts.skip}`)
 log('')
 
-log('=== 7) 危险操作审批门 ===')
+log('=== 7) 危险操作审批门（confirmed 不再被采信）===')
 try {
   svc.execute('event.delete', { id: meeting.event.id })
-  log('  意外：应当要求确认')
+  log('  意外：无凭证也通过了')
 } catch (error) {
-  log(`  已按预期拒绝：${error.code}`)
+  log(`  无凭证被拒：${error.code}`)
 }
-const del = svc.execute('event.delete', { id: meeting.event.id }, { confirmed: true })
-log(`  确认后删除：deletedAt=${del.deletedAt}`)
+try {
+  // 关键演示：AI 自己填 confirmed:true 也无效
+  svc.execute('event.delete', { id: meeting.event.id, confirmed: true }, { confirmed: true })
+  log('  意外：confirmed 竟然能绕过审批')
+} catch (error) {
+  log(`  伪造 confirmed 被拒：${error.code}`)
+}
+const approval = await svc.requestApproval('event.delete', { target: meeting.event.id })
+log(`  宿主审批：approved=${approval.approved}，取得一次性凭证`)
+const del = svc.execute('event.delete', { id: meeting.event.id }, { approvalToken: approval.token })
+log(`  凭凭证删除成功：deletedAt=${del.deletedAt}`)
 log('')
 
 log('=== 8) 快照导出 / 替换 / 回滚 ===')
 const snap = svc.execute('snapshot.export')
 log(`  快照指纹：${snap.fingerprint.slice(0, 16)}…  事件数=${svc.execute('event.list').length}`)
-svc.execute('snapshot.replace', { text: snap.text }, { confirmed: true })
-const rb = svc.execute('store.rollback', {}, { confirmed: true })
+const replaceApproval = await svc.requestApproval('snapshot.replace', { digest: String(snap.text.length) })
+svc.execute('snapshot.replace', { text: snap.text }, { approvalToken: replaceApproval.token })
+const rbApproval = await svc.requestApproval('store.rollback', { target: 'latest' })
+const rb = svc.execute('store.rollback', {}, { approvalToken: rbApproval.token })
 log(`  回滚到：${rb.restored}`)
 log('')
 
@@ -128,6 +147,32 @@ log('=== 10) Task 门面与 Event 隔离 ===')
 svc.execute('task.upsert', { task: { id: 'task-1', title: '既有任务（未迁移）', statusCode: 'todo' } })
 log(`  tasks=${svc.execute('task.list').length}  events=${svc.execute('event.list').length}`)
 log('')
+
+log('=== 11) 提醒系统：ScheduleAdapter + 幂等对账 ===')
+const BASE = Date.UTC(2026, 10, 1, 0, 0, 0)
+const adapter = createScheduleAdapter({
+  backend: 'memory',                 // 演示用内存后端；生产接 ctx.schedule
+  now: () => BASE,
+  defaultLeadMinutes: 15,
+})
+const live = svc.execute('event.list')
+const plans = adapter.planForEvents(live, {
+  windowStart: BASE, windowEnd: BASE + 30 * 86400000,
+})
+log(`  为 ${live.length} 个事件编译出 ${plans.length} 条提醒`)
+const rec1 = await adapter.reconcile(plans)
+log(`  首次对账：created=${rec1.created.length} removed=${rec1.removed.length}`)
+const rec2 = await adapter.reconcile(plans)
+log(`  重复对账（幂等）：created=${rec2.created.length}（应为 0）`)
+
+if (plans.length > 0) {
+  const fireAt = plans[0].fireAtMs
+  const first = adapter._tick(fireAt)
+  const second = adapter._tick(fireAt + 60000)
+  log(`  到点投递：第一次 ${first.length} 条，重复 tick ${second.length} 条（应为 0）`)
+  const hist = await adapter.history()
+  log(`  投递历史 ${hist.length} 条（与真实投递一致）`)
+}
 
 rmSync(dir, { recursive: true, force: true })
 log('演示结束（临时目录已清理）')
