@@ -2,7 +2,7 @@
 
 执行时间：2026-11-05（Asia/Shanghai）
 代码位置：`workbench-core/`（零运行时依赖的 ESM 包）
-测试：**92 / 92 pass，0 fail，0 skip**（`node --test test/*.test.mjs`）
+测试：**93 / 93 pass，0 fail，0 skip**（`node --test test/*.test.mjs`）
 演示：`node demo/demo.mjs` 端到端跑通（EXIT 0）
 
 ## 一、为什么是「零依赖 ESM 包」而不是继续扩 Dely0
@@ -41,7 +41,7 @@
 7. **危险操作**：`event.delete` / `event.bulkDelete` / `event.import` / `snapshot.replace` / `store.rollback` 必须 `confirmed: true`。
 8. **Task 不迁移**：`tasks` 集合在本包里是**新建的空集合**；Dely0 的 `~/.dsh/workbench` SQLite **一律不碰**。共用入口 ≠ 共用数据。
 
-## 四、测试覆盖（92 项）
+## 四、测试覆盖（93 项）
 
 | 测试文件 | 项数 | 覆盖重点 |
 | --- | --- | --- |

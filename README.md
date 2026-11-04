@@ -2,7 +2,7 @@
 
 DSH 智能日历与待办工作台插件的独立开发仓库。
 
-**当前状态：WP0 + WP1 完成。** 已有可运行、可测试、可回退的 Event 日历域内核（`workbench-core/`，92 项测试全绿），**尚未接入 DSH Host、未实现 UI、未安装到任何 DSH profile**。
+**当前状态：WP0 + WP1 完成。** 已有可运行、可测试、可回退的 Event 日历域内核（`workbench-core/`，93 项测试全绿），**尚未接入 DSH Host、未实现 UI、未安装到任何 DSH profile**。
 
 | 工作包 | 状态 | 产出 |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ DSH 智能日历与待办工作台插件的独立开发仓库。
 ```bash
 bash scripts/wp1-setup.sh                    # 可复现构建环境（含原生 binding 自愈）
 cd upstream/dely0-v1.17.2 && pnpm test       # 上游全量：1339 / 1337 pass / 0 fail / 2 skip
-cd workbench-core && node --test test/*.test.mjs   # 核心域：92 / 92 pass
+cd workbench-core && node --test test/*.test.mjs   # 核心域：93 / 93 pass
 cd workbench-core && node demo/demo.mjs      # 功能演示
 ```
 

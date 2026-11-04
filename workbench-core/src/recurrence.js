@@ -25,6 +25,20 @@ export const MAX_OCCURRENCES = 2000
 /** RRULE 未支持字段的显式拒绝表。 */
 const UNSUPPORTED_KEYS = ['bySetPos', 'byMonthDay', 'byYearDay', 'byWeekNo', 'wkst', 'byMonth', 'byHour', 'byMinute']
 
+/**
+ * 月末策略：RRULE 遇到不存在的日期（如 2 月 31 日）怎么处理。
+ *
+ * - `rfc`（默认）：**跳过该实例**，与 RFC 5545 §3.3.10 "Recurrence Rule" 一致
+ *   （"Recurrence rules may generate recurrence instances with an invalid date
+ *   ... Such recurrence instances MUST be ignored"）。跳过**不计入** COUNT。
+ * - `clamp`（自定义）：收敛到该月最后一天（1/31 → 2/28）。这是**本项目的扩展**，
+ *   不是 RFC 行为；仅在调用方显式要求时启用（如用户偏好「每月最后一天」）。
+ *
+ * 两种行为都必须可测、可区分，不允许悄悄混用。
+ */
+export const MONTH_END_POLICIES = Object.freeze(['rfc', 'clamp'])
+export const DEFAULT_MONTH_END_POLICY = 'rfc'
+
 function assertNoUnsupported(recurrence, path) {
   for (const key of UNSUPPORTED_KEYS) {
     if (recurrence[key] !== undefined) {
@@ -44,6 +58,10 @@ function assertNoUnsupported(recurrence, path) {
  */
 export function expandEvent(event, window) {
   const { windowStart, windowEnd } = window
+  const monthEndPolicy = window.monthEndPolicy ?? DEFAULT_MONTH_END_POLICY
+  if (!MONTH_END_POLICIES.includes(monthEndPolicy)) {
+    throw validationError(`monthEndPolicy 必须是 ${MONTH_END_POLICIES.join(' / ')}`, { got: monthEndPolicy })
+  }
   if (!Number.isFinite(windowStart) || !Number.isFinite(windowEnd) || windowEnd <= windowStart) {
     throw validationError('展开窗口非法：windowEnd 必须晚于 windowStart', { windowStart, windowEnd })
   }
@@ -68,34 +86,27 @@ export function expandEvent(event, window) {
   const out = []
   const seen = new Set()
 
-  // UNTIL：日期或带时区时间；日期按该时区当日 23:59:59 收口（含当天）
   let untilMs = Infinity
   if (recurrence.until !== undefined) {
     untilMs = parseUntil(recurrence.until, event)
   }
 
   let produced = 0
-  let cursorDate = base.startDate
   let periodIndex = 0
   let guard = 0
   const maxIterations = MAX_OCCURRENCES * 4
 
   while (guard < maxIterations) {
     guard += 1
-    const candidateDates = datesForCursor(recurrence, cursorDate, base)
+    const periodDates = periodDatesFor(recurrence, base, step, periodIndex, monthEndPolicy)
 
-    for (const date of candidateDates) {
-      if (date < base.startDate) continue
+    for (const date of periodDates) {
       const occurrenceStartMs = dateToStartMs(event, date)
-      if (occurrenceStartMs >= windowEnd) {
-        // 已越过窗口右界；若规则是有限的，可以安全收口
-        return out
-      }
+      if (occurrenceStartMs >= windowEnd) return out
       if (occurrenceStartMs > untilMs) return out
       if (recurrence.count !== undefined && produced >= recurrence.count) return out
-      produced += 1
-      if (recurrence.count !== undefined && produced > recurrence.count) return out
 
+      produced += 1
       const occurrenceEndMs = occurrenceStartMs + durationMs
       if (occurrenceEndMs > windowStart) {
         const key = `${event.uid ?? event.id}:${date}`
@@ -111,16 +122,10 @@ export function expandEvent(event, window) {
       }
     }
 
-    // 推进游标：MONTHLY/YEARLY 用「周期序号」重算，避免短月 clamp 污染后续周期
     periodIndex += 1
-    const next = advanceCursor(recurrence, base.startDate, step, periodIndex)
-    if (next === null) return out
-    cursorDate = next
-    if (guard >= maxIterations) {
-      throw unsupportedError('重复展开迭代次数超限，请加 count/until 或缩小窗口', { eventId: event.id })
-    }
   }
-  return out
+
+  throw unsupportedError('重复展开迭代次数超限，请加 count/until 或缩小窗口', { eventId: event.id })
 }
 
 function makeOccurrence(event, startMs, endMs, startDate, isRecurring) {
@@ -183,53 +188,58 @@ function parseUntil(until, event) {
   return Date.parse(until)
 }
 
-/** 当前游标日期对应的候选日期（处理 BYDAY）。 */
-function datesForCursor(recurrence, cursorDate, base) {
-  if (recurrence.freq === 'WEEKLY' && recurrence.byDay !== undefined) {
-    // 返回该周内所有指定星期几
-    const weekStart = addDaysToDate(cursorDate, -weekdayIndex(cursorDate))
-    return recurrence.byDay
-      .map((code) => addDaysToDate(weekStart, WEEKDAY_INDEX[code]))
-      .sort()
-  }
-  return [cursorDate]
-}
 
-function weekdayIndex(date) {
-  return weekdayOf(date)
-}
+
 
 /**
- * 推进到第 `periodIndex` 个周期；返回 null 表示不应再推进。
+ * 第 `periodIndex` 个周期应产出的日期列表。
  *
- * 关键：MONTHLY/YEARLY 一律从**原始起始日**重算，而不是从上一个（可能已被 clamp 的）
- * 游标推进。否则 1/31 → 2/28 → 3/28 会一路漂移，正确应为 1/31 → 2/28 → 3/31。
+ * - 返回空数组：该周期没有合法日期（RFC 策略下的 MONTHLY/YEARLY 非法日），
+ *   调用方跳过它且**不消耗 COUNT**。
+ * - MONTHLY/YEARLY 一律从原始起始日重算，避免短月把后续周期带偏。
  */
-function advanceCursor(recurrence, baseDate, step, periodIndex) {
+function periodDatesFor(recurrence, base, step, periodIndex, monthEndPolicy) {
   const pad = (n) => String(n).padStart(2, '0')
+  const baseDate = base.startDate
+  const [by, bm, bd] = baseDate.split('-').map(Number)
+
   switch (recurrence.freq) {
     case 'DAILY':
-      return addDaysToDate(baseDate, step * periodIndex)
-    case 'WEEKLY':
-      return addDaysToDate(baseDate, 7 * step * periodIndex)
+      return [addDaysToDate(baseDate, step * periodIndex)]
+    case 'WEEKLY': {
+      const weekStartOfBase = addDaysToDate(baseDate, -weekdayOf(baseDate))
+      const weekStart = addDaysToDate(weekStartOfBase, 7 * step * periodIndex)
+      if (recurrence.byDay === undefined) return [addDaysToDate(baseDate, 7 * step * periodIndex)]
+      return recurrence.byDay
+        .map((code) => addDaysToDate(weekStart, WEEKDAY_INDEX[code]))
+        .filter((d) => d >= baseDate)
+        .sort()
+    }
     case 'MONTHLY': {
-      const [y, m, d] = baseDate.split('-').map(Number)
-      const targetMonth = m - 1 + step * periodIndex
-      const year = y + Math.floor(targetMonth / 12)
+      const targetMonth = bm - 1 + step * periodIndex
+      const year = by + Math.floor(targetMonth / 12)
       const month = ((targetMonth % 12) + 12) % 12
       const maxDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
-      return `${year}-${pad(month + 1)}-${pad(Math.min(d, maxDay))}`
+      if (bd > maxDay) {
+        if (monthEndPolicy === 'rfc') return []
+        return [`${year}-${pad(month + 1)}-${pad(maxDay)}`]
+      }
+      return [`${year}-${pad(month + 1)}-${pad(bd)}`]
     }
     case 'YEARLY': {
-      const [y, m, d] = baseDate.split('-').map(Number)
-      const targetYear = y + step * periodIndex
-      const maxDay = new Date(Date.UTC(targetYear, m, 0)).getUTCDate()
-      return `${targetYear}-${pad(m)}-${pad(Math.min(d, maxDay))}`
+      const targetYear = by + step * periodIndex
+      const maxDay = new Date(Date.UTC(targetYear, bm, 0)).getUTCDate()
+      if (bd > maxDay) {
+        if (monthEndPolicy === 'rfc') return []
+        return [`${targetYear}-${pad(bm)}-${pad(maxDay)}`]
+      }
+      return [`${targetYear}-${pad(bm)}-${pad(bd)}`]
     }
     default:
       throw unsupportedError(`不支持的重复频率：${recurrence.freq}`)
   }
 }
+
 
 /** 给定窗口，返回按开始时间排序、去重后的事件实例。 */
 export function expandEvents(events, window) {

@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 上游全量测试 | **1339 tests / 1337 pass / 0 fail / 2 skipped** | `cd upstream/dely0-v1.17.2 && pnpm test` |
 | 上游类型检查 | EXIT 0 | `pnpm typecheck` |
-| 核心域测试 | **92 / 92 pass，0 fail，0 skip** | `cd workbench-core && node --test test/*.test.mjs` |
+| 核心域测试 | **93 / 93 pass，0 fail，0 skip** | `cd workbench-core && node --test test/*.test.mjs` |
 | 功能演示 | EXIT 0 | `node demo/demo.mjs` |
 | 依赖安全（生产） | 0 漏洞 | `pnpm audit --prod` |
 | 依赖安全（全部） | 0 漏洞 | `pnpm audit --all` |
@@ -98,7 +98,7 @@
 | --- | --- |
 | `873e554` | WP0：锁定 Dely0 v1.17.2 + dsh-calendar 0.14.5 基线、事件域验证、证据 |
 | `be98ab9` | WP1-0：可复现构建环境 + ownerDbKey 符号链接修复 + zod 安全升级 |
-| `80164dc` | WP1-1..1-5：Event 日历域核心（零依赖 ESM，92 测试）+ Review 修正 |
+| `80164dc` | WP1-1..1-5：Event 日历域核心（零依赖 ESM，92 测试，WP1-6 增至 93）+ Review 修正 |
 | 待提交 | WP1-6：setup 脚本版本解析/多平台/严格校验、evidence 脱敏、本报告 |
 
 无 remote，未 push。

@@ -81,14 +81,37 @@ test('重复：UNTIL 收口（日期按当天 23:59:59 含当天）', () => {
   assert.equal(out.length, 3)
 })
 
-test('重复：MONTHLY 在 31 号收敛到短月月末', () => {
+test('重复：MONTHLY 31 号—RFC 策略跳过 2 月（非法日期 MUST be ignored）', () => {
   const ev = timed({
     start: '2026-01-31T09:00', end: '2026-01-31T10:00',
-    recurrence: { freq: 'MONTHLY', count: 3 },
+    recurrence: { freq: 'MONTHLY', count: 4 },
   })
-  const out = expandEvent(ev, { windowStart: at('2026-01-01T00:00'), windowEnd: at('2026-12-31T00:00') })
-  const dates = out.map((o) => instantToWall(o.startMs, 'Asia/Shanghai').slice(0, 10))
-  assert.deepEqual(dates, ['2026-01-31', '2026-02-28', '2026-03-31'])
+  const out = expandEvent(ev, {
+    windowStart: at('2026-01-01T00:00'), windowEnd: Date.UTC(2027, 5, 1), monthEndPolicy: 'rfc',
+  })
+  const dates = out.map((o) => instantToWall(o.startMs, 'UTC').slice(0, 10))
+  // 2 月没有 31 日 → 该实例被忽略，且不占 COUNT 名额
+  assert.deepEqual(dates, ['2026-01-31', '2026-03-31', '2026-05-31', '2026-07-31'])
+})
+
+test('重复：MONTHLY 31 号—clamp 策略收敛到月末（本项目扩展，非 RFC）', () => {
+  const ev = timed({
+    start: '2026-01-31T09:00', end: '2026-01-31T10:00',
+    recurrence: { freq: 'MONTHLY', count: 4 },
+  })
+  const out = expandEvent(ev, {
+    windowStart: at('2026-01-01T00:00'), windowEnd: Date.UTC(2027, 5, 1), monthEndPolicy: 'clamp',
+  })
+  const dates = out.map((o) => instantToWall(o.startMs, 'UTC').slice(0, 10))
+  assert.deepEqual(dates, ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30'])
+})
+
+test('重复：非法 monthEndPolicy 被拒绝', () => {
+  const ev = timed({ recurrence: { freq: 'MONTHLY', count: 2 } })
+  assert.throws(
+    () => expandEvent(ev, { windowStart: at('2026-01-01T00:00'), windowEnd: Date.UTC(2027, 0, 1), monthEndPolicy: 'nope' }),
+    /monthEndPolicy/,
+  )
 })
 
 test('重复：窗口裁剪——只返回与窗口相交的实例', () => {
@@ -156,13 +179,28 @@ test('重复：interval=2 的 DAILY 隔天一次', () => {
   assert.deepEqual(dates, ['2026-11-05', '2026-11-07', '2026-11-09'])
 })
 
-test('重复：YEARLY 闰日 2/29 在平年收敛到 2/28', () => {
+test('重复：YEARLY 闰日—RFC 策略跳过平年 2/29', () => {
   const ev = timed({
     start: '2024-02-29T09:00', end: '2024-02-29T10:00',
     recurrence: { freq: 'YEARLY', count: 2 },
   })
-  const out = expandEvent(ev, { windowStart: at('2024-01-01T00:00'), windowEnd: at('2026-12-31T00:00') })
-  const dates = out.map((o) => instantToWall(o.startMs, 'Asia/Shanghai').slice(0, 10))
+  const out = expandEvent(ev, {
+    windowStart: at('2024-01-01T00:00'), windowEnd: at('2029-12-31T00:00'), monthEndPolicy: 'rfc',
+  })
+  const dates = out.map((o) => instantToWall(o.startMs, 'UTC').slice(0, 10))
+  // 2025/2026/2027 无 2/29 → 跳过；下一个合法是 2028
+  assert.deepEqual(dates, ['2024-02-29', '2028-02-29'])
+})
+
+test('重复：YEARLY 闰日—clamp 策略收敛到 2/28', () => {
+  const ev = timed({
+    start: '2024-02-29T09:00', end: '2024-02-29T10:00',
+    recurrence: { freq: 'YEARLY', count: 2 },
+  })
+  const out = expandEvent(ev, {
+    windowStart: at('2024-01-01T00:00'), windowEnd: at('2029-12-31T00:00'), monthEndPolicy: 'clamp',
+  })
+  const dates = out.map((o) => instantToWall(o.startMs, 'UTC').slice(0, 10))
   assert.deepEqual(dates, ['2024-02-29', '2025-02-28'])
 })
 
