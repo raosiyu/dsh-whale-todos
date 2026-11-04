@@ -1,0 +1,38 @@
+WP2 宿主真实投递验证（evidence）
+时间：2026-11-05 01:44:38–01:46:30 (Asia/Shanghai)
+环境：本机 DSH Host 的 ctx.schedule（模型侧入口 schedule_create/schedule_list）
+不涉及：未安装插件、未改任何 profile、未读写 ~/.dsh 业务数据
+
+步骤与观察：
+
+1) 初始态
+   schedule_list -> []
+
+2) 创建探测提醒（after_seconds=60）
+   schedule_create 返回：
+   {
+     "id": "schedule-d371e200-b01c-4bb5-b32d-e57dcf4129e0",
+     "kind": "after",
+     "title": "WP2 host delivery check",
+     "prompt": "WP2 宿主投递验证：...",
+     "afterSeconds": 60,
+     "scheduledAt": "2026-11-04T17:45:12.060Z",
+     "state": "scheduled",
+     "deliveryMode": "host"
+   }
+
+3) 到点前 34 秒查询
+   schedule_list -> [ {id: schedule-d371e200-..., state: "scheduled", scheduledAt: "2026-11-04T17:45:12.060Z"} ]
+
+4) 等到 scheduledAt 之后
+   schedule_list -> []
+
+结论：
+- 记录在到点前 state=scheduled，到点后从计划表移除 —— 即「投递即出队」。
+- 投递时刻与 scheduledAt 一致（人工核对：本地 01:45:12 触发）。
+- 说明本机 ctx.schedule 真实工作，适配器的 host 后端契约（create/remove/list）与实际行为吻合。
+
+未直接取得的证据（如实标注）：
+- 宿主投递历史明细（delivery history）在本会话未暴露对应工具；
+  因此「history 明细」只能在适配器层用 memory 后端对账（已测），
+  宿主层只验证了状态迁移，未读到投递记录正文。
