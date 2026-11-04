@@ -1,0 +1,14 @@
+✓ Lockfile passes supply-chain policies (verified 32m ago)
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Progress: resolved 13, reused 0, downloaded 0, added 0
+Progress: resolved 15, reused 0, downloaded 0, added 0
+[WARN] Request took 12619ms: https://registry.npmjs.org/typescript
+Progress: resolved 16, reused 0, downloaded 0, added 0
+Progress: resolved 71, reused 0, downloaded 0, added 0
+Progress: resolved 80, reused 0, downloaded 0, added 0
+Progress: resolved 83, reused 0, downloaded 0, added 0
+Progress: resolved 95, reused 0, downloaded 0, added 0
+Progress: resolved 106, reused 0, downloaded 0, added 0
+Progress: resolved 117, reused 0, downloaded 0, added 0, done
+
+Done in 21.6s using pnpm v11.7.0

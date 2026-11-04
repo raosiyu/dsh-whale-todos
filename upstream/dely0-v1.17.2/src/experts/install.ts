@@ -34,9 +34,9 @@
  * `context.failpoint` 给测试用（`ExpertInstallContext` 由接线层构造，模型/HTTP 都碰不到）。
  */
 import { randomUUID } from 'node:crypto'
-import { lstatSync, mkdirSync, readdirSync, renameSync, rmSync, unlinkSync } from 'node:fs'
+import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmSync, unlinkSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
+import { basename, dirname, join, resolve, sep } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 
 import {
@@ -238,14 +238,37 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 const ownerKeyCache = new WeakMap<object, string>()
 
 /**
- * 「绝对 + NFC + Windows 大小写归一」的路径规范化。
+ * 「绝对 + 真实路径（解符号链接）+ NFC + Windows 大小写归一」的路径规范化。
+ *
+ * **必须解符号链接**：同一份 DB 文件可能被两个名字指向 —— 例如 macOS 上
+ * `tmpdir()` 给出 `/var/folders/...`，而 `PRAGMA database_list` 的 `main.file`
+ * 给出它符号链接后的真实路径 `/private/var/folders/...`。`resolve()` 只做词法
+ * 归一，不会穿过符号链接，于是「夹具按 dbPath 算的 ownerDbKey」与「恢复期按
+ * PRAGMA 算的 ownerDbKey」会算成两个不同的哈希，本库的日志被误判成外来 owner
+ * （§6.3 / AX-E22 / AX-E23）。用 `realpathSync` 把两者收敛到同一条真实路径。
+ *
+ * 文件此刻还没落盘时 `realpathSync` 会抛错：退一步只用「父目录真实路径 +
+ * 文件名」归一（DB 叶子是普通文件，结果与全路径 realpath 一致），仍能把
+ * `/var` → `/private/var` 这类目录级符号链接差异抹平；父目录也不存在时再退回
+ * 纯词法绝对路径。任何情况下都不会因为路径不存在而抛异常。
  *
  * **这个值只用来取 SHA-256**：绝对路径既不进 journal，也不进任何 HTTP 响应
  * （`~/.dsh/...` 里可能带用户名，是隐私；而且换机器就该对不上）。
  */
 export function canonicalDatabasePath(file: string): string {
-  const absolute = resolve(file).normalize('NFC')
-  return process.platform === 'win32' ? absolute.toLowerCase() : absolute
+  const absolute = resolve(file)
+  let canonical: string
+  try {
+    canonical = realpathSync(absolute)
+  } catch {
+    try {
+      canonical = join(realpathSync(dirname(absolute)), basename(absolute))
+    } catch {
+      canonical = absolute
+    }
+  }
+  const normalized = canonical.normalize('NFC')
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized
 }
 
 function computeOwnerDbKey(db: DatabaseSync): string {
