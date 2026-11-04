@@ -150,7 +150,7 @@ test('服务：ICS 预览不写库，确认后才导入', async () => {
   assert.equal(svc.execute('event.list').length, 0, '预览不得写库')
 
   assert.throws(() => svc.execute('event.import', { text: ics }), /需要宿主审批凭证/)
-  const importToken = await tokenFor(svc, 'event.import', { digest: String(ics.length) })
+  const importToken = await tokenFor(svc, 'event.import', { text: ics })
   const imported = svc.execute('event.import', { text: ics }, { approvalToken: importToken })
   assert.equal(imported.imported, 1)
   assert.equal(svc.execute('event.list').length, 1)
@@ -160,7 +160,7 @@ test('服务：ICS 含解析错误时中止导入并保持原数据不变', asyn
   const { svc } = mkSvc()
   svc.execute('event.create', { event: timedEvent() })
   const bad = ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:x', 'SUMMARY:无时间', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n')
-  const badToken = await tokenFor(svc, 'event.import', { digest: String(bad.length) })
+  const badToken = await tokenFor(svc, 'event.import', { text: bad })
   assert.throws(() => svc.execute('event.import', { text: bad }, { approvalToken: badToken }), /无法解析/)
   assert.equal(svc.execute('event.list').length, 1, '原数据不得被破坏')
 })
@@ -177,7 +177,7 @@ test('服务：快照导出→替换→可回滚', async () => {
   const preview = svc.execute('snapshot.preview', { text: snap.text })
   assert.equal(preview.events, 1)
 
-  const replaceToken = await tokenFor(svc, 'snapshot.replace', { digest: String(snap.text.length) })
+  const replaceToken = await tokenFor(svc, 'snapshot.replace', { text: snap.text })
   svc.execute('snapshot.replace', { text: snap.text }, { approvalToken: replaceToken })
   assert.equal(svc.execute('event.list').length, 1, '替换后应为快照里的 1 条')
 

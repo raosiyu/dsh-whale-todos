@@ -343,3 +343,57 @@ test('适配器：未知后端被拒绝', () => {
 test('适配器：DEFAULT_LEAD_MINUTES 是合理正数', () => {
   assert.equal(DEFAULT_LEAD_MINUTES, 15)
 })
+
+// ---------------------------------------------------------------- 攻击回归
+
+test('攻击回归：等长但内容不同的 ICS 不能复用同一审批凭证', async () => {
+  const { createWorkbenchService } = await import('../src/index.js')
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const dir = mkdtempSync(join(tmpdir(), 'wb-attack-'))
+  const svc = createWorkbenchService({
+    dataDir: dir, approvalMode: 'isolated', allowIsolatedApproval: true,
+  })
+  try {
+    const icsA = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:a\r\nSUMMARY:AAA\r\nDTSTART;TZID=UTC:20261110T090000\r\nEND:VEVENT\r\nEND:VCALENDAR'
+    const icsB = icsA.replace('AAA', 'BBB')
+    assert.equal(icsA.length, icsB.length, '前提：两段等长')
+
+    const approval = await svc.requestApproval('event.import', { text: icsA })
+    assert.equal(approval.approved, true)
+
+    // 拿 A 的凭证去导入 B —— 必须被指纹拦下
+    assert.throws(
+      () => svc.execute('event.import', { text: icsB }, { approvalToken: approval.token }),
+      (e) => e instanceof WorkbenchError && e.code === ERROR_CODES.CONFIRMATION_REQUIRED,
+      '等长不同内容必须指纹不匹配',
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('攻击回归：摘要由服务层按内容计算，不采信调用方传入的 digest', async () => {
+  const { createWorkbenchService } = await import('../src/index.js')
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const dir = mkdtempSync(join(tmpdir(), 'wb-attack2-'))
+  const svc = createWorkbenchService({
+    dataDir: dir, approvalMode: 'isolated', allowIsolatedApproval: true,
+  })
+  try {
+    const icsA = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:a\r\nSUMMARY:AAA\r\nDTSTART;TZID=UTC:20261110T090000\r\nEND:VEVENT\r\nEND:VCALENDAR'
+    const icsB = icsA.replace('AAA', 'BBB')
+    // 攻击者故意传一个和 B 无关的 digest，试图让两边"看起来一样"
+    const approval = await svc.requestApproval('event.import', { digest: 'same-for-both' })
+    assert.throws(
+      () => svc.execute('event.import', { text: icsB }, { approvalToken: approval.token }),
+      (e) => e instanceof WorkbenchError && e.code === ERROR_CODES.CONFIRMATION_REQUIRED,
+      '调用方提供的 digest 不得替代内容摘要',
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

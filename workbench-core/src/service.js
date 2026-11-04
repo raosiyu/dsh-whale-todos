@@ -18,7 +18,7 @@
  * 这是"共用入口但不动既有数据"的具体落地方式。
  */
 
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 
 import { conflictError, confirmationRequired, unsupportedError, validationError } from './errors.js'
 import { checkEventConflicts, findConflicts, findFreeSlots } from './conflict.js'
@@ -89,15 +89,28 @@ export function createWorkbenchService(options) {
     }
   }
 
+  /**
+   * 内容摘要：**由服务层自己算**，绝不信任调用方传进来的 digest。
+   *
+   * 早期实现让调用方传 `digest`（例如 `String(text.length)`）作为指纹的一部分，
+   * 这是可绕过的：两段等长但内容不同的 ICS 会得到同一指纹，攻击者可用
+   * 「批准 A 文件」的凭证去导入「等长的 B 文件」。这里改为对**实际内容**取
+   * SHA-256，调用方无法用长度之类弱信息冒充。
+   */
+  const contentDigest = (text) =>
+    createHash('sha256').update(String(text), 'utf8').digest('hex')
+
   /** 供调用方（UI 或 Agent 工具）先申请审批，再带 token 调用 execute。 */
   const requestApproval = async (op, detail = {}) => {
     if (!DANGEROUS_OPS.includes(op)) {
       return { approved: true, token: undefined, reason: 'op-not-requiring-approval' }
     }
+    // 内容类操作：摘要必须由内容本身算，调用方传入的 digest 不参与
+    const digest = typeof detail.text === 'string' ? contentDigest(detail.text) : detail.digest
     return gate.request({
       op,
       target: detail.target,
-      digest: detail.digest,
+      digest,
       summary: detail.summary ?? op,
     })
   }
@@ -221,7 +234,7 @@ export function createWorkbenchService(options) {
 
     'event.import': (payload, meta) => {
       const text = requireString(payload, 'text')
-      requireConfirmation('event.import', meta, { digest: String(text.length) })
+      requireConfirmation('event.import', meta, { digest: contentDigest(text) })
       const parsed = parseIcs(text, { defaultTimeZone: payload.defaultTimeZone })
       if (parsed.errors.length > 0) {
         throw validationError('ICS 存在无法解析的条目，已中止导入', { errors: parsed.errors })
@@ -281,7 +294,7 @@ export function createWorkbenchService(options) {
 
     'snapshot.replace': (payload, meta) => {
       const text = requireString(payload, 'text')
-      requireConfirmation('snapshot.replace', meta, { digest: String(text.length) })
+      requireConfirmation('snapshot.replace', meta, { digest: contentDigest(text) })
       const parsed = parseJsonSnapshot(text)
       const backup = store.backup('before-snapshot-replace')
       try {
