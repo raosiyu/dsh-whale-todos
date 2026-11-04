@@ -98,7 +98,6 @@ export {
   APPROVAL_MODES,
   approvalFingerprint,
   createHostApprovalGate,
-  approvalRequiredError,
 } from './approval-gate.js'
 
 export {

@@ -38,8 +38,16 @@ const DEFAULT_TTL_MS = 5 * 60 * 1000
  * @param {{ op: string, target?: string, digest?: string }} input
  */
 export function approvalFingerprint(input) {
-  const parts = [input.op ?? '', input.target ?? '', input.digest ?? '']
-  return createHash('sha256').update(parts.join('\u0000')).digest('hex')
+  /**
+   * 用「长度前缀」编码，而不是简单 join 分隔符。
+   *
+   * 原因（独立 Review 指出）：`['a,b']` 与 `['a','b']` 用 `join(',')` 会得到
+   * 同一串，导致一份批量删除的凭证可以覆盖另一个 id 集合。长度前缀让
+   * 每个字段的边界无歧义。
+   */
+  const parts = [String(input.op ?? ''), String(input.target ?? ''), String(input.digest ?? '')]
+  const encoded = parts.map((p) => `${p.length}:${p}`).join('|')
+  return createHash('sha256').update(encoded).digest('hex')
 }
 
 /**
@@ -70,7 +78,15 @@ export function createHostApprovalGate(options = {}) {
   /** 已消费凭证（防重放）；只保留近期，避免无限增长 */
   const consumed = new Set()
 
-  /** issuer nonce：只有创建方持有，外部无法构造合法 token（isolated 模式的关键）。 */
+  /**
+   * issuer nonce：让外部**无法离线伪造**一个 hash 合法的 token。
+   *
+   * 注意威胁模型（独立 Review 纠正）：持有 gate 对象本身的调用方**仍然**
+   * 能调用 `request()` 自签（isolated 模式尤其如此）。nonce 防的是
+   * 「猜到/构造 token 字符串」，不防「拿到 gate 实例」。
+   * 因此 isolated 模式只允许测试使用（构造需 allowIsolated），且服务层
+   * 不应把 gate 对象暴露在返回面上（见 service.js）。
+   */
   const issuerNonce = randomUUID()
 
   const makeToken = (fingerprint, issuedBy) => {
@@ -143,6 +159,19 @@ export function createHostApprovalGate(options = {}) {
       return consumed.has(token)
     },
 
+    /** 清理已消费集合（避免只增不减；由调用方按需触发）。 */
+    pruneConsumed(keep = 1000) {
+      if (consumed.size <= keep) return { pruned: 0 }
+      const drop = consumed.size - keep
+      const it = consumed.values()
+      for (let i = 0; i < drop; i += 1) {
+        const cur = it.next()
+        if (cur.done === true) break
+        consumed.delete(cur.value)
+      }
+      return { pruned: drop }
+    },
+
     /**
      * 便捷方法：申请 + 立即校验（同一调用内完成）。
      * @param {{ op: string, target?: string, digest?: string, summary: string }} req
@@ -167,7 +196,3 @@ export function createHostApprovalGate(options = {}) {
   }
 }
 
-/** 供服务层构造「需要审批」错误的标准形态。 */
-export function approvalRequiredError(op, reason) {
-  return new WorkbenchError('confirmation-required', `操作 ${op} 需要宿主审批（${reason}）`, { op, reason })
-}

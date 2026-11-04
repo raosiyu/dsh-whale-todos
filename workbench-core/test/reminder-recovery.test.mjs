@@ -43,21 +43,32 @@ test('恢复：未知场景被拒绝', async () => {
   await assert.rejects(() => rec.recover([], { scenario: 'tsunami' }), /未知恢复场景/)
 })
 
-test('场景 restart：未来的提醒被恢复，过去的记 missed 不补发', async () => {
+test('场景 restart：过期事件不再生成计划（compileReminder 的 null 契约生效）', async () => {
   const base = Date.UTC(2026, 10, 1, 0, 0, 0)
   const adapter = mkAdapter(base)
-  // 事件 A：2 小时后（未来，应恢复）；事件 B：3 小时前（过去，应 missed）
+  // 事件 A：2 小时后（未来）；事件 B：3 小时前（其提醒已过期）
   const events = [ev('2026-11-01T02:15'), ev('2026-10-31T21:15')]
   const plans = rebuildPlans({ adapter, events, now: () => base, leadMinutes: 15 })
-  assert.equal(plans.length, 2)
+
+  // 过期项在编译期就被过滤掉，不会进计划（WP2 修复：不再补建历史提醒）
+  assert.equal(plans.length, 1, '只有未来事件产生计划')
 
   const rec = createReminderRecovery({ adapter, now: () => base, graceMs: MIN })
   const res = await rec.recover(plans, { scenario: 'restart', atMs: base })
-
-  assert.equal(res.restored.length, 1, '未来提醒应被恢复')
-  assert.equal(res.missed.length, 1, '过去提醒应记为错过')
-  assert.equal(res.skippedPast, 1)
+  assert.equal(res.restored.length, 1)
   assert.equal((await adapter.list()).length, 1)
+})
+
+test('场景 restart：已过期的计划若被直接传入，会被判为 missed 而非重建', async () => {
+  const base = Date.UTC(2026, 10, 1, 0, 0, 0)
+  const adapter = mkAdapter(base)
+  // 手工构造一条早已过期的计划（绕过编译期过滤，模拟旧状态残留）
+  const stale = [{ reminderKey: 'stale-1', fireAtMs: base - 3 * 3600 * 1000, title: '旧的', prompt: 'p' }]
+  const rec = createReminderRecovery({ adapter, now: () => base, graceMs: MIN })
+  const res = await rec.recover(stale, { scenario: 'restart', atMs: base })
+  assert.equal(res.missed.length, 1, '超宽限期的历史提醒记为错过')
+  assert.equal(res.restored.length, 0, '且不重建')
+  assert.equal((await adapter.list()).length, 0)
 })
 
 test('场景 suspend：宽限期内仍补建，超过宽限期记 missed', async () => {

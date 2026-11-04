@@ -7,6 +7,7 @@ import {
   createHostApprovalGate,
   createScheduleAdapter,
   createMemoryBackend,
+  createReminderRecovery,
   DEFAULT_LEAD_MINUTES,
   reminderKeyOf,
   compileReminder,
@@ -309,7 +310,8 @@ test('适配器：host 后端委托真实 schedule，并保留 key→id 映射',
     hostSchedule: {
       create: async (input) => { created.push(input); return { id: `host-${created.length}` } },
       remove: async (id) => { removed.push(id) },
-      list: async () => created.map((c, i) => ({ id: `host-${i + 1}`, scheduledAt: new Date(c.at).toISOString() })),
+      // 宿主列表回读：带 key（真实 ctx.schedule 若不回 key，适配器会用 title+at 合成）
+      list: async () => created.map((c, i) => ({ id: `host-${i + 1}`, key: c.key, scheduledAt: new Date(c.at).toISOString() })),
       history: async () => [],
     },
   })
@@ -396,4 +398,145 @@ test('攻击回归：摘要由服务层按内容计算，不采信调用方传�
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+// ---------------------------------------------------------------- host 跨重启
+
+/** 构造一个「进程重启后仍存在」的宿主席位（真实 ctx.schedule 是持久的）。 */
+function makePersistentHost() {
+  const store = []
+  let seq = 0
+  return {
+    store,
+    api: {
+      create: async (input) => {
+        const id = `host-${++seq}`
+        store.push({ id, key: input.key, at: input.at, title: input.title })
+        return { id }
+      },
+      remove: async (id) => {
+        const i = store.findIndex((r) => r.id === id)
+        if (i >= 0) store.splice(i, 1)
+      },
+      list: async () => store.map((r) => ({ id: r.id, key: r.key, scheduledAt: new Date(r.at).toISOString() })),
+      history: async () => [],
+    },
+  }
+}
+
+test('host 后端：跨进程重启不重复注册（B1 回归）', async () => {
+  const { api, store } = makePersistentHost()
+  const T = Date.UTC(2026, 10, 1, 0, 0, 0)
+  const plan = [{ reminderKey: 'event:e1:o1:15', fireAtMs: T + 2 * 3600000, title: 'x', prompt: 'x' }]
+
+  for (let round = 1; round <= 3; round += 1) {
+    // 每轮都是新 adapter（模拟进程重启，内存映射丢失）
+    const adapter = createScheduleAdapter({ backend: 'host', now: () => T, hostSchedule: api })
+    await adapter.reconcile(plan)
+  }
+  assert.equal(store.length, 1, '三次重启后宿主侧只应存在 1 条提醒')
+  assert.equal(store[0].key, 'event:e1:o1:15')
+})
+
+test('host 后端：投递后再重启不重建（B2 回归）', async () => {
+  const T = Date.UTC(2026, 10, 1, 12, 0, 0)
+  const delivered = []
+  const store = []
+  let seq = 0
+  const api = {
+    create: async (input) => {
+      const id = `h-${++seq}`
+      store.push({ id, key: input.key, at: input.at })
+      return { id }
+    },
+    remove: async (id) => {
+      const i = store.findIndex((r) => r.id === id)
+      if (i >= 0) store.splice(i, 1)
+    },
+    list: async () => store.map((r) => ({ id: r.id, key: r.key, scheduledAt: new Date(r.at).toISOString() })),
+    // 宿主投递历史：真实宿主投递后会留下记录
+    history: async () => delivered.map((k) => ({ key: k })),
+  }
+  const plan = [{ reminderKey: 'k-delivered', fireAtMs: T, title: 'x', prompt: 'x' }]
+
+  const a1 = createScheduleAdapter({ backend: 'host', now: () => T - 60000, hostSchedule: api })
+  await a1.reconcile(plan)
+  assert.equal(store.length, 1)
+
+  // 到点投递并出队
+  store.length = 0
+  delivered.push('k-delivered')
+
+  // 宽限期内重启（30 秒后）
+  const wake = T + 30000
+  const a2 = createScheduleAdapter({ backend: 'host', now: () => wake, hostSchedule: api })
+  const rec = createReminderRecovery({ adapter: a2, now: () => wake, graceMs: 60000 })
+  const res = await rec.recover(plan, { scenario: 'restart', atMs: wake })
+
+  assert.equal(res.restored.length, 0, '已投递的提醒不得重建')
+  assert.deepEqual(res.alreadyDelivered, ['k-delivered'])
+  assert.equal(store.length, 0, '宿主侧不应被重新注册')
+})
+
+test('host 后端：宽限期内补建的提醒，触发时刻被钳到未来（不补投历史）', async () => {
+  const T = Date.UTC(2026, 10, 1, 12, 0, 0)
+  const store = []
+  let seq = 0
+  const api = {
+    create: async (i) => { const id = `h-${++seq}`; store.push({ id, key: i.key, at: i.at }); return { id } },
+    remove: async (id) => { const k = store.findIndex((r) => r.id === id); if (k >= 0) store.splice(k, 1) },
+    list: async () => store.map((r) => ({ id: r.id, key: r.key, scheduledAt: new Date(r.at).toISOString() })),
+    history: async () => [],   // 历史不可用
+  }
+  const wake = T + 30000
+  const plan = [{ reminderKey: 'k-grace', fireAtMs: T, title: 'x', prompt: 'x' }]
+  const adapter = createScheduleAdapter({ backend: 'host', now: () => wake, hostSchedule: api })
+  const rec = createReminderRecovery({ adapter, now: () => wake, graceMs: 60000 })
+  await rec.recover(plan, { scenario: 'suspend', atMs: wake })
+
+  assert.equal(store.length, 1)
+  assert.ok(store[0].at > wake, '交给宿主的时刻必须在 now 之后，避免补投历史')
+})
+
+test('适配器：scope 隔离——只对账 tasks 不会删掉 events 的提醒（M3 回归）', async () => {
+  const T = Date.UTC(2026, 10, 1)
+  const adapter = createScheduleAdapter({ backend: 'memory', now: () => T })
+  await adapter.reconcile(
+    [{ reminderKey: 'events:e1', fireAtMs: T + 3600000, title: 'e', prompt: 'e' }],
+    { scope: 'events' },
+  )
+  const r = await adapter.reconcile(
+    [{ reminderKey: 'tasks:t1', fireAtMs: T + 7200000, title: 't', prompt: 't' }],
+    { scope: 'tasks' },
+  )
+  assert.deepEqual(r.removed, [], '不同 scope 不得互相清理')
+  const keys = (await adapter.list()).map((x) => x.reminderKey).sort()
+  assert.deepEqual(keys, ['events:e1', 'tasks:t1'])
+})
+
+test('compileReminder：过期返回 null（M4 回归）', () => {
+  const past = Date.UTC(2026, 9, 1, 9, 0, 0)
+  const out = compileReminder({
+    kind: 'event-start', entityId: 'e', title: 'x', atMs: past, offsetMinutes: 15, nowMs: Date.UTC(2026, 10, 1),
+  })
+  assert.equal(out, null)
+  const future = compileReminder({
+    kind: 'event-start', entityId: 'e', title: 'x', atMs: Date.UTC(2026, 11, 1), offsetMinutes: 15, nowMs: Date.UTC(2026, 10, 1),
+  })
+  assert.ok(future !== null)
+})
+
+test('planForEvents：展开失败的事件被记录到 skipped，而不是静默消失（M5 回归）', () => {
+  const T = Date.UTC(2026, 10, 1)
+  const adapter = createScheduleAdapter({ backend: 'memory', now: () => T })
+  // 起点在 1990 的无限 DAILY 会触发迭代上限
+  const bad = {
+    id: 'bad-1', uid: 'bad-1', title: '太老', allDay: false,
+    start: '1990-01-01T09:00', end: '1990-01-01T10:00', timeZone: 'UTC',
+    recurrence: { freq: 'DAILY', interval: 1 }, status: 'confirmed', deletedAt: null, tags: [],
+  }
+  const plans = adapter.planForEvents([bad], { windowStart: T, windowEnd: T + 30 * 86400000 })
+  assert.equal(plans.length, 0, '该事件确实产不出提醒')
+  assert.equal(plans.skipped.length, 1, '但必须被记录')
+  assert.equal(plans.skipped[0].eventId, 'bad-1')
 })

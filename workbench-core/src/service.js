@@ -20,7 +20,7 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 
-import { conflictError, confirmationRequired, unsupportedError, validationError } from './errors.js'
+import { conflictError, confirmationRequired, notFoundError, unsupportedError, validationError } from './errors.js'
 import { checkEventConflicts, findConflicts, findFreeSlots } from './conflict.js'
 import { AUDIT_ACTIONS, createEventRepo } from './event-repo.js'
 import { expandEvents } from './recurrence.js'
@@ -316,8 +316,20 @@ export function createWorkbenchService(options) {
     'store.backup': (payload = {}) => store.backup(payload.label ?? 'manual'),
     'store.listBackups': () => store.listBackups(),
     'store.rollback': (payload, meta) => {
-      requireConfirmation('store.rollback', meta, { target: payload?.name ?? 'latest' })
-      return store.rollback(payload?.name)
+      /**
+       * 指纹绑定**具体备份名**（N4）：只写 'latest' 会 TOCTOU——
+       * 审批之后又产生新备份，实际回滚目标就前移了。
+       */
+      const backups = store.listPreBackups()
+      if (backups.length === 0) {
+        throw notFoundError('没有可用备份')
+      }
+      const targetName = payload?.name ?? backups[backups.length - 1]
+      if (!backups.includes(targetName)) {
+        throw notFoundError(`备份不存在：${targetName}`, { targetName })
+      }
+      requireConfirmation('store.rollback', meta, { target: targetName })
+      return store.rollback(targetName)
     },
     'store.audit': (payload = {}) => events.auditLog({ entityId: payload.entityId }),
 
@@ -352,7 +364,10 @@ export function createWorkbenchService(options) {
   return {
     store,
     events,
-    approvalGate: gate,
+    /**
+     * 有意**不暴露 gate 对象**：拿到它就能自己 request() 自签 token，
+     * 审批等于形同虚设（独立 Review 的 N1）。调用方只用 requestApproval()。
+     */
     requestApproval,
     defaultTimeZone,
     /**

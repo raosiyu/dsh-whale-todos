@@ -63,14 +63,43 @@ export function createReminderRecovery(options) {
       }
       const atMs = input.atMs ?? now()
 
+      /**
+       * 先读宿主投递历史（能读到才用）。
+       *
+       * 宿主「投递即出队」，所以一条已投递的提醒在宿主侧表现为"不存在"；
+       * 如果只看时间，宽限期内的重启会把它当成"缺失"重新注册 → 用户被重投。
+       * 这里用 history 里出现过的 key 作为「已投递」证据，直接跳过。
+       */
+      let deliveredKeys = new Set()
+      let historyAvailable = false
+      try {
+        const hist = await adapter.history()
+        if (Array.isArray(hist) && hist.length >= 0) {
+          historyAvailable = true
+          deliveredKeys = new Set(hist.map((h) => h.key).filter((k) => typeof k === 'string' && k !== ''))
+        }
+      } catch {
+        historyAvailable = false
+      }
+
       const future = []
       const missed = []
+      const alreadyDelivered = []
       for (const plan of plans) {
+        if (historyAvailable && deliveredKeys.has(plan.reminderKey)) {
+          // 已投递过：不重建，也不计入 missed（它没被"错过"）
+          alreadyDelivered.push(plan.reminderKey)
+          continue
+        }
         if (plan.fireAtMs > atMs) {
           future.push(plan)
         } else if (atMs - plan.fireAtMs <= graceMs) {
-          // 宽限期内：仍然补建（立刻到点，宿主会立即投递）
-          future.push(plan)
+          /**
+           * 宽限期内补建，但**把触发时刻钳到 atMs 之后**。
+           * 否则会把一个过去时刻交给宿主，语义上等于"立即补投"，
+           * 而本包的承诺是不补投历史提醒。
+           */
+          future.push({ ...plan, fireAtMs: Math.max(plan.fireAtMs, atMs + 1000) })
         } else {
           missed.push(plan)
         }
@@ -83,8 +112,10 @@ export function createReminderRecovery(options) {
         scenario,
         restored: [...res.created, ...res.updated],
         missed: missed.map((p) => p.reminderKey),
+        alreadyDelivered,
         skippedPast: missed.length,
         removed: res.removed,
+        historyAvailable,
       }
     },
 

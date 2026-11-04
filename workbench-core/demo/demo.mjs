@@ -132,8 +132,11 @@ const snap = svc.execute('snapshot.export')
 log(`  快照指纹：${snap.fingerprint.slice(0, 16)}…  事件数=${svc.execute('event.list').length}`)
 const replaceApproval = await svc.requestApproval('snapshot.replace', { text: snap.text })
 svc.execute('snapshot.replace', { text: snap.text }, { approvalToken: replaceApproval.token })
-const rbApproval = await svc.requestApproval('store.rollback', { target: 'latest' })
-const rb = svc.execute('store.rollback', {}, { approvalToken: rbApproval.token })
+// 指纹绑定具体备份名（不再用 'latest'，避免审批后目标前移的 TOCTOU）
+const preBackups = svc.store.listPreBackups()
+const rollbackTarget = preBackups[preBackups.length - 1]
+const rbApproval = await svc.requestApproval('store.rollback', { target: rollbackTarget })
+const rb = svc.execute('store.rollback', { name: rollbackTarget }, { approvalToken: rbApproval.token })
 log(`  回滚到：${rb.restored}`)
 log('')
 

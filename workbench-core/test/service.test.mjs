@@ -181,8 +181,11 @@ test('服务：快照导出→替换→可回滚', async () => {
   svc.execute('snapshot.replace', { text: snap.text }, { approvalToken: replaceToken })
   assert.equal(svc.execute('event.list').length, 1, '替换后应为快照里的 1 条')
 
-  const rbToken = await tokenFor(svc, 'store.rollback', { target: 'latest' })
-  const rb = svc.execute('store.rollback', {}, { approvalToken: rbToken })
+  // 指纹现在绑定具体备份名（N4 修复），不再用 'latest'
+  const preBackups = svc.store.listPreBackups()
+  const targetBackup = preBackups[preBackups.length - 1]
+  const rbToken = await tokenFor(svc, 'store.rollback', { target: targetBackup })
+  const rb = svc.execute('store.rollback', { name: targetBackup }, { approvalToken: rbToken })
   assert.ok(rb.restored)
 })
 

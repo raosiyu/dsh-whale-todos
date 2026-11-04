@@ -2,8 +2,17 @@
 
 执行时间：2026-11-05（Asia/Shanghai）
 状态：**WP2 完成，STOP，未进入 WP3**
-测试：**133 / 133 pass，0 fail，0 skip**（WP1 收尾时 96，本包 +37）
+测试：**142 / 142 pass，0 fail，0 skip**
+（口径：`d43326a` WP1 收尾 93 → `cebced2` WP2-0 96（+3 RRULE）→ `f1fb509` WP2-1 133（+37）→ Review 修复后 142）
 演示：`node demo/demo.mjs` EXIT 0
+
+## 零、独立 Review 结果与修复
+
+独立 Review 已返回：**REQUEST CHANGES**（2 BLOCKER / 6 MAJOR / 6 MINOR-NIT）。
+全部逐条复现、修复并以回归测试锁定，逐项对账见 **`02-review-response.md`**。
+
+最重的一条（Review B1）：初版 host 后端 `list()` 从不读宿主，**每次重启多注册一条提醒**，
+使本报告先前写的「重启幂等」在真实 host 后端不成立。已修。
 
 ## 一、前置检查结论（授权要求的三项）
 
@@ -44,9 +53,14 @@
 
 - 一套适配器同时处理 Event 提醒（含重复事件逐次发生）与 Task 到期提醒。
 - **稳定幂等键** `reminderKey = sha256(kind|entityId|occurrenceKey|offsetMinutes)`：
-  - 重复对账不产生重复提醒；
+  - 重复对账不产生重复提醒（memory 与 host 两种后端均已验证）；
   - 事件改时间 → 旧键被取消、新键建立；
   - 事件删除 → 其提醒被取消（测试覆盖）。
+
+> **修正记录（独立 Review 后）**：本报告初版声称「重复对账幂等」「重启恢复幂等」，
+> 但当时 host 后端的 `list()` 只读内存映射、从不调用 `hostSchedule.list()`，
+> 导致每次进程重启都会多注册一条同 key 提醒（到点重复投递）。
+> 该缺陷已修复并以跨重启回归测试锁定，详见 `02-review-response.md`。
 - 双后端同一接口：
   - `memory`：隔离测试用，支持 `tick` 模拟到点；
   - `host`：包装真实 `ctx.schedule`（注入 `create/remove/list/history`），保留 `reminderKey → hostId` 映射。
@@ -117,10 +131,12 @@
 | 提醒仍在未来 | 恢复 | 正常 |
 | 提醒刚过期但在 `graceMs`（默认 60s）内 | 补建 | 刚睡醒不至于漏 |
 | 提醒已过去较久 | **不补发**，记为 `missed` 并给摘要 | 避免醒来被 N 条历史提醒轰炸 |
+| 已投递过的提醒 | **不重建**（查宿主 history；宽限期内补建的触发时刻钳到未来） | Review B2 修复后新增 |
 | 重复事件的未来实例 | 照常建立 | 不受历史影响 |
 | 恢复重复执行 | 幂等（幂等键） | 不重复投递 |
 
 `rebuildPlans` 默认**回溯 1 天**——否则过期提醒会被窗口直接裁掉，用户永远看不到「错过了 N 条」。
+同时 `compileReminder` 现在**真的**会过滤已过期的提醒（初版注释承诺了但没实现，见 `02-review-response.md` M4）。
 
 ## 三、三场景实际结果（分别记录）
 
@@ -158,7 +174,7 @@
 | 新增模块 | `approval-gate.js`（审批门）、`schedule-adapter.js`（调度适配）、`reminder-recovery.js`（恢复语义） |
 | 新增测试文件 | `test/schedule.test.mjs`（28）、`test/reminder-recovery.test.mjs`（9） |
 | service 测试 | 20（含审批矩阵与 confirmed 绕过防护） |
-| 全量 | **133 / 133 pass** |
+| 全量 | **142 / 142 pass**（Review 修复后） |
 
 ## 六、风险与限制
 
