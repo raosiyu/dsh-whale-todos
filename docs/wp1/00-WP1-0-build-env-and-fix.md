@@ -36,7 +36,15 @@ MATCH2?         : true
 - `canonicalDatabasePath()` 改为三级归一：① `realpathSync(absolute)`；② 文件未落盘时 `join(realpathSync(dirname), basename)`；③ 父目录也不存在时退回词法 `resolve()`。任何情况下不因路径不存在而抛异常。
 - 保留原有 NFC 归一与 Windows 小写归一；`ownerKeyCache`（WeakMap）未动，仍只算一次。
 
-**为什么改生产代码是对的**：这不是测试夹具的毛病——真实 profile 若经符号链接访问（macOS 常见、Linux 容器/挂载亦可能），`ownerDbKey` 同样会算错，导致「本库日志被当成别人的、崩溃后不补偿」。修复的是真实缺陷。
+**为什么改生产代码是对的（独立 Review 后修正表述）**：
+
+最初我写成「真实 profile 经符号链接也会算错，这是生产缺陷」。**独立 Review 实测推翻了这句话，我照实改**：
+
+- SQLite `PRAGMA database_list` 的 `main.file` **永远返回 realpath**——经目录符号链接打开、经叶子符号链接打开、直接打开，三者返回完全一致（实测 `SAME? true`）。
+- 生产代码里 `ownerDbKeyFor` 只有一条算 key 的路径：`computeOwnerDbKey` → 读 PRAGMA；`service.ts` 里从不注入 `ownerDbKey`（grep 为 NONE）。
+- 所以**生产两侧本来就都走 PRAGMA，修复前也没有算错过**。
+
+真实的不对称是：**测试夹具用词法 `dbPath` 算 key，生产用 PRAGMA 算 key**。修复把 `canonicalDatabasePath` 收敛到 realpath，使夹具算法与生产对齐。**修法正确，但对生产是 no-op**——它修的是「夹具与生产算法不一致」，不是「生产误判事故」。这一条已按 Review 结论改写，避免后续误判历史。
 
 ### 结果
 
@@ -107,7 +115,7 @@ MATCH2?         : true
 
 ## 七、独立 Review
 
-由独立子 Agent 只读审查本包 diff（修复正确性 / 是否改测试 / 回归风险 / 错误处理 / zod 升级 / setup 脚本 / 红线 / 证据完整性），结论与处理记录见 `evidence/wp1-0/review-*.md`。
+由独立子 Agent 只读审查本包 diff（修复正确性 / 是否改测试 / 回归风险 / 错误处理 / zod 升级 / setup 脚本 / 红线 / 证据完整性），独立 Review 结论见 `docs/wp1/00-review-WP1-0.md`（本仓库留档）。
 
 ## 八、遗留与移交
 

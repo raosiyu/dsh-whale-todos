@@ -103,15 +103,18 @@ export function openStore(dir, options = {}) {
   const listBackups = () =>
     existsSync(backupDir)
       ? readdirSync(backupDir)
-          .filter((name) => /^\d+-.*\.json$/.test(name))
+          .filter((name) => /^\d+-(pre|post)-.*\.json$/.test(name))
           .sort()
       : []
 
-  const snapshot = (data) => {
+  /** 只列「提交前」快照：显式 rollback 的目标（恢复到某次提交之前的状态）。 */
+  const listPreBackups = () => listBackups().filter((name) => name.includes('-pre-'))
+
+  const snapshot = (data, kind = 'pre') => {
     ensureDirs()
     const seq = String(listBackups().length + 1).padStart(4, '0')
     const stamp = now().toISOString().replace(/[:.]/g, '-')
-    const target = join(backupDir, `${seq}-${stamp}.json`)
+    const target = join(backupDir, `${seq}-${kind}-${stamp}.json`)
     writeFileDurable(target, JSON.stringify(data, null, 2))
     const all = listBackups()
     for (const stale of all.slice(0, Math.max(0, all.length - maxBackups))) {
@@ -128,10 +131,23 @@ export function openStore(dir, options = {}) {
       return fresh
     }
     if (existsSync(journalFile)) {
+      // 优先用 journal 里携带的 pending 新状态（提交已完整计算、只是没来得及落主文件）
+      try {
+        const journal = readJson(journalFile)
+        if (journal !== null && typeof journal === 'object' && journal.pending !== undefined) {
+          const pending = validateShape(journal.pending, journalFile)
+          writeFileDurable(file, JSON.stringify(pending, null, 2))
+          rmSync(journalFile, { force: true })
+          return pending
+        }
+      } catch {
+        // journal 本身损坏：落到备份兜底
+      }
       const backups = listBackups()
       if (backups.length > 0) {
-        const latest = readJson(join(backupDir, backups[backups.length - 1]))
-        validateShape(latest, join(backupDir, backups[backups.length - 1]))
+        // 备份里最新的一份是「最后一次成功提交」的副本（commit 成功后会追加）
+        const latestPath = join(backupDir, backups[backups.length - 1])
+        const latest = validateShape(readJson(latestPath), latestPath)
         writeFileDurable(file, JSON.stringify(latest, null, 2))
         rmSync(journalFile, { force: true })
         return latest
@@ -143,18 +159,32 @@ export function openStore(dir, options = {}) {
 
   let state = load()
 
+  /**
+   * 提交：先把「即将写入的新内容」落到 journal，再原子替换主文件。
+   *
+   * 崩溃恢复语义（关键）：
+   * - 若进程在 journal 写入后、主文件替换前崩溃 → journal 里的内容就是**待生效的新状态**，
+   *   恢复时直接用它（等价于这次提交成功），而不是回滚到更旧的备份。
+   * - 若 journal 存在但内容不可解析（写入被打断在 journal 本身）→ 回滚到最近一份备份。
+   *
+   * 早期实现是「先备份旧状态再写」，恢复时只能回到上一次提交，会丢掉一次成功写入；
+   * 这里改为「journal 携带新状态」，恢复目标与用户预期一致。
+   */
   const commit = (next, meta) => {
     ensureDirs()
     validateShape(next, 'commit')
-    snapshot(state)
+    const stamped = { ...next, updatedAt: now().toISOString() }
+    // 备份旧状态（供显式 rollback）
+    snapshot(state, 'pre')
     writeFileDurable(
       journalFile,
-      JSON.stringify({ intent: meta?.intent ?? 'write', at: now().toISOString(), target: file }, null, 2),
+      JSON.stringify({ intent: meta?.intent ?? 'write', at: now().toISOString(), target: file, pending: stamped }, null, 2),
     )
-    const stamped = { ...next, updatedAt: now().toISOString() }
     writeFileDurable(file, JSON.stringify(stamped, null, 2))
     rmSync(journalFile, { force: true })
     state = stamped
+    // 提交成功后再留一份「已提交」快照：它才是崩溃恢复的权威目标
+    snapshot(stamped, 'post')
     return stamped
   }
 
@@ -187,13 +217,14 @@ export function openStore(dir, options = {}) {
     },
     /** 手动备份（导入/迁移前调用）。 */
     backup(label = 'manual') {
-      const target = snapshot(state)
+      const target = snapshot(state, 'pre')
       return { path: target, label, at: now().toISOString() }
     },
     listBackups,
+    listPreBackups,
     /** 从最近一份（或指定）备份回滚。 */
     rollback(backupName) {
-      const backups = listBackups()
+      const backups = listPreBackups()
       if (backups.length === 0) {
         throw new WorkbenchError(ERROR_CODES.NOT_FOUND, '没有可用备份')
       }

@@ -36,7 +36,12 @@ export function validateObject(spec, input, options = {}) {
   const out = {}
   for (const [key, validate] of Object.entries(spec)) {
     const fieldPath = path ? `${path}.${key}` : key
+    const isOptional = validate[OPTIONAL] === true
     if (!hasOwn(input, key) || input[key] === undefined) {
+      if (isOptional) {
+        out[key] = validate(undefined, fieldPath)
+        continue
+      }
       throw validationError(`缺少必填字段：${fieldPath}`, { path: fieldPath })
     }
     out[key] = validate(input[key], fieldPath)
@@ -58,8 +63,17 @@ export function validateObject(spec, input, options = {}) {
  * @param {(value: unknown, path: string) => T} validate
  * @param {T} fallback
  */
-export const optional = (validate, fallback) => (value, path) =>
-  value === undefined ? fallback : validate(value, path)
+export const OPTIONAL = Symbol('workbench.optional')
+
+/**
+ * 可选字段：缺失/undefined 返回 fallback，存在则校验。
+ * 产出的校验器带 `OPTIONAL` 标记，`validateObject` 据此不把它当必填。
+ */
+export const optional = (validate, fallback) => {
+  const wrapped = (value, path) => (value === undefined ? fallback : validate(value, path))
+  wrapped[OPTIONAL] = true
+  return wrapped
+}
 
 /** @param {unknown} value @param {string} path */
 export const string = (value, path) => {
