@@ -42,6 +42,7 @@ let fail = 0
 const say = (...a) => console.log(a.join(' '))
 const ok = (n, e = '') => say(`  ✅ ${n}${e ? '  ' + e : ''}`)
 const bad = (n, e = '') => { say(`  ❌ ${n}${e ? '  ' + e : ''}`); fail += 1 }
+const note = (n) => say(`    ℹ️  ${n}`)
 
 say('=== WP2R5-Final 探针 11：DELIVERED 状态下删除 active 行是否正确 ===')
 say('')

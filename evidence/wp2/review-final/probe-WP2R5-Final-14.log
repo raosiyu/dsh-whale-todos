@@ -1,0 +1,29 @@
+=== WP2R5-Final 探针 14：p3 断言是否固化了缺陷 ===
+
+    ℹ️  p3 第 4 段原文：
+      --- 4) 只对账保留的 500 条：被裁的 100 条不得误删 ---')
+      const keptPlans = plans.slice(100)   // 被裁掉的是前 100 条
+      const r3 = await adapter.reconcile(keptPlans)
+      eq('被裁的 100 条不被删除', r3.removed.length, 0)
+      eq('宿主侧仍是 600 条', (await stub.catalog()).length, 600)
+      eq('仍全部可认领', (await adapter.catalog()).unmapped.length, 0)
+      say('')
+      say('--- 5)
+  ❌ p3 **全程未检查 failed** → 删除失败被静默放过
+
+--- 实测 p3 第 4 项 ---
+    removed = 0   （p3 断言 == 0）
+    failed  = 100   （p3 未检查）
+    宿主行  = 600  （期望 500）
+    failed 原因: {"not-found":100}
+
+--- 按 reconcile 语义应当成立的条件 ---
+    条件 1：宿主上 600 条 active，desired 只有 500 条 → 多余 100 条应当被删除
+    条件 2：removed + failed 应覆盖这 100 条 → 0 + 100 = 100
+  ❌ p3 的「被裁的 100 条不被删除」断言**只因缺陷才成立**
+    ℹ️      按正确语义，这 100 条应当 removed=100、failed=0、宿主降到 500 行
+    ℹ️      冻结版实际：removed=0、failed=100、宿主仍 600 行
+    ℹ️      → p3 把「删不掉」写成了「不该删」，等于把 BLOCKER-1 固化为预期行为
+  ❌ 宿主仍 600 行（应为 500）—— 100 条幽灵提醒残留
+
+=== 探针 14 汇总：FAIL（3 项） ===

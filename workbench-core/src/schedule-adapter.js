@@ -204,6 +204,15 @@ export function createHostBackend(hostSchedule, options) {
 
   let lastCatalogError
 
+  /**
+   * 同 key 的创建锁：reminderKey → Promise。
+   *
+   * 并发 reconcile 时，同一提醒的创建必须排队，否则会重复建——
+   * 复审探针 09 实测 20 个并发 reconcile 会在宿主侧建出 20 条同一提醒（用户收到 20 次）。
+   * 根因是「读 catalog → 判断不存在 → create」的读-改-写竞态。
+   */
+  const createLocks = new Map()
+
   const readCatalog = async () => {
     try {
       const rows = await hostSchedule.catalog()
@@ -309,7 +318,24 @@ export function createHostBackend(hostSchedule, options) {
      * - 已存在但时刻不同 → 删旧建新；
      * - catalog 读不到 → **拒绝**，不盲目补建（纪律 2）。
      */
+    /**
+     * 同 key 的创建**串行化**：后一个等待前一个完成后再判断，从而只会建一条。
+     * 不同 key 之间仍然并行。
+     */
     async upsert(record) {
+      const previous = createLocks.get(record.reminderKey) ?? Promise.resolve()
+      let release
+      const gate = new Promise((resolve) => { release = resolve })
+      createLocks.set(record.reminderKey, previous.then(() => gate))
+      await previous
+      try {
+        return await this.upsertLocked(record)
+      } finally {
+        release()
+      }
+    },
+
+    async upsertLocked(record) {
       const current = await backend.catalog()
       if (current.status !== HOST_READ.OK) {
         return { ok: false, reason: 'host-unavailable', error: current.error }
@@ -417,6 +443,19 @@ export function createHostBackend(hostSchedule, options) {
        */
       if (res === null || typeof res !== 'object' || Array.isArray(res)) {
         return { status: HOST_READ.UNAVAILABLE, error: 'history-invalid-shape' }
+      }
+      /**
+       * **宿主侧 status/error 形状识别**（复审探针 01）。
+       *
+       * 宿主（或中间层）可能返回 `{status:'unavailable', error:…}` 这类形状。
+       * 若把它当成「合法但没有记录」，就会判成未投递 → 重建 → **二次投递**。
+       * 这里把非 ok 的 status 一律映射为 UNAVAILABLE（= UNKNOWN，保守处理）。
+       */
+      if (
+        (typeof res.status === 'string' && res.status !== 'ok')
+        || (res.error !== undefined && res.records === undefined)
+      ) {
+        return { status: HOST_READ.UNAVAILABLE, error: res.error ?? res.status ?? 'host-history-unavailable' }
       }
       const records = Array.isArray(res?.records) ? res.records : []
       return {

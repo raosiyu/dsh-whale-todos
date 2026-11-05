@@ -222,5 +222,19 @@
     "file": "workbench-core/src/reminder-recovery.js",
     "from": "    if (records.length === 0 && res.earlierRecordsUnavailable === true) {\n      return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-pruned' }\n    }",
     "to": ""
+  },
+  {
+    "id": "X26",
+    "name": "去掉同 key 创建锁（并发重复投递回归）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      const previous = createLocks.get(record.reminderKey) ?? Promise.resolve()",
+    "to": "      const previous = Promise.resolve()"
+  },
+  {
+    "id": "X27",
+    "name": "不识别宿主 status 形状（unknown 被判未投递 → 二次投递）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      if (\n        (typeof res.status === 'string' && res.status !== 'ok')\n        || (res.error !== undefined && res.records === undefined)\n      ) {",
+    "to": "      if (false) {"
   }
 ]

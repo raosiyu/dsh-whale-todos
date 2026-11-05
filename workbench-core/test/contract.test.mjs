@@ -1027,3 +1027,41 @@ test('R7 守卫：老身份被丢弃后，宿主侧那条已 inactive → 不会
     assert.equal((await stub.catalog()).length, 1, '宿主侧仍只有那一条（未重复）')
   })
 })
+
+test('R8 守卫：并发 reconcile 同一提醒只建一条（复审探针 09）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'm.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    const plan = { reminderKey: 'k', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }
+    const results = await Promise.all(Array.from({ length: 20 }, () => adapter.reconcile([plan])))
+    const created = results.reduce((n, r) => n + r.created.length, 0)
+    assert.equal(created, 1, '并发下只应建 1 条')
+    const rows = await stub.catalog()
+    assert.equal(rows.length, 1, '宿主侧只应有 1 条（用户不会收到 20 次）')
+  })
+})
+
+test('R8 守卫：宿主 history 返回 {status:"unavailable"} 时判 UNKNOWN，不得重建（复审探针 01）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'm.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    const plan = { reminderKey: 'k', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }
+    await adapter.reconcile([plan])
+
+    stub.history = async () => ({ status: 'unavailable', error: 'host busy' })
+    const h = await adapter.historyFor('k')
+    assert.equal(h.status, HOST_READ.UNAVAILABLE, '宿主报不可用时必须如实标记')
+
+    const rec = createReminderRecovery({ adapter, now: () => BASE + HOUR + 30000, graceMs: MIN })
+    const out = await rec.recover([plan], { scenario: 'restart', atMs: BASE + HOUR + 30000 })
+    assert.equal(out.restored.length, 0, '不得重建（会二次投递）')
+    assert.equal(out.unknown.length, 1, '应判 UNKNOWN')
+    assert.equal((await stub.catalog()).length, 1, '宿主提醒原样保留')
+  })
+})

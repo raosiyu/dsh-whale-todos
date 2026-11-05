@@ -11,8 +11,7 @@
     recover: alreadyDelivered=1 removed=["k"]
     恢复后宿主行: []
     → 该 active 行被删除。
-  ❌ 场景 2 异常  ReferenceError: note is not defined
-    at file:///Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final/probe-WP2R5-Final-11.mjs:106:7
+    ℹ️      真实宿主是否可能出现此矛盾态？需查 dsh-schedule 的提交顺序。
 
 === 探针 11 汇总 ===
 
