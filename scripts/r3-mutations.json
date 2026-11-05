@@ -31,8 +31,8 @@
     "id": "M5",
     "name": "恢复层不传 scope",
     "file": "workbench-core/src/reminder-recovery.js",
-    "from": "const res = await adapter.reconcile(future, { scope: input.scope })",
-    "to": "const res = await adapter.reconcile(future)"
+    "from": "      const res = await adapter.reconcile(future, {\n        scope: input.scope,",
+    "to": "      const res = await adapter.reconcile(future, {"
   },
   {
     "id": "M6",
@@ -129,8 +129,8 @@
     "id": "X12",
     "name": "删除失败不计入 failed",
     "file": "workbench-core/src/schedule-adapter.js",
-    "from": "            else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })",
-    "to": ""
+    "from": "          if (res.ok === true) removed.push(key)\n          else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })",
+    "to": "          if (res.ok === true) removed.push(key)"
   },
   {
     "id": "X13",
@@ -173,5 +173,19 @@
     "file": "workbench-core/src/schedule-adapter.js",
     "from": "const inScopeRow = (row) => (scope === undefined ? true : row.scope === scope)",
     "to": "const inScopeRow = (row) => (scope === undefined ? true : String(row.reminderKey).startsWith(scope + ':'))"
+  },
+  {
+    "id": "X19",
+    "name": "N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "          if (protect.has(key)) continue   // UNKNOWN：保留不动",
+    "to": "          if (false) continue"
+  },
+  {
+    "id": "X20",
+    "name": "N-17 回归：recover 不把 UNKNOWN 传给 protect",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "        protect: unknown.map((u) => u.reminderKey),",
+    "to": "        protect: [],"
   }
 ]

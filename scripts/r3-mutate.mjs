@@ -103,9 +103,13 @@ say(`CAUGHT: ${caught}`)
 say(`VACUUM: ${vacuum}`)
 say(`SKIP:   ${skip}`)
 say('')
-say(vacuum === 0
-  ? '结论：全部保护点都有测试约束（0 真空）'
-  : `结论：存在 ${vacuum} 处测试真空，必须补测试后才能声明验证充分`)
+if (skip > 0) {
+  say(`注意：${skip} 个变异锚点未命中（SKIP）——这些保护点本轮**未被检验**。`)
+  say('      锚点漂移等于静默失效，必须修正变异定义或代码后再跑。')
+}
+say(vacuum === 0 && skip === 0
+  ? '结论：全部保护点都有测试约束（0 真空，0 跳过）'
+  : `结论：vacuum=${vacuum} skip=${skip}——两者都必须为 0 才算验证充分`)
 
 try {
   writeFileSync(OUT, lines.join('\n') + '\n', 'utf8')

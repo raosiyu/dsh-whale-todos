@@ -774,3 +774,57 @@ test('N-02 完整判据表：四种输入各自独立环境，结果必须互不
   assert.equal(await runOne({ records: [receipt], earlierRecordsUnavailable: true }), 'DELIVERED',
     '有回执时以回执为准')
 })
+
+test('N-17 守卫：投递状态 UNKNOWN 时不得删除宿主上仍然 active 的提醒', async () => {
+  // 第四轮 Review 探针 p1 抓到的回归（我修 N-02 时引入）：
+  // 「不重建」被写成了「删掉」——UNKNOWN 的 plan 不在 desired 里，
+  // reconcile 就把它当多余项删除，用户从此再也收不到这条提醒。
+  const scenarios = [
+    ['history 抛错（读不到投递状态）', (stub) => { stub.history = async () => { throw new Error('history 挂了') } }],
+    ['回执被 retention 裁剪', (stub) => { stub.history = async () => ({ records: [], earlierRecordsUnavailable: true }) }],
+  ]
+  for (const [label, mutate] of scenarios) {
+    await withTmp(async (dir) => {
+      const stub = createContractStub({ now: () => BASE })
+      const hostMap = openHostMap({ filePath: join(dir, 'm.json') })
+      const adapter = createScheduleAdapter({
+        backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+      })
+      const plan = { reminderKey: 'k', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }
+      await adapter.reconcile([plan])
+      const before = (await stub.catalog()).map((r) => r.id)
+      assert.equal(before.length, 1, `${label}：前置应建 1 条`)
+
+      mutate(stub)
+      const rec = createReminderRecovery({ adapter, now: () => BASE + HOUR + 30000, graceMs: MIN })
+      const out = await rec.recover([plan], { scenario: 'restart', atMs: BASE + HOUR + 30000 })
+
+      assert.equal(out.unknown.length, 1, `${label}：应判 UNKNOWN`)
+      assert.equal(out.restored.length, 0, `${label}：不得重建`)
+      assert.deepEqual(out.removed, [], `${label}：绝不能删除`)
+      const after = await stub.catalog()
+      assert.equal(after.length, 1, `${label}：宿主上的提醒必须原样保留`)
+      assert.equal(after[0].status, 'active', `${label}：状态应仍是 active`)
+    })
+  }
+})
+
+test('N-17 守卫：protect 集合里的 key 不会被 reconcile 删除', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'm.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    await adapter.reconcile([
+      { reminderKey: 'keep-me', fireAtMs: BASE + HOUR, title: 'K', prompt: 'p', kind: 'event-start' },
+      { reminderKey: 'drop-me', fireAtMs: BASE + 2 * HOUR, title: 'D', prompt: 'p', kind: 'event-start' },
+    ])
+    // desired 为空但 protect 指定保留 keep-me
+    const res = await adapter.reconcile([], { protect: ['keep-me'] })
+    assert.deepEqual(res.removed, ['drop-me'], '只删未受保护的')
+    assert.deepEqual(res.protected, ['keep-me'])
+    const rows = await stub.catalog()
+    assert.equal(rows.length, 1, 'keep-me 必须还在')
+  })
+})

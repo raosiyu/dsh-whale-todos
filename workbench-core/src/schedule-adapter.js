@@ -545,6 +545,19 @@ export function createScheduleAdapter(options) {
       for (const plan of plans) desired.set(plan.reminderKey, plan)
 
       /**
+       * **受保护的 key**：本轮**不得删除**。
+       *
+       * 场景（第四轮 Review 探针 p1 抓到，是我修 N-02 时引入的回归）：
+       * 投递状态 UNKNOWN（宿主 history 抛错，或回执被 retention 裁剪）时，
+       * 恢复流程不把该 plan 放进 `future`。若 `reconcile` 只看「不在 desired
+       * 里就删」，这条宿主上**仍然 active、仍然有效**的提醒会被删掉——
+       * 用户从此再也收不到它。
+       *
+       * 「不重建」不等于「删掉」。UNKNOWN 的正确处置是：**原样保留，不动**。
+       */
+      const protect = new Set(Array.isArray(opts.protect) ? opts.protect : [])
+
+      /**
        * **scope 按映射字段过滤**（M3'/N-11 修复）。
        *
        * 旧实现 `String(key).startsWith(`${scope}:`)` 对裸 sha256 key 永不成立，
@@ -606,16 +619,21 @@ export function createScheduleAdapter(options) {
 
       if (!degraded) {
         for (const key of existingKeys) {
-          if (!desired.has(key)) {
-            // N-08：删除失败不能静默吞掉，必须计入 failed 让调用方看见
-            const res = await backend.remove(key)
-            if (res.ok === true) removed.push(key)
-            else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })
-          }
+          if (desired.has(key)) continue
+          if (protect.has(key)) continue   // UNKNOWN：保留不动
+          // N-08：删除失败不能静默吞掉，必须计入 failed 让调用方看见
+          const res = await backend.remove(key)
+          if (res.ok === true) removed.push(key)
+          else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })
         }
       }
 
-      return { created, updated, removed, failed, total: desired.size, degraded }
+      return {
+        created, updated, removed, failed,
+        protected: [...protect],
+        total: desired.size,
+        degraded,
+      }
     },
 
     async list() {

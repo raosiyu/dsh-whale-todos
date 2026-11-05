@@ -104,3 +104,80 @@
 **建议**：第三方复审连续三/四轮回传失败，不应再靠消息回收结论。
 若要继续用 Agent 复审，应改为「Agent 必须写指定文件 + 主会话轮询读取」并把
 `VERDICT.md` 的存在作为流程门禁；否则应由人工审查收口。
+
+---
+
+## 九、第四轮复审失败，但它留下的探针抓到了真 bug
+
+第四轮 Reviewer **失败退出**（`failed before it finished, no closing message`），
+`VERDICT.md` 未产出。但它在 `/tmp/wp2r4rev/probe/` 留下了一个探针，
+**这个探针抓到了一个我自己漏掉的严重回归**：
+
+`p1-n02-recover-deletes-active.mjs` —— 探针标题就是答案：
+「N-02 修复后的真实行为：UNKNOWN 的 plan 会不会同时把『宿主上仍 active 的那行』删掉？」
+
+### 探针输出（它跑出来的）
+
+```
+--- A. history 抛错（宿主读不到投递状态），提醒仍是 active
+  宿主 before = ["schedule-1/active"]
+  recover = {"restored":[],"unknown":[{"reminderKey":"k","reason":"history-unavailable"}],"removed":["k"],...}
+  宿主 after  = []   ❌ 行被删掉 → 用户再也收不到这条提醒
+
+--- B. 回执被 retention 裁剪（records=[] + earlierRecordsUnavailable=true），行仍 active
+  宿主 before = ["schedule-1/active"]
+  recover = {"restored":[],"unknown":[{"reminderKey":"k","reason":"history-pruned"}],"removed":["k"],...}
+  宿主 after  = []   ❌ 行被删掉 → 用户再也收不到这条提醒
+```
+
+### 我复现确认：成立
+
+同一脚本在当前代码上重跑，**同样复现**（`removed:["k"]`，宿主行被删）。
+
+### 根因：把「不重建」写成了「删掉」
+
+我修 N-02 时，让 UNKNOWN 的 plan **不进入 `future`**。但 `reconcile` 的语义是
+「不在 desired 里的 active 记录 = 多余项 → 删除」。于是：
+
+```
+投递状态 UNKNOWN → 不进 future → 不在 desired → 被判多余 → 删除
+```
+
+**投递状态未知，只意味着「我们不知道它投递过没有」，不意味着「它不该存在」。**
+宿主上那条提醒仍然 active、仍然有效，删掉它等于让用户永远收不到。
+
+### 修法
+
+1. `reconcile(plans, { protect: [...] })`：受保护的 key **不得删除**；
+2. `recover` 把 UNKNOWN 的 key 传进去：`protect: unknown.map(u => u.reminderKey)`；
+3. 返回值增加 `protected` 字段，让上层看得见「哪些被保住了」。
+
+修复后：
+
+```
+--- A. history 抛错 → UNKNOWN
+  restored=[] unknown=[...] removed=[]      ✅ 行仍在（schedule-1/active）
+--- B. 回执被裁剪 → UNKNOWN
+  restored=[] unknown=[...] removed=[]      ✅ 行仍在
+```
+
+### 回归锁定
+
+- 两条测试（每例独立环境）：`N-17 守卫：投递状态 UNKNOWN 时不得删除宿主上仍然 active 的提醒`
+  （覆盖 history 抛错与回执裁剪两种来源）、`N-17 守卫：protect 集合里的 key 不会被 reconcile 删除`
+- 两个变异点：`X19`（reconcile 忽略 protect）、`X20`（recover 不传 protect）——**两者都被捕获**
+
+### 这次故障的额外收获：探针脚本比结论更有价值
+
+复审 Agent **没写成结论就崩了**，但它写下的探针把一个我漏掉的严重 bug 钉了出来。
+**过程材料（探针/日志）比结论更可靠**——结论靠消息回传，探针在磁盘上。
+以后复审必须要求把探针和日志一并留在固定目录。
+
+## 十、变异脚本的两处自身缺陷（已修）
+
+| 缺陷 | 现象 | 修法 |
+| --- | --- | --- |
+| 锚点漂移 | M5、X12 因代码改动后锚点文本变了 → **SKIP**，而 SKIP 不算失败 → 这两个保护点**根本没被检验**却混在结果里 | 修正锚点；并把 **SKIP 视为失败**（`vacuum=0 且 skip=0` 才算验证充分） |
+| 等价变异 | 我一度把 X6 写成等价变异（degraded 时 active 集本就为空） | 换成真正改变行为的版本才计入 CAUGHT |
+
+最终：**27 变异 / 27 CAUGHT / 0 VACUUM / 0 SKIP**。

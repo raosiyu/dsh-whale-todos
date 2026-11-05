@@ -137,8 +137,17 @@ export function createReminderRecovery(options) {
         }
       }
 
-      // scope 必须透传：只恢复 events 时不得删掉 tasks 的提醒
-      const res = await adapter.reconcile(future, { scope: input.scope })
+      /**
+       * scope 必须透传：只恢复 events 时不得删掉 tasks 的提醒。
+       *
+       * `protect` 传 UNKNOWN 的那些 key：**它们不能被删**（第四轮 Review 探针 p1）。
+       * 宿主上那条提醒仍然 active、仍然有效；投递状态未知只意味着「我们不知道
+       * 它投递过没有」，不意味着「它不该存在」。
+       */
+      const res = await adapter.reconcile(future, {
+        scope: input.scope,
+        protect: unknown.map((u) => u.reminderKey),
+      })
 
       return {
         scenario,
