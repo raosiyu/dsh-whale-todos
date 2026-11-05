@@ -1211,3 +1211,59 @@ test('R10 守卫：createLocks 链条在 upsert 完成后清理（复审 N-4）'
     assert.equal(r.created.length, 1, '锁不应阻塞不同 key 的创建')
   })
 })
+
+test('WP3-P1 守卫：旧格式 indexScopes 读入后归一化落盘（不留旧字段）', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'm.json')
+    const { writeFileSync, readFileSync } = await import('node:fs')
+    writeFileSync(filePath, JSON.stringify({
+      version: 1,
+      entries: { k1: { hostId: 'h1', sessionId: 's1', fireAtMs: Date.now(), title: 't', kind: 'x', scope: 'events' } },
+      index: { h1: 'k1' },
+      indexScopes: { h1: 'events' },
+    }, null, 2), 'utf8')
+
+    const m = openHostMap({ filePath })
+    assert.equal(m.reminderKeyByHostId('h1'), 'k1', '旧格式身份不丢')
+    assert.equal(m.describe('k1').scope, 'events', '旧格式 scope 不丢')
+    assert.equal(m.dirty, true, '读入旧格式应标脏以触发归一化')
+    m.flush()
+
+    const disk = JSON.parse(readFileSync(filePath, 'utf8'))
+    assert.ok(disk.indexMeta !== undefined, '应写出新格式 indexMeta')
+    assert.equal(disk.indexScopes, undefined, '旧字段 indexScopes 不应再写出')
+    assert.equal(disk.indexMeta.h1.scope, 'events')
+  })
+})
+
+test('WP3-P7 守卫：prune 的老化删除可被显式 flush 落盘', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'm.json')
+    const { writeFileSync, readFileSync } = await import('node:fs')
+    const NOW = Date.UTC(2026, 10, 5)
+    const OLD = NOW - 200 * 24 * MIN
+    writeFileSync(filePath, JSON.stringify({
+      version: 1,
+      entries: { kAlive: { hostId: 'hOld', sessionId: 's1', fireAtMs: OLD, title: 'old', kind: 'x', scope: 'events' } },
+      index: { hOld: 'kAlive', hTomb: 'kTomb' },
+      indexMeta: {
+        hOld: { scope: 'events', fireAtMs: OLD },
+        hTomb: { scope: 'tasks', fireAtMs: OLD },
+      },
+    }, null, 2), 'utf8')
+
+    const m = openHostMap({
+      filePath, maxEntries: 10, indexRetentionMs: 30 * 24 * MIN, now: () => NOW,
+    })
+    m.prune()   // 直接触发老化（不经 put）
+    assert.equal(m.dirty, true, '老化改了状态必须标脏')
+    m.flush()   // 显式落盘
+
+    const disk = JSON.parse(readFileSync(filePath, 'utf8'))
+    assert.equal(disk.entries.kAlive, undefined, '超窗完整条目应被删')
+    assert.equal(disk.index.hOld, undefined, '超窗完整条目身份应被删')
+    assert.equal(disk.indexMeta.hOld, undefined, '超窗完整条目 indexMeta 应被删')
+    assert.equal(disk.index.hTomb, undefined, '超窗墓碑身份应被删')
+    assert.equal(disk.indexMeta.hTomb, undefined, '超窗墓碑 indexMeta 应被删')
+  })
+})

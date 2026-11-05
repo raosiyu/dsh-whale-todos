@@ -1,42 +1,42 @@
 === 变异验证（删保护代码，测试应失败）===
 变异定义：36 项（scripts/r3-mutations.json）
 
-CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 205 fail 2
-CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 206 fail 1
-CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 176 fail 31
-CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 205 fail 2
-CAUGHT M5 恢复层不传 scope  → pass 205 fail 2
-CAUGHT M6 已投递判定失效（无视 history）  → pass 204 fail 3
-CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 200 fail 7
-CAUGHT M8 审批门放行（不校验 token）  → pass 190 fail 17
-CAUGHT M9 service 重新暴露 store 写方法  → pass 204 fail 3
-CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 204 fail 3
-CAUGHT M11 hostMap 不持久化（只写内存）  → pass 200 fail 7
-CAUGHT M12 hostMap 允许 hostId 重复  → pass 206 fail 1
-CAUGHT M13 损坏映射静默重建为空  → pass 206 fail 1
-CAUGHT M14 compileReminder 不再滤过期  → pass 206 fail 1
-CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 198 fail 9
-CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 206 fail 1
-CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 206 fail 1
-CAUGHT X11 UNKNOWN 纳入 future  → pass 200 fail 7
-CAUGHT X12 删除失败不计入 failed  → pass 206 fail 1
-CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 203 fail 4
-CAUGHT X14 hostMap 保留上限失效  → pass 201 fail 6
-CAUGHT X15 N-05 deny 模式不拦  → pass 206 fail 1
-CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 206 fail 1
-CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 206 fail 1
-CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 205 fail 2
-CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 203 fail 4
-CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 204 fail 3
-CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 204 fail 3
-CAUGHT X22 裁剪不生效（条目数无上限）  → pass 201 fail 6
-CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 206 fail 1
-CAUGHT X24 catalog 不用身份索引（认不出宿主行 → 重复创建）  → pass 196 fail 11
-CAUGHT X25 N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）  → pass 203 fail 4
-CAUGHT X26 去掉同 key 创建锁（并发重复投递回归）  → pass 206 fail 1
-CAUGHT X27 不识别宿主 status 形状（unknown 被判未投递 → 二次投递）  → pass 206 fail 1
-CAUGHT X28 B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）  → pass 205 fail 2
-CAUGHT X29 B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）  → pass 206 fail 1
+CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 207 fail 2
+CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 208 fail 1
+CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 178 fail 31
+CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 207 fail 2
+CAUGHT M5 恢复层不传 scope  → pass 207 fail 2
+CAUGHT M6 已投递判定失效（无视 history）  → pass 206 fail 3
+CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 202 fail 7
+CAUGHT M8 审批门放行（不校验 token）  → pass 192 fail 17
+CAUGHT M9 service 重新暴露 store 写方法  → pass 206 fail 3
+CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 206 fail 3
+CAUGHT M11 hostMap 不持久化（只写内存）  → pass 202 fail 7
+CAUGHT M12 hostMap 允许 hostId 重复  → pass 208 fail 1
+CAUGHT M13 损坏映射静默重建为空  → pass 208 fail 1
+CAUGHT M14 compileReminder 不再滤过期  → pass 208 fail 1
+CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 200 fail 9
+CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 208 fail 1
+CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 208 fail 1
+CAUGHT X11 UNKNOWN 纳入 future  → pass 202 fail 7
+CAUGHT X12 删除失败不计入 failed  → pass 208 fail 1
+CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 205 fail 4
+CAUGHT X14 hostMap 保留上限失效  → pass 203 fail 6
+CAUGHT X15 N-05 deny 模式不拦  → pass 208 fail 1
+CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 208 fail 1
+CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 208 fail 1
+CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 207 fail 2
+CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 205 fail 4
+CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 206 fail 3
+CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 205 fail 4
+CAUGHT X22 裁剪不生效（条目数无上限）  → pass 203 fail 6
+CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 208 fail 1
+CAUGHT X24 catalog 不用身份索引（认不出宿主行 → 重复创建）  → pass 198 fail 11
+CAUGHT X25 N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）  → pass 205 fail 4
+CAUGHT X26 去掉同 key 创建锁（并发重复投递回归）  → pass 208 fail 1
+CAUGHT X27 不识别宿主 status 形状（unknown 被判未投递 → 二次投递）  → pass 208 fail 1
+CAUGHT X28 B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）  → pass 207 fail 2
+CAUGHT X29 B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）  → pass 208 fail 1
 
 === 汇总 ===
 CAUGHT: 36

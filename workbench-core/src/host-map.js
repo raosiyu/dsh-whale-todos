@@ -68,6 +68,9 @@ export function openHostMap(options) {
   /** @type {{ version: number, entries: Record<string, {hostId: string, sessionId: string, fireAtMs: number, title: string, kind: string}> }} */
   let state = emptyState()
 
+  // dirty 必须在使用前声明：load()/prune() 也会改状态并标脏
+  let dirty = false
+
   const load = () => {
     if (!existsSync(filePath)) {
       state = emptyState()
@@ -115,9 +118,13 @@ export function openHostMap(options) {
     }
     const indexMetaRaw = parsed.indexMeta ?? parsed.indexScopes ?? {}
     const indexMeta = {}
+    let needsUpgrade = parsed.indexMeta === undefined || parsed.indexMeta === null
     for (const [hostId, v] of Object.entries(indexMetaRaw)) {
       // 兼容旧格式：indexScopes 存的是字符串 scope
-      indexMeta[hostId] = typeof v === 'string' ? { scope: v, fireAtMs: 0 } : { ...v }
+      indexMeta[hostId] = typeof v === 'string'
+        ? { scope: v, fireAtMs: 0 }
+        : { ...v }
+      if (typeof v === 'string') needsUpgrade = true
     }
     state = {
       version: SCHEMA_VERSION,
@@ -125,6 +132,9 @@ export function openHostMap(options) {
       index: { ...index },
       indexMeta,
     }
+    // 旧格式（indexScopes / 无 indexMeta）读进来后**立即归一化落盘**：
+    // 否则旧字段永久留在磁盘、每次读都做转换，显式 flush() 也写不下去。
+    if (needsUpgrade) dirty = true
   }
 
   /**
@@ -138,7 +148,6 @@ export function openHostMap(options) {
    * 未 flush 的改动会丢——但**身份索引丢了会导致重复投递**，
    * 所以 flush 的时机由调用方显式决定，不做隐式后台落盘。
    */
-  let dirty = false
   const writeNow = () => {
     const dir = dirname(filePath)
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
@@ -204,6 +213,7 @@ export function openHostMap(options) {
         delete state.index[hostId]
         delete state.indexMeta[hostId]
         delete state.entries[key]
+        dirty = true   // 老化改了状态，必须让显式 flush() 能写下去
       }
     }
 
