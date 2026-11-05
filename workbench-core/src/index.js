@@ -121,3 +121,12 @@ export {
 } from './reminder-recovery.js'
 
 export { openHostMap } from './host-map.js'
+
+/**
+ * WP3：Host Service 适配层（UI 与 Agent 共用的统一业务入口）。
+ * 不 import 任何 DSH 包，workbench-core 保持零依赖。
+ */
+export {
+  createWorkbenchHostService,
+  applyWorkbenchHostService,
+} from './host-service.js'
