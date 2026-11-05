@@ -16,8 +16,11 @@
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const REPO = '/Users/sylas/Developer/dsh-workbench'
+// 仓库根由本文件位置推导（scripts/probes/x.mjs → 上两级）
+// 这样探针在冻结副本内运行时，测的**就是冻结副本自己的代码**，不会被主仓库污染
+const REPO = fileURLToPath(new URL('../..', import.meta.url))
 const OUT = process.argv[2] ?? join(REPO, 'evidence', 'wp2', 'review-final', 'p3-retention.log')
 
 const lines = []
