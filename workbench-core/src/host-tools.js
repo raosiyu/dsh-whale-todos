@@ -128,16 +128,12 @@ export function createWorkbenchToolDefinitions(deps = {}) {
     // ---- 查询 ----
     simpleTool({
       name: 'workbench_event_list',
-      description: 'List calendar events in this session/scope.',
+      description: 'List calendar events in this session/scope. Set includeDeleted=true to include soft-deleted events.',
       parameters: {
-        from: { type: 'string', description: 'ISO instant lower bound (optional)' },
-        to: { type: 'string', description: 'ISO instant upper bound (optional)' },
+        includeDeleted: { type: 'boolean', description: 'Include soft-deleted events (default false).' },
       },
       op: 'event.list',
-      payload: (args) => ({
-        ...(args.from !== undefined ? { from: args.from } : {}),
-        ...(args.to !== undefined ? { to: args.to } : {}),
-      }),
+      payload: (args) => ({ includeDeleted: args.includeDeleted === true }),
     }),
     simpleTool({
       name: 'workbench_event_get',
@@ -181,20 +177,65 @@ export function createWorkbenchToolDefinitions(deps = {}) {
         location: { type: 'string', description: 'New location.' },
       },
       op: 'event.update',
-      payload: (args) => ({ ...args }),
+      // 真实 service 契约：event.update 读 payload.patch，平铺字段会被忽略
+      payload: (args) => {
+        const { id, ...patch } = args
+        return { id, patch }
+      },
     }),
     simpleTool({
       name: 'workbench_task_upsert',
-      description: 'Create or update a todo.',
+      description: 'Create or update a todo. Always supply an id (use a fresh unique string to create).',
       parameters: {
-        id: { type: 'string', description: 'Existing task id to update; omit to create.' },
+        id: { type: 'string', required: true, description: 'Task id; use a fresh unique string to create.' },
         title: { type: 'string', required: true, description: 'Todo title.' },
         dueAt: { type: 'string', description: 'ISO instant due time.' },
         done: { type: 'boolean', description: 'Completion flag.' },
       },
       op: 'task.upsert',
-      payload: (args) => ({ ...args }),
+      // 真实 service 契约：task.upsert 读 payload.task，且 task.id 必填非空
+      payload: (args) => ({ task: { ...args } }),
     }),
+    // ---- 错误反馈 / 操作审计 ----
+    {
+      name: 'workbench_help',
+      description: 'List the available workbench operations and their required parameters. Use this to map a natural-language request to the right tool.',
+      parameters: {},
+      output: { schema: OUTPUT_SCHEMA, render: renderValue },
+      async execute(_args, exec) {
+        const agent = exec?.agent
+        if (agent === undefined) return TOOL_ERRORS.noAgent
+        const sessionId = agent.session?.id
+        if (typeof sessionId !== 'string' || sessionId === '') return TOOL_ERRORS.noAgent
+        return {
+          ok: true,
+          op: 'help',
+          result: {
+            sessionId: '[redacted]',
+            tools: createWorkbenchToolDefinitions({ service: { invoke: () => ({}) } })
+              .map((d) => ({ name: d.name, description: d.description, parameters: Object.keys(d.parameters ?? {}) })),
+            hint: 'Map the user request to one tool; validate required parameters; never invent an operation not listed here.',
+          },
+        }
+      },
+    },
+    {
+      name: 'workbench_audit',
+      description: 'Read the recent operation audit trail for this session (op, actor, scope, errors).',
+      parameters: {
+        limit: { type: 'number', description: 'Max rows to return (default 50, max 2000).' },
+      },
+      output: { schema: OUTPUT_SCHEMA, render: renderValue },
+      async execute(args, exec) {
+        const agent = exec?.agent
+        if (agent === undefined) return TOOL_ERRORS.noAgent
+        const sessionId = agent.session?.id
+        if (typeof sessionId !== 'string' || sessionId === '') return TOOL_ERRORS.noAgent
+        const limit = Number.isFinite(args.limit) ? Math.min(Math.max(args.limit, 1), 2000) : 50
+        return { ok: true, op: 'audit', result: { rows: this.service.audit({ sessionId, limit }) } }
+      },
+    },
+
   ]
 
   // 把 service 绑到每个 execute 的 this（避免闭包里持有可变引用）

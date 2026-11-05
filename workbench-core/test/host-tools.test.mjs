@@ -53,10 +53,12 @@ test('WP3：工具定义齐全且每个都有 name/description/parameters/output
     const defs = createWorkbenchToolDefinitions({ service: mkService(dir) })
     const names = defs.map((d) => d.name).sort()
     assert.deepEqual(names, [
+      'workbench_audit',
       'workbench_event_create',
       'workbench_event_get',
       'workbench_event_list',
       'workbench_event_update',
+      'workbench_help',
       'workbench_task_list',
       'workbench_task_upsert',
     ])
@@ -138,8 +140,8 @@ test('WP3：applyWorkbenchTools 注册全部工具并返回精确 disposer', asy
     // 用「与真 defineTool 同形」的注入函数（本测试不 import DSH 包）
     const defineTool = (d) => ({ ...d, __wrapped: true })
     const disposers = applyWorkbenchTools(ctx, { defineTool, service: mkService(dir) })
-    assert.equal(registered.length, 6)
-    assert.equal(disposers.length, 6)
+    assert.equal(registered.length, 8)
+    assert.equal(disposers.length, 8)
     for (const dispose of disposers) dispose()
     assert.equal(registered.length, 0, 'disposer 必须精确反注册')
   })
@@ -192,4 +194,81 @@ test('WP3：真实 defineTool 拦截缺参并执行创建/查询/隔离', { skip
       (e) => e?.name === 'ToolArgsError',
     )
   })
+})
+
+test('WP3：event.update 工具按真实契约传 {id, patch}（编辑真的生效）', async () => {
+  await withTmp(async (dir) => {
+    const defs = createWorkbenchToolDefinitions({ service: mkService(dir) })
+    const create = defs.find((d) => d.name === 'workbench_event_create')
+    const update = defs.find((d) => d.name === 'workbench_event_update')
+    const get = defs.find((d) => d.name === 'workbench_event_get')
+
+    const created = await create.execute(mkEvent('原名'), execFor('s1'))
+    const id = created.result.event.id
+    const upd = await update.execute({ id, title: '新名', location: '会议室' }, execFor('s1'))
+    assert.equal(upd.ok, true, JSON.stringify(upd))
+    const got = await get.execute({ id }, execFor('s1'))
+    assert.equal(got.result.title, '新名', 'title 必须真的被改')
+    assert.equal(got.result.location, '会议室')
+  })
+})
+
+test('WP3：task.upsert 工具按真实契约传 {task:{id,...}}（创建/编辑都生效）', async () => {
+  await withTmp(async (dir) => {
+    const defs = createWorkbenchToolDefinitions({ service: mkService(dir) })
+    const upsert = defs.find((d) => d.name === 'workbench_task_upsert')
+    const list = defs.find((d) => d.name === 'workbench_task_list')
+
+    const a = await upsert.execute({ id: 't1', title: '买牛奶' }, execFor('s1'))
+    assert.equal(a.ok, true, JSON.stringify(a))
+    const rows1 = await list.execute({}, execFor('s1'))
+    assert.equal(rows1.result.length, 1)
+
+    await upsert.execute({ id: 't1', title: '买牛奶（已改）', done: true }, execFor('s1'))
+    const rows2 = await list.execute({}, execFor('s1'))
+    assert.equal(rows2.result.length, 1, '同 id 应为更新不是新增')
+    assert.equal(rows2.result[0].title, '买牛奶（已改）')
+  })
+})
+
+test('WP3：workbench_help 列出工具与参数，供自然语言映射', async () => {
+  await withTmp(async (dir) => {
+    const defs = createWorkbenchToolDefinitions({ service: mkService(dir) })
+    const help = defs.find((d) => d.name === 'workbench_help')
+    const out = await help.execute({}, execFor('s1'))
+    assert.equal(out.ok, true)
+    assert.equal(Array.isArray(out.result.tools), true)
+    assert.equal(out.result.tools.length, 8)
+    // 不泄露 sessionId 原文
+    assert.equal(JSON.stringify(out).includes('s1'), false)
+  })
+})
+
+test('WP3：workbench_audit 返回本会话审计且可限条数', async () => {
+  await withTmp(async (dir) => {
+    const svc = mkService(dir)
+    const defs = createWorkbenchToolDefinitions({ service: svc })
+    const create = defs.find((d) => d.name === 'workbench_event_create')
+    const audit = defs.find((d) => d.name === 'workbench_audit')
+    await create.execute(mkEvent('X'), execFor('s1'))
+    const all = await audit.execute({}, execFor('s1'))
+    assert.equal(all.ok, true)
+    assert.ok(all.result.rows.length >= 2)
+    const limited = await audit.execute({ limit: 1 }, execFor('s1'))
+    assert.equal(limited.result.rows.length, 1)
+    // 跨 session 看不到别人的审计
+    const other = await audit.execute({}, execFor('s2'))
+    assert.equal(other.result.rows.length, 0)
+  })
+})
+
+test('WP3：自然语言意图映射说明（文档级，防止自造 NLP 解析器）', () => {
+  // DSH 真实机制：ctx.tools.register 后 schema 自动进 system prompt，
+  // 由模型把自然语言映射到工具；本包**不**内置 NLP 解析器。
+  const defs = createWorkbenchToolDefinitions({ service: { invoke: () => ({}) } })
+  for (const d of defs) {
+    assert.ok(d.description.length >= 20, `${d.name} 需要足够描述供模型对齐意图`)
+  }
+  const help = defs.find((d) => d.name === 'workbench_help')
+  assert.match(help.description, /natural-language|tool/i)
 })
