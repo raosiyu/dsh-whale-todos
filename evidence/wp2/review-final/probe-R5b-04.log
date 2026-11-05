@@ -1,0 +1,23 @@
+=== A) 体积与 index 增长曲线（每轮 1000 条，累计）===
+     累计创建 1000 → entries=500 index=1000 文件=143754 字节
+     累计创建 2000 → entries=250 index=1000 文件=102327 字节
+     累计创建 3000 → entries=250 index=1000 文件=102327 字节
+     累计创建 4000 → entries=250 index=1000 文件=102327 字节
+     累计创建 5000 → entries=250 index=1000 文件=102327 字节
+     每条身份约 102.3 字节
+  ✅ index 体积  1000 项 / 102327 字节
+
+=== B) 关键：墓碑（被条数裁剪的条目）会不会被时间老化？ ===
+  ✅ entries 裁到 500  = 500
+  ✅ t-0 是墓碑  = undefined
+     400 天后：entries=500 index=600
+  ❌ 时间老化未清掉过期完整条目  entries=500（应只剩 1 条 trigger）
+     400 天后仍存活的墓碑身份: ["t-0","t-1","t-99"]
+  ❌ 墓碑身份永远不被时间老化 → index 仍无上限  存活墓碑 3/3：["t-0","t-1","t-99"]
+
+=== C) 长时间运行：index 是否收敛 ===
+  ❌ 探针异常  Error: ENOENT: no such file or directory, open '/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/r5b04-1Brbwo/conv.json'
+    at readFileSync (node:fs:440:20)
+    at file:///Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final/probe-R5b-04.mjs:116:31
+
+=== 探针 R5b-04 汇总：FAIL（3 项） ===

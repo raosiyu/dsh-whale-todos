@@ -1,0 +1,66 @@
+=== A) 600 条 + maxEntries=500，取消被裁的那 100 条 ===
+  ✅ 600 条全部建立  = 600
+  ✅ 宿主侧 600 条  = 600
+  ✅ 本地 entries 被裁到 500  = 500
+  ✅ k-0000 是墓碑（最先到点，最先被裁）  = undefined
+  ✅ 取消被裁的 100 条：removed=100  = 100
+  ✅ 取消被裁的 100 条：failed=0  = 0
+  ✅ 宿主降到 500  = 500
+
+=== B) 带 scope 对账时墓碑行不被跳过 ===
+  ✅ events scope 建立 300 条  = 300
+  ✅ 宿主侧 600 条  = 600
+  ✅ entries 裁到 500  = 500
+  ✅ events 侧的 e-0000 是墓碑  = undefined
+  ✅ tasks 侧的 t-0000 仍是完整条目  = true
+     events scope 对账: removed=150 failed=0
+  ✅ events scope 删除 150 条  = 150
+  ✅ events scope 删除无失败  = 0
+  ✅ 宿主降到 450（600-150）  = 450
+  ✅ tasks scope 的 300 条仍在  = 300
+  ✅ events scope 只剩 150 条  = 150
+  ✅ 无 unmapped  = 0
+
+=== B2) 带 scope 对账时，墓碑行的 tasks scope 被误判为 events？ ===
+  ✅ 宿主侧 600 条  = 600
+  ✅ tasks scope 对账未删除任何 events  = 0
+  ✅ tasks scope 对账无失败  = 0
+  ✅ 宿主侧仍 600 条  = 600
+  ✅ events scope 仍 300 条（墓碑行 scope 保住了）  = 300
+  ✅ tasks scope 300 条  = 300
+
+=== C) 删除失败时身份必须保留（否则宿主行成孤儿 → 重建 → 二次投递）===
+  ✅ 宿主侧 8 条  = 8
+  ✅ entries 裁到 5  = 5
+     删除失败时: removed=5 failed=3
+  ✅ 删除失败计入 failed（3 条墓碑）  = 3
+  ✅ 成功的 5 条计入 removed  = 5
+  ✅ 删除失败后仍认领宿主上活着的 3 条  = 3
+  ✅ 删除失败后无 unmapped（身份未丢）  = 0
+  ✅ 宿主侧剩 3 条（失败的未被删）  = 3
+  ✅ 删除失败后再对账：只为已删的 5 条重建  = 5
+  ✅ 删除失败后那 3 条未被重建（无重复投递）  = 0
+  ✅ 宿主侧回到 8 条（无重复）  = 8
+  ✅ 无重复行  = 8
+
+=== D) cancel() 一个墓碑提醒 ===
+  ✅ 宿主侧 6 条  = 6
+  ✅ entries 裁到 3  = 3
+  ✅ c-0 是墓碑  = undefined
+  ✅ cancel 墓碑不抛错  = "no-error"
+  ✅ cancel 后宿主侧 5 条  = 5
+
+=== E) remove() 会不会误删别的 key 的身份 ===
+  ✅ remove(x) 返回 true  = true
+  ✅ x 的身份已删  = undefined
+  ✅ y 的身份仍在  = "y"
+  ✅ z 的身份仍在  = "z"
+  ✅ y 的 scope 仍在  = "tasks"
+  ✅ z 的 scope 仍在  = "events"
+
+=== F) 墓碑的 scope 与 hostId 是否保留 ===
+  ✅ a 是墓碑  = undefined
+  ✅ 墓碑 a 的 scope 仍为 events  = "events"
+  ✅ 墓碑 a 的 hostId 仍可取  = "h-a"
+
+=== 探针 R5b-01 汇总：PASS ===

@@ -246,9 +246,9 @@
   },
   {
     "id": "X29",
-    "name": "B-1 回归：身份索引不记录 scope（带 scope 对账跳过墓碑）",
+    "name": "B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）",
     "file": "workbench-core/src/host-map.js",
-    "from": "      state.index[entry.hostId] = entry.reminderKey\n      state.indexScopes = state.indexScopes ?? {}\n      state.indexScopes[entry.hostId] = typeof entry.scope === 'string' ? entry.scope : ''",
-    "to": "      state.index[entry.hostId] = entry.reminderKey"
+    "from": "        scope: state.indexMeta?.[hostId]?.scope ?? '',",
+    "to": "        scope: '',"
   }
 ]

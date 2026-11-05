@@ -1,0 +1,48 @@
+=== 16 种 history 形状 ===
+    期望列：判定 | 宿主行保留 | 未重建 | 说明
+  ✅ history 抛错                                 | UNKNOWN       | 保留=Y | 重建=N | 宿主读不到投递状态
+  ✅ history 抛错 → UNKNOWN
+  ✅ history 抛带 code 的错                         | UNKNOWN       | 保留=Y | 重建=N | 宿主读不到投递状态
+  ✅ history 抛带 code 的错 → UNKNOWN
+  ✅ history 返回非法形状（字符串）                        | UNKNOWN       | 保留=Y | 重建=N | 非法形状不得当成没投递
+  ✅ history 返回非法形状（字符串） → UNKNOWN
+  ✅ history 返回数组                               | UNKNOWN       | 保留=Y | 重建=N | 非法形状不得当成没投递
+  ✅ history 返回数组 → UNKNOWN
+  ✅ history 返回 null                            | UNKNOWN       | 保留=Y | 重建=N | 非法形状不得当成没投递
+  ✅ history 返回 null → UNKNOWN
+  ✅ history 返回 undefined                       | UNKNOWN       | 保留=Y | 重建=N | 非法形状不得当成没投递
+  ✅ history 返回 undefined → UNKNOWN
+  ✅ history 返回 {}（无 records 无 earlier）         | NOT_DELIVERED | 保留=Y | 重建=N | 宿主返回空对象 = 确认没有记录
+  ✅ history 返回 {}（无 records 无 earlier） → NOT_DELIVERED
+       （NOT_DELIVERED：宿主行 1 → 1，重建=false）
+  ✅ history 返回 {records:[]}（earlier 缺失）        | NOT_DELIVERED | 保留=Y | 重建=N | earlier undefined ≠ true
+  ✅ history 返回 {records:[]}（earlier 缺失） → NOT_DELIVERED
+       （NOT_DELIVERED：宿主行 1 → 1，重建=false）
+  ✅ history 返回 {records:[], earlier:false}     | NOT_DELIVERED | 保留=Y | 重建=N | 宿主明确说没有更早记录
+  ✅ history 返回 {records:[], earlier:false} → NOT_DELIVERED
+       （NOT_DELIVERED：宿主行 1 → 1，重建=false）
+  ✅ history 返回 {records:[], earlier:true}      | UNKNOWN       | 保留=Y | 重建=N | 回执被裁剪 → 不可判
+  ✅ history 返回 {records:[], earlier:true} → UNKNOWN
+  ✅ history 返回 {records:[非数组], earlier:true}   | UNKNOWN       | 保留=Y | 重建=N | 非法 records
+  ✅ history 返回 {records:[非数组], earlier:true} → UNKNOWN
+  ✅ history 返回 {records:null, earlier:true}    | UNKNOWN       | 保留=Y | 重建=N | 非法 records
+  ✅ history 返回 {records:null, earlier:true} → UNKNOWN
+  ✅ history 返回 {code:schedule_not_found}       | NOT_DELIVERED | 保留=Y | 重建=N | 宿主侧不存在 → 重建正确
+  ✅ history 返回 {code:schedule_not_found} → NOT_DELIVERED
+       （NOT_DELIVERED：宿主行 1 → 1，重建=false）
+  ✅ history 返回 {status:unavailable}            | UNKNOWN       | 保留=Y | 重建=N | 上一轮探针 01 暴露的形状
+  ✅ history 返回 {status:unavailable} → UNKNOWN
+  ✅ history 返回 {status:unavailable, error:...} | UNKNOWN       | 保留=Y | 重建=N | 非 ok status
+  ✅ history 返回 {status:unavailable, error:...} → UNKNOWN
+  ✅ history 返回 {error:x}（无 records）            | UNKNOWN       | 保留=Y | 重建=N | 带 error 无 records
+  ✅ history 返回 {error:x}（无 records） → UNKNOWN
+
+=== 关键：records:[] 且 earlier 缺失 / true / false 三态必须区分 ===
+     earlier 缺失     → NOT_DELIVERED
+     earlier true   → UNKNOWN
+     earlier false  → NOT_DELIVERED
+  ✅ earlier 缺失 → NOT_DELIVERED  = "NOT_DELIVERED"
+  ✅ earlier true → UNKNOWN  = "UNKNOWN"
+  ✅ earlier false → NOT_DELIVERED  = "NOT_DELIVERED"
+
+=== 探针 R5b-06 汇总：PASS ===

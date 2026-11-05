@@ -1,0 +1,43 @@
+=== 1) 墓碑 remove() 后 indexScopes 是否被清 ===
+     墓碑: [["h-0","t-0"],["h-1","t-1"],["h-2","t-2"]]
+  ✅ 有 3 个墓碑  = 3
+  ✅ remove(墓碑) 返回 true  = true
+  ✅ 墓碑的 index 已删  = undefined
+  ✅ 墓碑的 indexScopes 已删  = undefined
+  ✅ 其余墓碑未被误删  = 2
+
+=== 2) remove() 会不会误删「别的 key 指向同一 hostId」的情况 ===
+  ✅ k1 的身份已删  = undefined
+  ✅ k2 的身份仍在  = "k2"
+  ✅ k2 的 scope 仍在  = "events"
+
+=== 3) 映射完全丢失时，catalog 的行落到哪个 scope ===
+  ✅ 宿主 1 条  = 1
+     映射丢失后：rows=0 unmapped=1 needsAttention=true
+  ✅ 行不被认领（进 unmapped）  = 1
+  ✅ rows=0（不猜归属）  = 0
+  ✅ needsAttention=true  = true
+  ✅ unmapped 行不被删除  = 0
+  ✅ 宿主行仍在  = 1
+
+=== 4) protect 与 scope 的交互 ===
+  ✅ 宿主 2 条  = 2
+     protect p1 + scope=events：removed=[] protected=["p1"]
+  ✅ p1 被保护（未删）  = 2
+  ✅ p1 在 protected 列表  = true
+
+=== 5) upsert 时 fireAtMs 变化 → 「删旧建新」是否正确 ===
+  ✅ 宿主 1 条  = 1
+     改时刻后：created=0 updated=1 removed=0 failed=0
+  ✅ 宿主仍 1 条（不重复）  = 1
+  ✅ 无失败  = 0
+  ✅ 时刻已更新  = 1793837400000
+  ✅ 无重复行  = 1
+
+=== 6) 空 desired + 无 scope：全部删掉 ===
+  ✅ 宿主 5 条  = 5
+  ✅ 全删 removed=5  = 5
+  ✅ 宿主 0 条  = 0
+  ✅ 映射清空  = 0
+
+=== 探针 R5b-12 汇总：PASS ===

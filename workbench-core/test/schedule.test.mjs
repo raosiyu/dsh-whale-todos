@@ -135,7 +135,9 @@ test('提醒：幂等键对 kind/entity/occurrence/offset 敏感', () => {
 })
 
 test('提醒：compileReminder 计算触发时刻与文案', () => {
-  const at = Date.UTC(2026, 10, 5, 9, 0, 0)
+  // 用相对未来的日期：compileReminder 会滤掉 fireAtMs 已过的提醒，
+  // 用固定过去日期会让这个测试随时间翻转（当天 09:45 UTC 后必挂）
+  const at = Date.now() + 3600 * 1000
   const r = compileReminder({
     kind: 'event-start', entityId: 'e1', title: '评审', atMs: at, offsetMinutes: 15,
   })

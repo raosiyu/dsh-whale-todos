@@ -47,7 +47,7 @@ const DEFAULT_MAX_ENTRIES = 500
 const DEFAULT_INDEX_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
 
 /** 空映射的初始形状。 */
-const emptyState = () => ({ version: SCHEMA_VERSION, entries: {}, index: {}, indexScopes: {} })
+const emptyState = () => ({ version: SCHEMA_VERSION, entries: {}, index: {}, indexMeta: {} })
 
 /**
  * @param {{ filePath: string }} options
@@ -113,14 +113,17 @@ export function openHostMap(options) {
         throw storeCorruptError(`宿主映射条目缺 sessionId：${key}`, { filePath, key })
       }
     }
-    const indexScopes = parsed.indexScopes === null || parsed.indexScopes === undefined
-      ? {}
-      : parsed.indexScopes
+    const indexMetaRaw = parsed.indexMeta ?? parsed.indexScopes ?? {}
+    const indexMeta = {}
+    for (const [hostId, v] of Object.entries(indexMetaRaw)) {
+      // 兼容旧格式：indexScopes 存的是字符串 scope
+      indexMeta[hostId] = typeof v === 'string' ? { scope: v, fireAtMs: 0 } : { ...v }
+    }
     state = {
       version: SCHEMA_VERSION,
       entries: { ...entries },
       index: { ...index },
-      indexScopes: { ...indexScopes },
+      indexMeta,
     }
   }
 
@@ -193,11 +196,13 @@ export function openHostMap(options) {
      */
     const cutoff = now() - indexRetentionMs
     for (const [hostId, key] of Object.entries(state.index)) {
-      const fireAt = state.entries[key]?.fireAtMs
-      // 条目已被条数裁剪掉时没有 fireAtMs 可依据 → 保守保留（不冒重复投递的风险）
-      if (fireAt === undefined) continue
+      // fireAtMs 优先从 entries 取（完整条目），缺失时从 indexMeta 取（墓碑路径）
+      const fireAt = state.entries[key]?.fireAtMs ?? state.indexMeta[hostId]?.fireAtMs
+      // 无 fireAtMs 依据时保守保留（不冒重复投递的风险）
+      if (fireAt === undefined || fireAt === 0) continue
       if (fireAt < cutoff) {
         delete state.index[hostId]
+        delete state.indexMeta[hostId]
         delete state.entries[key]
       }
     }
@@ -218,6 +223,11 @@ export function openHostMap(options) {
       // 身份索引保留 hostId → reminderKey；scope 由 put 时写入的
       // indexScopes 维护（这里不重复写：条目被裁时 scope 已经在索引里）。
       state.index[v.hostId] = k
+      // 保留墓碑的 fireAtMs 与 scope（老化需要判龄，scope 过滤需要归属）
+      state.indexMeta[v.hostId] = {
+        scope: v.scope ?? '',
+        fireAtMs: v.fireAtMs ?? 0,
+      }
       delete state.entries[k]
     }
     return drop.map(([k]) => k)
@@ -233,8 +243,9 @@ export function openHostMap(options) {
 
     /** 立即落盘（原子）。关键节点必须调用。 */
     flush() {
+      const was = dirty
       if (dirty) writeNow()
-      return { flushed: dirty }
+      return { flushed: was }
     },
 
     /** 重新从磁盘读取（模拟进程重启）。 */
@@ -283,10 +294,10 @@ export function openHostMap(options) {
       return {
         hostId,
         sessionId: '',
-        fireAtMs: 0,
+        fireAtMs: state.indexMeta?.[hostId]?.fireAtMs ?? 0,
         title: '',
         kind: '',
-        scope: state.indexScopes?.[hostId] ?? '',
+        scope: state.indexMeta?.[hostId]?.scope ?? '',
       }
     },
 
@@ -342,8 +353,10 @@ export function openHostMap(options) {
         }
       }
       state.index[entry.hostId] = entry.reminderKey
-      state.indexScopes = state.indexScopes ?? {}
-      state.indexScopes[entry.hostId] = typeof entry.scope === 'string' ? entry.scope : ''
+      state.indexMeta[entry.hostId] = {
+        scope: typeof entry.scope === 'string' ? entry.scope : '',
+        fireAtMs: entry.fireAtMs ?? 0,
+      }
       state.entries[entry.reminderKey] = {
         hostId: entry.hostId,
         sessionId: entry.sessionId,
@@ -370,7 +383,7 @@ export function openHostMap(options) {
       if (entry !== undefined) {
         delete state.entries[reminderKey]
         if (state.index[entry.hostId] === reminderKey) delete state.index[entry.hostId]
-        if (state.indexScopes?.[entry.hostId] !== undefined) delete state.indexScopes[entry.hostId]
+        if (state.indexMeta?.[entry.hostId] !== undefined) delete state.indexMeta[entry.hostId]
         persist()
         return true
       }
@@ -383,7 +396,7 @@ export function openHostMap(options) {
       for (const [hostId, key] of Object.entries(state.index)) {
         if (key !== reminderKey) continue
         delete state.index[hostId]
-        if (state.indexScopes?.[hostId] !== undefined) delete state.indexScopes[hostId]
+        if (state.indexMeta?.[hostId] !== undefined) delete state.indexMeta[hostId]
         removed = true
       }
       if (removed) persist()
@@ -396,6 +409,7 @@ export function openHostMap(options) {
         if (value.hostId === hostId) {
           delete state.entries[key]
           if (state.index[hostId] === key) delete state.index[hostId]
+          if (state.indexMeta?.[hostId] !== undefined) delete state.indexMeta[hostId]
           persist()
           return key
         }

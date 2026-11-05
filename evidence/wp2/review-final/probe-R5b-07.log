@@ -1,0 +1,56 @@
+=== 1) deny 模式下逐个写路径 ===
+     服务暴露的 op 数: （无 ops 列表）
+     WRITE_OPS 常量: []
+     event.create       → confirmation-required
+     event.update       → confirmation-required
+     event.restore      → confirmation-required
+     event.delete       → confirmation-required
+     event.bulkDelete   → confirmation-required
+     event.import       → confirmation-required
+     task.upsert        → confirmation-required
+     snapshot.replace   → confirmation-required
+     store.rollback     → confirmation-required
+     store.backup       → confirmation-required
+  ✅ 全部 10 个写 op 被拦截  = 10
+     --- 只读 op ---
+     event.list         → ok
+     task.list          → ok
+     store.listBackups  → ok
+
+=== 2) 返回面：svc.store / svc.events 是否只读 ===
+     store: ["listBackups","listPreBackups"]
+     events: ["list","get"]
+  ✅ store 只暴露 listBackups/listPreBackups  = "[\"listBackups\",\"listPreBackups\"]"
+  ✅ events 只暴露 list/get  = "[\"get\",\"list\"]"
+  ✅ store 被冻结  = true
+  ✅ events 被冻结  = true
+
+=== 3) 宿主抛法的可观察出口 ===
+  ✅ D1 create 抛错 → 计入 failed  = 1
+  ✅ D1 create 抛错 → 不中断整轮  = 0
+     D1 reason="host-create-rejected"
+  ✅ D2 create 返回垃圾 → 计入 failed  = 1
+     D2 reason="host-create-invalid-result"
+  ✅ D2b create 返回 null → 计入 failed  = 1
+  ✅ D3 catalog 抛错 → degraded=true  = true
+  ✅ D3 catalog 抛错 → 不删任何东西  = 0
+  ✅ D3 catalog 抛错 → 不建任何东西  = 0
+     D4 delete 抛错 → failed=0 removed=0
+  ✅ D4 delete 抛错有可观察出口  failed=0
+  ✅ D5 history 抛错 → UNKNOWN  = 1
+  ✅ D5 history 抛错 → 宿主提醒保留  = 1
+  ✅ D5 history 抛错 → 不重建  = 0
+  ✅ D6 catalog 返回非数组 → degraded  = true
+  ✅ D6 catalog 返回非数组 → 不删  = 0
+     D7 delete 返回 {deleted:false} → failed=0
+  ✅ D7 delete 失败有可观察出口  failed=0
+     D8 delete 返回 not_found → removed=0 failed=0
+  ✅ D8 not_found 有可观察出口  removed=0 failed=0
+
+=== 4) 静默吞检查：catalog 失败时是否仍删 ===
+  ✅ 先建 1 条  = 1
+  ✅ catalog 挂掉 → 不删  = 0
+  ✅ catalog 挂掉 → degraded  = true
+  ✅ catalog 挂掉 → 宿主那条还在  = 1
+
+=== 探针 R5b-07 汇总：PASS ===

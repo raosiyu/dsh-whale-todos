@@ -1,0 +1,32 @@
+=== 1) flush() 的返回值语义 ===
+  ✅ 刚打开：dirty=false  = false
+  ✅ put 后 dirty=true  = true
+     flush() 返回 = {"flushed":false}
+  ❌ flush() 返回值不能反映「是否真的落盘」  got {"flushed":false} want {"flushed":true}
+  ✅ flush 后 dirty=false  = false
+     第二次 flush() 返回 = {"flushed":false}
+  ✅ 第二次 flush 无事可做  flushed=false
+
+=== 2) 真实 upsert 路径的写放大（O(N²) 是否真的消失）===
+     N=500: upsert 路径耗时=2412ms  文件=116923 字节
+     N=1000: upsert 路径耗时=5209ms  文件=234426 字节
+     N=2000: upsert 路径耗时=11381ms  文件=475426 字节
+  ❌ 真实 upsert 路径仍是 O(N²)（2000 条 >10s）  11381ms
+     缩放比（1000/500 的耗时比）= 2.16（线性≈2，平方≈4）
+  ✅ upsert 路径接近线性  ratio=2.16
+
+=== 3) 直接调 hostMap.put 的耗时（脏标记的收益）===
+     2000 次 put（无落盘）=482ms，1 次 flush=4ms
+  ✅ hostMap.put 不再每次全量写  482ms
+
+=== 4) createLocks 的内存增长（每不同 key 留一条 promise，永不清理）===
+     20000 个不同 key：耗时=429766ms  heapUsed 23.1 → 72.0 MB (+48.9 MB)
+     每 key 约 2562 字节
+  ❌ 每 key 内存开销异常大（锁表泄漏）  2562 字节/key
+
+=== 5) 老化：墓碑（无 fireAtMs）会不会被清掉 ===
+  ✅ 5 条 / maxEntries=3 → 2 个墓碑  = 2
+     400 天后：entries=1 index=3 墓碑=2
+  ❌ 墓碑身份永不被时间老化 → index 仍无上限  存活墓碑 2 个
+
+=== 探针 R5b-08 汇总：FAIL（4 项） ===

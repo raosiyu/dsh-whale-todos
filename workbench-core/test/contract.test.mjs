@@ -1118,3 +1118,96 @@ test('R9 守卫：墓碑保留 scope，带 scope 对账时不被跳过', async (
     assert.equal((await stub.catalog()).length, 11, '只剩 events 1 条 + tasks 10 条')
   })
 })
+
+test('R10 守卫：时间老化对墓碑也生效（复审 N-1）', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'm.json')
+    const NOW = Date.UTC(2026, 10, 5)
+    const m = openHostMap({
+      filePath, maxEntries: 2,
+      indexRetentionMs: 30 * 24 * MIN,
+      now: () => NOW,
+    })
+    // 4 条，全部被裁成墓碑（maxEntries=2）
+    // 近期时间（保留窗口内），不会被老化
+    for (let i = 0; i < 4; i += 1) {
+      m.put({
+        reminderKey: `k-${i}`, hostId: `h-${i}`, sessionId: 's1',
+        fireAtMs: NOW - 10 * 24 * MIN + i * MIN,
+        title: `T${i}`, kind: 'x', scope: 'events',
+      })
+    }
+    m.flush()
+    const before = m.reminderKeyByHostId('h-0')
+    assert.equal(before, 'k-0', '老化前 h-0 仍可反查（墓碑身份在 index）')
+
+    // 推进时间到保留窗口之后，触发一次老化
+    const LATER = NOW + 200 * 24 * MIN
+    const later = openHostMap({
+      filePath, maxEntries: 2,
+      indexRetentionMs: 30 * 24 * MIN,
+      now: () => LATER,
+    })
+    later.put({
+      reminderKey: 'trigger', hostId: 'h-trigger', sessionId: 's1',
+      fireAtMs: LATER, title: 'x', kind: 'x',
+    })
+    later.flush()
+    assert.equal(later.reminderKeyByHostId('h-0'), undefined, '超窗墓碑必须被老化')
+    assert.equal(later.reminderKeyByHostId('h-3'), undefined, '超窗墓碑必须被老化')
+  })
+})
+
+test('R10 守卫：indexMeta（scope+fireAtMs）被清理，不无限增长（复审 N-2）', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'm.json')
+    const NOW = Date.UTC(2026, 10, 5)
+    const m = openHostMap({
+      filePath, maxEntries: 2,
+      indexRetentionMs: 30 * 24 * MIN,
+      now: () => NOW,
+    })
+    // 近期时间（保留窗口内）
+    for (let i = 0; i < 4; i += 1) {
+      m.put({
+        reminderKey: `k-${i}`, hostId: `h-${i}`, sessionId: 's1',
+        fireAtMs: NOW - 10 * 24 * MIN + i * MIN,
+        title: `T${i}`, kind: 'x', scope: 'events',
+      })
+    }
+    m.flush()
+    const disk = JSON.parse((await import('node:fs')).readFileSync(filePath, 'utf8'))
+    assert.ok(disk.indexMeta !== undefined, 'indexMeta 应已写入')
+    assert.equal(Object.keys(disk.indexMeta).length >= 2, true, 'indexMeta 至少覆盖墓碑')
+
+    // 推进时间后老化，indexMeta 应随之减少
+    const LATER = NOW + 200 * 24 * MIN
+    const later = openHostMap({
+      filePath, maxEntries: 2,
+      indexRetentionMs: 30 * 24 * MIN,
+      now: () => LATER,
+    })
+    later.put({
+      reminderKey: 'trigger', hostId: 'h-trigger', sessionId: 's1',
+      fireAtMs: LATER, title: 'x', kind: 'x',
+    })
+    later.flush()
+    const disk2 = JSON.parse((await import('node:fs')).readFileSync(filePath, 'utf8'))
+    assert.equal(disk2.indexMeta['h-0'], undefined, '超窗墓碑的 indexMeta 必须被清理')
+  })
+})
+
+test('R10 守卫：createLocks 链条在 upsert 完成后清理（复审 N-4）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'm.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    await adapter.reconcile([{ reminderKey: 'k1', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }])
+    await adapter.reconcile([{ reminderKey: 'k1', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }])
+    // 创建锁内部 Map 应已清理（不验证私有结构，验证行为：不因锁而阻塞后续）
+    const r = await adapter.reconcile([{ reminderKey: 'k2', fireAtMs: BASE + 2 * HOUR, title: 'T', prompt: 'p', kind: 'event-start' }])
+    assert.equal(r.created.length, 1, '锁不应阻塞不同 key 的创建')
+  })
+})

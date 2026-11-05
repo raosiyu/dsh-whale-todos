@@ -1,0 +1,29 @@
+=== A) 直接单测 openHostMap 的老化行为 ===
+     刚写入：entries=1 index=1
+  ❌ 三条都在 entries  got 1 want 3
+     400 天后：entries=1 index=1
+     存活 entries: ["trigger"]
+     存活 index:   ["h-trig->trigger"]
+  ✅ 过期提醒的身份被老化掉  存活=["trigger"]
+  ❌ 近期提醒的身份被误删  存活=["trigger"]
+
+=== B) 墓碑（无 fireAtMs）会不会被老化 ===
+     5 条后：entries=3 index=5
+     墓碑: ["h-0->t-0","h-1->t-1"]
+  ✅ 有 2 个墓碑  = 2
+     400 天后：entries=1 index=3 存活墓碑=["h-0->t-0","h-1->t-1"]
+  ❌ 墓碑身份永不被时间老化（index 仍无上限）  存活墓碑 2 个：["h-0->t-0","h-1->t-1"]
+
+=== C) index 体积：只算身份索引（每条多少字节）===
+     5000 条后：entries=500 index=5000 文件=396247 字节
+     index 自身 JSON 体积 = 117781 字节 → 每条 23.6 字节
+  ✅ 每条身份字节数  23.6 B/条（声称 ~27）
+
+=== D) 长期运行：desired 单调增长时 index 是否收敛 ===
+     轮 1（累计 500）：created=500 failed=0 entries=500 index=500 文件=116923 字节
+     轮 2（累计 1000）：created=500 failed=0 entries=500 index=500 文件=117580 字节
+     轮 3（累计 1500）：created=500 failed=0 entries=500 index=500 文件=120577 字节
+     轮 4（累计 2000）：created=500 failed=0 entries=500 index=500 文件=120577 字节
+  ✅ index 在合理范围  index=500
+
+=== 探针 R5b-05 汇总：FAIL（3 项） ===

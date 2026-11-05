@@ -1,0 +1,46 @@
+=== A) 20 个并发 reconcile（同一批 30 条 key）→ 宿主必须恰好 30 条 ===
+     轮 1: 宿主行=30 重复=0 累计created=30 failed=0
+  ✅   轮 1：宿主恰好 30 条（无重复投递）  = 30
+  ✅   轮 1：无重复 title  = 0
+  ✅   轮 1：无失败  = 0
+     轮 2: 宿主行=30 重复=0 累计created=30 failed=0
+  ✅   轮 2：宿主恰好 30 条（无重复投递）  = 30
+  ✅   轮 2：无重复 title  = 0
+  ✅   轮 2：无失败  = 0
+     轮 3: 宿主行=30 重复=0 累计created=30 failed=0
+  ✅   轮 3：宿主恰好 30 条（无重复投递）  = 30
+  ✅   轮 3：无重复 title  = 0
+  ✅   轮 3：无失败  = 0
+     轮 4: 宿主行=30 重复=0 累计created=30 failed=0
+  ✅   轮 4：宿主恰好 30 条（无重复投递）  = 30
+  ✅   轮 4：无重复 title  = 0
+  ✅   轮 4：无失败  = 0
+     轮 5: 宿主行=30 重复=0 累计created=30 failed=0
+  ✅   轮 5：宿主恰好 30 条（无重复投递）  = 30
+  ✅   轮 5：无重复 title  = 0
+  ✅   轮 5：无失败  = 0
+
+=== A2) 20 个并发 reconcile，各自 desired 部分重叠 ===
+     宿主行=30 重复=0
+  ✅ 共享 key 只建一次（宿主 30 条）  = 30
+  ✅ 无重复  = 0
+
+=== B) 不同 key 并发应仍并行（不互相阻塞）===
+     10 个不同 key 的 reconcile 总耗时=85ms  期间最大并发 catalog=10
+  ✅ 宿主侧 10 条  = 10
+  ✅ 不同 key 并行执行（未串成一条链）  maxInflight=10
+
+=== C) 同一 key 多次并发 upsert + 中途删除 ===
+     30 次并发同一 key: 宿主行=1 累计created=1
+  ✅ 宿主恰好 1 条  = 1
+  ✅ created 累计为 1  = 1
+     并发 delete+upsert: settled=fulfilled,fulfilled 宿主行=1
+  ✅ 并发 delete+upsert 未死锁（Promise 全部 settle）  fulfilled,fulfilled
+  ✅ 并发 delete+upsert 无重复行  宿主行=1
+
+=== D) upsert 锁的 promise 链是否泄漏 ===
+     （堆快照未直接定位到 createLocks，改用行为代理）
+  ✅ 200 次串行对账后宿主仍 1 条  = 1
+  ✅ heapUsed  4.8 MB
+
+=== 探针 R5b-02 汇总：PASS ===
