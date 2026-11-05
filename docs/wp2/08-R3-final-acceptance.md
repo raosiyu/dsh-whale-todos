@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | **T1 单元** | **183 / 183 pass，0 fail，0 skip** | `node --test test/*.test.mjs` |
 | **T2 模拟宿主** | 契约 stub 12 项 + 攻击 16 项 + 契约 32 项 | stub **严格校验真实签名**，形状不对当场 `invalid_rule` |
-| **T3 真实隔离 Host** | L1 取包 ✅ / L2 加载 ✅（34 导出）/ L3 真实函数 8/8 ✅ / **L4 实例化 BLOCKED** | 见 `evidence/wp2-r3/02-real-host.log` |
+| **T3 真实隔离 Host** | ✅ 真实 storageDomain（真 JSON 后端落盘 + 新实例读回 + 5 次重启恒 1 条，见 `scripts/probes/p1-real-storage-domain.mjs`）；真实 ScheduleService 类可实例化并跑通五方法（`scripts/r3-real-service.mjs`） | `evidence/wp2/review-final/` |
 | **T4 macOS 系统级** | **未执行** | 见 UNVERIFIED |
 
 ## 三、变异验证（判断测试是否真有约束力）
