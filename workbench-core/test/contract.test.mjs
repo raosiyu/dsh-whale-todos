@@ -379,6 +379,7 @@ test('hostMap：持久化并在重启后恢复映射', async () => {
     const m1 = openHostMap({ filePath })
     m1.put({ reminderKey: 'k1', hostId: 'h1', sessionId: 's1', fireAtMs: 123, title: 't', kind: 'event-start' })
     assert.equal(m1.size, 1)
+    m1.flush()   // 持久化契约：put 只置脏，flush 才落盘
 
     // 模拟重启
     const m2 = openHostMap({ filePath })
@@ -566,6 +567,7 @@ test('R3-1：裁剪后重启读回仍不超限', async () => {
       m1.put({ reminderKey: `k-${i}`, hostId: `h-${i}`, sessionId: 's1', fireAtMs: BASE + i * MIN, title: 't', kind: 'x' })
     }
     assert.equal(m1.size, 3)
+    m1.flush()
 
     const m2 = openHostMap({ filePath, maxEntries: 3 })
     assert.equal(m2.size, 3, '重启后仍为 3 条')
@@ -846,6 +848,8 @@ test('R5-1 守卫：映射被裁剪后再次对账不得重复创建（P3 探针
     const first = await adapter.reconcile(plans)
     assert.equal(first.created.length, 30)
     assert.equal((await stub.catalog()).length, 30)
+    // 适配器在 upsert 后会立即 flush 身份；这里显式确认落盘语义
+    hostMap.flush()
 
     // 第二次对账：被裁掉的条目仍应被复用，不能再建一份
     const second = await adapter.reconcile(plans)
@@ -869,6 +873,7 @@ test('R5-2 守卫：条目上限生效，但身份索引保留认领能力', asy
         kind: 'event-start',
       })
     }
+    hostMap.flush()
     assert.equal(hostMap.size, 10, '条目数受 maxEntries 限制')
     // 身份索引仍能反查被裁掉的条目
     assert.equal(hostMap.reminderKeyByHostId('h-0'), 'k-0', '被裁掉的条目仍可按 hostId 找回身份')
@@ -900,5 +905,54 @@ test('R5-3 守卫：history 返回非法形状时判 UNKNOWN，不得重建（P2
     assert.equal(out.restored.length, 0, '不得重建')
     assert.equal(out.unknown.length, 1)
     assert.equal((await stub.catalog()).length, 1, '宿主提醒原样保留')
+  })
+})
+
+test('N-02 判据表：earlierRecordsUnavailable 缺失时视为"确认未投递"', async () => {
+  // 真实宿主的 deliveryHistory.records 为空且 earlierRecordsUnavailable 为 false，
+  // 语义就是「从未投递」→ 应当重建（否则用户收不到提醒）。
+  // 只有 earlierRecordsUnavailable=true（回执被 retention 裁剪）才是 UNKNOWN。
+  const cases = [
+    ['records=[] 且 earlier 缺失', { records: [] }, 'REBUILT'],
+    ['records=[] 且 earlier=false', { records: [], earlierRecordsUnavailable: false }, 'REBUILT'],
+    ['records=[] 且 earlier=true（被裁剪）', { records: [], earlierRecordsUnavailable: true }, 'UNKNOWN'],
+    ['records 有值', { records: [{ scheduledAt: 'a', deliveredAt: 'b', messageId: 'm' }] }, 'DELIVERED'],
+  ]
+  for (const [label, ret, expected] of cases) {
+    await withTmp(async (dir) => {
+      const stub = createContractStub({ now: () => BASE })
+      const hostMap = openHostMap({ filePath: join(dir, 'm.json') })
+      const adapter = createScheduleAdapter({
+        backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+      })
+      const plan = { reminderKey: 'k', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }
+      await adapter.reconcile([plan])
+      stub.history = async () => ret
+
+      const rec = createReminderRecovery({ adapter, now: () => BASE + HOUR + 30000, graceMs: MIN })
+      const out = await rec.recover([plan], { scenario: 'restart', atMs: BASE + HOUR + 30000 })
+      const actual = out.alreadyDelivered.length > 0 ? 'DELIVERED'
+        : out.unknown.length > 0 ? 'UNKNOWN'
+        : out.restored.length > 0 ? 'REBUILT' : 'NONE'
+      assert.equal(actual, expected, `${label} 判据应为 ${expected}`)
+    })
+  }
+})
+
+test('R6 契约：put 只置脏，flush 才落盘（持久化时机是显式的）', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'm.json')
+    const m1 = openHostMap({ filePath })
+    m1.put({ reminderKey: 'k1', hostId: 'h1', sessionId: 's1', fireAtMs: 1, title: 't', kind: 'x' })
+    assert.equal(m1.dirty, true, 'put 后应处于 dirty 状态')
+
+    // 未 flush：新实例读不到
+    const before = openHostMap({ filePath })
+    assert.equal(before.size, 0, '未 flush 不应落盘')
+
+    m1.flush()
+    assert.equal(m1.dirty, false, 'flush 后应已落盘')
+    const after = openHostMap({ filePath })
+    assert.equal(after.size, 1, 'flush 后应能读回')
   })
 })

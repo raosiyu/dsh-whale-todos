@@ -1,0 +1,38 @@
+=== WP2R5-Final 探针 01：N-17 攻击矩阵（投递状态判定 × 宿主提醒存亡）===
+
+  ✅ history 抛错（宿主读不到投递状态） → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 抛带 code 的错 → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 返回非法形状（字符串） → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 返回数组 → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 返回 null → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 返回 undefined → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 返回 {}（无 records 无 earlier） → REBUILT（确认未投递，重建是正确行为）  state=REBUILT host=["schedule-2/active"] removed=[] restored=["k"]
+  ✅ history 返回 {records:[]} 但无 earlier 字段 → REBUILT（确认未投递，重建是正确行为）  state=REBUILT host=["schedule-2/active"] removed=[] restored=["k"]
+  ✅ history 返回 {records:[], earlierRecordsUnavailable:false} → REBUILT（确认未投递，重建是正确行为）  state=REBUILT host=["schedule-2/active"] removed=[] restored=["k"]
+  ✅ history 返回 {records:[], earlierRecordsUnavailable:true}（回执被裁剪） → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 返回 {records:[非数组], earlier:true} → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 返回 {records:null, earlier:true} → UNKNOWN，不重建不删除  state=UNKNOWN host=["schedule-1/active"] removed=[] restored=[]
+  ✅ history 返回 {code:schedule_not_found} → REBUILT（确认未投递，重建是正确行为）  state=REBUILT host=["schedule-2/active"] removed=[] restored=["k"]
+  ❌ history 返回 {records:[回执]}（已投递）：已投递的提醒被删  state=DELIVERED host=[] removed=["k"] restored=[]
+  ❌ history 返回 {records:[回执], earlier:true}：已投递的提醒被删  state=DELIVERED host=[] removed=["k"] restored=[]
+  ✅ history 返回 {status:unavailable} → REBUILT（确认未投递，重建是正确行为）  state=REBUILT host=["schedule-2/active"] removed=[] restored=["k"]
+
+=== 判据表 ===
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 抛错（宿主读不到投递状态）
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 抛带 code 的错
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 返回非法形状（字符串）
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 返回数组
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 返回 null
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 返回 undefined
+REBUILT   | 宿主保留=Y | 未重建=N | history 返回 {}（无 records 无 earlier）
+REBUILT   | 宿主保留=Y | 未重建=N | history 返回 {records:[]} 但无 earlier 字段
+REBUILT   | 宿主保留=Y | 未重建=N | history 返回 {records:[], earlierRecordsUnavailable:false}
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 返回 {records:[], earlierRecordsUnavailable:true}（回执被裁剪）
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 返回 {records:[非数组], earlier:true}
+UNKNOWN   | 宿主保留=Y | 未重建=Y | history 返回 {records:null, earlier:true}
+REBUILT   | 宿主保留=Y | 未重建=N | history 返回 {code:schedule_not_found}
+DELIVERED | 宿主保留=N | 未重建=Y | history 返回 {records:[回执]}（已投递）
+DELIVERED | 宿主保留=N | 未重建=Y | history 返回 {records:[回执], earlier:true}
+REBUILT   | 宿主保留=Y | 未重建=N | history 返回 {status:unavailable}
+
+=== 探针 01 汇总：FAIL（2 项） ===

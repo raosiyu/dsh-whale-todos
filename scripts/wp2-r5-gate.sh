@@ -7,21 +7,21 @@ set -u
 cd "$(dirname "$0")/.."
 
 LOG=evidence/wp2/review-final
-mkdir -p "$LOG"
+mkdir -p "${LOG}"
 FAIL=0
 PASSED=0
 
 step() {
-  local name="$1"; shift
+  local step_name="$1"; shift
   echo ""
-  echo "=== $name ==="
-  if "$@" > "$LOG/$name.log" 2>&1; then
-    tail -3 "$LOG/$name.log"
-    echo "  ✅ $name"
+  echo "=== ${step_name} ==="
+  if "$@" > "${LOG}/${step_name}.log" 2>&1; then
+    tail -3 "${LOG}/${step_name}.log"
+    echo "  ✅ ${step_name}"
     PASSED=$((PASSED + 1))
   else
-    echo "  ❌ $name（详见 $LOG/$name.log）"
-    tail -20 "$LOG/$name.log"
+    echo "  ❌ ${step_name}（详见 ${LOG}/${step_name}.log）"
+    tail -20 "${LOG}/${step_name}.log"
     FAIL=$((FAIL + 1))
   fi
 }
@@ -36,12 +36,12 @@ step "probe-protect"      node scripts/probes/p2-protect.mjs
 step "probe-retention"    node scripts/probes/p3-retention.mjs
 step "real-service-l4"    node scripts/r3-real-service.mjs
 step "acceptance-8"       node scripts/r3-acceptance.mjs
-step "mutations"          node scripts/r3-mutate.mjs "$LOG/mutation.log"
+step "mutations"          node scripts/r3-mutate.mjs "${LOG}/mutation.log"
 
 echo ""
 echo "=== 门禁汇总 ==="
 echo "通过 $PASSED 项，失败 $FAIL 项"
-echo "日志目录：$LOG"
+echo "日志目录：${LOG}"
 if [ "$FAIL" -gt 0 ]; then
   echo "RESULT: FAIL"
   exit 1

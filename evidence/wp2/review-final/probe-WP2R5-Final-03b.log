@@ -1,0 +1,5 @@
+建完 2000: host= 2000 entries= 500
+第 1 轮 1000 条: created= 1000 updated= 0 removed= 250 failed= []
+  host= 2750 entries= 250
+  磁盘: entries= 250 index= 2750
+  failed 原因分布: {}

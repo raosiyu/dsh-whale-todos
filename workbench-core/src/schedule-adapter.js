@@ -250,13 +250,19 @@ export function createHostBackend(hostSchedule, options) {
        * （不能猜归属），但至少不再无声无息。
        */
       const unmapped = []
+      // **一次性建表**做身份反查：逐行调用 reminderKeyByHostId 会退化成
+      // O(宿主行 × 映射条目)（实测 2000 条时对账耗时不可接受）。
+      const lookup = typeof hostMap.hostIdLookup === 'function'
+        ? hostMap.hostIdLookup()
+        : null
       for (const row of mine) {
         // 身份反查：条目可能被裁剪，但身份索引仍在 → 仍能认出宿主上的行，
         // 因此不会因为裁剪而重复创建（P3 探针发现的缺陷）。
-        // 用 Map 索引避免 O(宿主 × 映射) 的线性查找（600 条时是 O(n²)，会拖垮对账）。
-        const reminderKey = typeof hostMap.reminderKeyByHostId === 'function'
-          ? hostMap.reminderKeyByHostId(row.id)
-          : undefined
+        const reminderKey = lookup !== null
+          ? lookup.get(row.id)
+          : (typeof hostMap.reminderKeyByHostId === 'function'
+            ? hostMap.reminderKeyByHostId(row.id)
+            : undefined)
         if (reminderKey === undefined) {
           unmapped.push({ id: row.id, scheduledAt: row.scheduledAt, title: row.title })
           continue
@@ -358,6 +364,12 @@ export function createHostBackend(hostSchedule, options) {
         kind: record.kind ?? 'unknown',
         scope: typeof record.scope === 'string' ? record.scope : '',
       })
+      /**
+       * 身份必须**立刻落盘**：若这里崩了而身份没写下去，重启后
+       * 认不出宿主上这条 → 重建 → 用户收到两次。
+       * 这条路径低频（每条提醒一次），全量写可接受。
+       */
+      if (typeof hostMap.flush === 'function') hostMap.flush()
       return { ok: true, reminderKey: record.reminderKey, hostId: created.id }
     },
 
@@ -367,11 +379,13 @@ export function createHostBackend(hostSchedule, options) {
       const res = await hostSchedule.delete({ id: mapped.hostId, sessionId })
       if (res?.deleted === true) {
         hostMap.remove(reminderKey)
+        if (typeof hostMap.flush === 'function') hostMap.flush()
         return { ok: true }
       }
       if (res?.code === 'schedule_not_found') {
         // 宿主侧已不存在：清本地映射，视作已删除
         hostMap.remove(reminderKey)
+        if (typeof hostMap.flush === 'function') hostMap.flush()
         return { ok: true, alreadyGone: true }
       }
       return { ok: false, reason: 'delete-failed', result: res }

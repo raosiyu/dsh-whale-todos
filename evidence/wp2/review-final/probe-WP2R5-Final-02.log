@@ -1,0 +1,13 @@
+=== WP2R5-Final 探针 02：真实 storageDomain 独立复现（用插件自己的 apply）===
+
+存储根目录: /var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/r5p2-2Km0vE
+  ✅ 真实 Host 组装成功（storage + storage-json + storage-domain 三插件 apply）
+  ✅ 真实 scheduleDomain 打开成功（ctx.storage.domain.open）
+  ✅ 真实 domain 写入 1 条 tasks  schedule-r5p2
+  ✅ 真实落盘（存储根目录非空）  schedule.json
+    落盘体积: 555 字节
+  ✅ 新实例从真实 JSON 后端读回 1 条  schedule-r5p2
+  ✅ 5 次「重启」后真实 storageDomain 里只有 1 条提醒  id=schedule-r5p2-1
+  ✅ hostMap 真实落盘  291 字节
+
+=== 探针 02 汇总：PASS ===

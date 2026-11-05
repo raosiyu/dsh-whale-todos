@@ -103,7 +103,19 @@ export function openHostMap(options) {
     state = { version: SCHEMA_VERSION, entries: { ...entries }, index: { ...index } }
   }
 
-  const persist = () => {
+  /**
+   * 落盘。**原子**：临时文件 + fsync + rename，避免半截文件。
+   *
+   * 性能：每次 put 都全量写会让 N 次写入变成 O(N²) 的 I/O
+   * （实测 2000 条写入耗时 8.8 秒）。因此改为**脏标记 + 显式 flush**：
+   * put 只改内存并置脏，flush 时才落盘。
+   *
+   * 崩溃安全由调用方保证：关键节点（reconcile 结束、进程退出）必须 flush；
+   * 未 flush 的改动会丢——但**身份索引丢了会导致重复投递**，
+   * 所以 flush 的时机由调用方显式决定，不做隐式后台落盘。
+   */
+  let dirty = false
+  const writeNow = () => {
     const dir = dirname(filePath)
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     const tmp = join(dir, `.${Date.now()}-${Math.random().toString(36).slice(2)}.hostmap.tmp`)
@@ -117,7 +129,9 @@ export function openHostMap(options) {
       closeSync(fd)
     }
     renameSync(tmp, filePath)
+    dirty = false
   }
+  const persist = () => { dirty = true }
 
   /**
    * 按 `fireAtMs` 保留最近 maxEntries 条；只动本地映射。
@@ -154,17 +168,57 @@ export function openHostMap(options) {
       state.index[v.hostId] = k
       delete state.entries[k]
     }
+    /**
+     * **index 刻意不封顶**。
+     *
+     * 我试过封顶（实测 2000 条时 index 被裁掉 1500 条 → 第二次对账
+     * **重复创建 1500 条**，宿主侧 2000 → 3500）。
+     *
+     * 体积增长是渐进的（每条约 46 字节），而重复投递是**用户可见的严重故障**。
+     * 这个取舍没有第二种正确解法：要么身份齐全（体积线性增长），
+     * 要么丢身份（重复投递）。**正确性优先**。
+     *
+     * 体积控制改由「条目封顶」承担：entries 里每条含 title/prompt/scope 等
+     * 大字段，而 index 只有 hostId→reminderKey 的短键，体积小一个量级。
+     */
     return drop.map(([k]) => k)
   }
 
   load()
 
   return {
+    /** 是否有未落盘的改动。 */
+    get dirty() {
+      return dirty
+    },
+
+    /** 立即落盘（原子）。关键节点必须调用。 */
+    flush() {
+      if (dirty) writeNow()
+      return { flushed: dirty }
+    },
+
     /** 重新从磁盘读取（模拟进程重启）。 */
     reload: load,
 
     /**
-     * 按 hostId 反查 reminderKey。
+     * 批量建立 hostId → reminderKey 的查找表。
+     *
+     * **性能要点**：`catalog()` 要对宿主侧每一行做一次身份反查。若每次都调
+     * `reminderKeyByHostId`（其回退路径要遍历 entries），整体就是 O(宿主行 × 映射条目)。
+     * 实测 2000 条时对账耗时不可接受。改为**一次性建表**后是 O(1) 查表。
+     */
+    hostIdLookup() {
+      const table = new Map()
+      for (const [hostId, key] of Object.entries(state.index)) table.set(hostId, key)
+      for (const [key, value] of Object.entries(state.entries)) {
+        if (!table.has(value.hostId)) table.set(value.hostId, key)
+      }
+      return table
+    },
+
+    /**
+     * 按 hostId 反查 reminderKey（单查用；批量请用 hostIdLookup）。
      *
      * 裁剪后完整条目可能已被移除，但身份索引仍在 → 仍能认出宿主上的行，
      * 因此不会重复创建（第三轮探针 P3 发现的缺陷）。

@@ -211,9 +211,16 @@
   },
   {
     "id": "X24",
-    "name": "catalog 不用身份索引（退回线性查找+认不出）",
+    "name": "catalog 不用身份索引（认不出宿主行 → 重复创建）",
     "file": "workbench-core/src/schedule-adapter.js",
-    "from": "        const reminderKey = typeof hostMap.reminderKeyByHostId === 'function'\n          ? hostMap.reminderKeyByHostId(row.id)\n          : undefined",
+    "from": "        const reminderKey = lookup !== null\n          ? lookup.get(row.id)\n          : (typeof hostMap.reminderKeyByHostId === 'function'\n            ? hostMap.reminderKeyByHostId(row.id)\n            : undefined)",
     "to": "        const reminderKey = undefined"
+  },
+  {
+    "id": "X25",
+    "name": "N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "    if (records.length === 0 && res.earlierRecordsUnavailable === true) {\n      return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-pruned' }\n    }",
+    "to": ""
   }
 ]
