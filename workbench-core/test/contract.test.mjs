@@ -737,3 +737,40 @@ test('X6 守卫：degraded 时确实"不建也不删"（不是"盲目建"）', a
     assert.equal((await stub.catalog()).length, 1, '原有提醒仍在')
   })
 })
+
+test('N-02 完整判据表：四种输入各自独立环境，结果必须互不相同', async () => {
+  // 每一格独立环境——上一版把四例塞进同一 stub，前一例污染后一例，导致两次误报
+  const runOne = async (historyRet) => {
+    const dir = mkdtempSync(join(tmpdir(), 'n02-matrix-'))
+    try {
+      const stub = createContractStub({ now: () => BASE })
+      const hostMap = openHostMap({ filePath: join(dir, 'm.json') })
+      const adapter = createScheduleAdapter({
+        backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+      })
+      await adapter.reconcile([{ reminderKey: 'k', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }])
+      stub.history = async () => historyRet
+      const rec = createReminderRecovery({ adapter, now: () => BASE + HOUR + 30000, graceMs: MIN })
+      const out = await rec.recover(
+        [{ reminderKey: 'k', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p' }],
+        { scenario: 'restart', atMs: BASE + HOUR + 30000 },
+      )
+      if (out.alreadyDelivered.length > 0) return 'DELIVERED'
+      if (out.unknown.length > 0) return 'UNKNOWN'
+      if (out.restored.length > 0) return 'REBUILT'
+      return 'NONE'
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
+  const receipt = { scheduledAt: 'x', deliveredAt: 'y', messageId: 'm' }
+  assert.equal(await runOne({ records: [], earlierRecordsUnavailable: false }), 'REBUILT',
+    '真未投递必须重建，否则漏提醒')
+  assert.equal(await runOne({ records: [receipt], earlierRecordsUnavailable: false }), 'DELIVERED',
+    '有回执必须判已投递')
+  assert.equal(await runOne({ records: [], earlierRecordsUnavailable: true }), 'UNKNOWN',
+    '回执被 retention 裁剪必须判 UNKNOWN，否则二次投递')
+  assert.equal(await runOne({ records: [receipt], earlierRecordsUnavailable: true }), 'DELIVERED',
+    '有回执时以回执为准')
+})
