@@ -47,7 +47,7 @@ const DEFAULT_MAX_ENTRIES = 500
 const DEFAULT_INDEX_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
 
 /** 空映射的初始形状。 */
-const emptyState = () => ({ version: SCHEMA_VERSION, entries: {}, index: {} })
+const emptyState = () => ({ version: SCHEMA_VERSION, entries: {}, index: {}, indexScopes: {} })
 
 /**
  * @param {{ filePath: string }} options
@@ -113,7 +113,15 @@ export function openHostMap(options) {
         throw storeCorruptError(`宿主映射条目缺 sessionId：${key}`, { filePath, key })
       }
     }
-    state = { version: SCHEMA_VERSION, entries: { ...entries }, index: { ...index } }
+    const indexScopes = parsed.indexScopes === null || parsed.indexScopes === undefined
+      ? {}
+      : parsed.indexScopes
+    state = {
+      version: SCHEMA_VERSION,
+      entries: { ...entries },
+      index: { ...index },
+      indexScopes: { ...indexScopes },
+    }
   }
 
   /**
@@ -207,6 +215,8 @@ export function openHostMap(options) {
       // 关键：**条目**移出 entries（条目数因此受 maxEntries 限制），
       // 但**身份**（hostId ↔ reminderKey）留在 index 里，体积很小。
       // 这样裁剪既控制住了体积与条目数，又不会因「认不出宿主上的行」而重复创建。
+      // 身份索引保留 hostId → reminderKey；scope 由 put 时写入的
+      // indexScopes 维护（这里不重复写：条目被裁时 scope 已经在索引里）。
       state.index[v.hostId] = k
       delete state.entries[k]
     }
@@ -244,6 +254,40 @@ export function openHostMap(options) {
         if (!table.has(value.hostId)) table.set(value.hostId, key)
       }
       return table
+    },
+
+    /**
+     * 按 reminderKey 取 **hostId**。
+     *
+     * 条目被条数上限裁掉后（成了「墓碑」），完整条目不在 entries 里，
+     * 但身份索引仍在 → 仍能拿到 hostId，**否则用户取消的提醒永远删不掉**
+     * （复审 B-1：宿主留下幽灵提醒继续响）。
+     */
+    hostIdOf(reminderKey) {
+      const entry = state.entries[reminderKey]
+      if (entry !== undefined) return entry.hostId
+      for (const [hostId, key] of Object.entries(state.index)) {
+        if (key === reminderKey) return hostId
+      }
+      return undefined
+    },
+
+    /**
+     * 取映射条目的关键字段（含 scope），条目缺失时回退到身份索引可得的最小信息。
+     */
+    describe(reminderKey) {
+      const entry = state.entries[reminderKey]
+      if (entry !== undefined) return { ...entry }
+      const hostId = this.hostIdOf(reminderKey)
+      if (hostId === undefined) return undefined
+      return {
+        hostId,
+        sessionId: '',
+        fireAtMs: 0,
+        title: '',
+        kind: '',
+        scope: state.indexScopes?.[hostId] ?? '',
+      }
     },
 
     /**
@@ -298,6 +342,8 @@ export function openHostMap(options) {
         }
       }
       state.index[entry.hostId] = entry.reminderKey
+      state.indexScopes = state.indexScopes ?? {}
+      state.indexScopes[entry.hostId] = typeof entry.scope === 'string' ? entry.scope : ''
       state.entries[entry.reminderKey] = {
         hostId: entry.hostId,
         sessionId: entry.sessionId,
@@ -321,11 +367,27 @@ export function openHostMap(options) {
     /** 删除一条映射；不存在返回 false。 */
     remove(reminderKey) {
       const entry = state.entries[reminderKey]
-      if (entry === undefined) return false
-      delete state.entries[reminderKey]
-      if (state.index[entry.hostId] === reminderKey) delete state.index[entry.hostId]
-      persist()
-      return true
+      if (entry !== undefined) {
+        delete state.entries[reminderKey]
+        if (state.index[entry.hostId] === reminderKey) delete state.index[entry.hostId]
+        if (state.indexScopes?.[entry.hostId] !== undefined) delete state.indexScopes[entry.hostId]
+        persist()
+        return true
+      }
+      /**
+       * 条目已被裁掉（墓碑）时，身份只剩在 index 里。
+       * 只查 entries 会**静默返回 false**，让这条身份永远残留 ——
+       * 已删除的提醒仍被认领，可能重复投递。必须一并清掉索引。
+       */
+      let removed = false
+      for (const [hostId, key] of Object.entries(state.index)) {
+        if (key !== reminderKey) continue
+        delete state.index[hostId]
+        if (state.indexScopes?.[hostId] !== undefined) delete state.indexScopes[hostId]
+        removed = true
+      }
+      if (removed) persist()
+      return removed
     },
 
     /** 删除某 hostId 的映射（宿主侧记录消失时清理）。 */

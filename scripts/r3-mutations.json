@@ -236,5 +236,19 @@
     "file": "workbench-core/src/schedule-adapter.js",
     "from": "      if (\n        (typeof res.status === 'string' && res.status !== 'ok')\n        || (res.error !== undefined && res.records === undefined)\n      ) {",
     "to": "      if (false) {"
+  },
+  {
+    "id": "X28",
+    "name": "B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      const mapped = typeof hostMap.describe === 'function'\n        ? hostMap.describe(reminderKey)\n        : hostMap.get(reminderKey)",
+    "to": "      const mapped = hostMap.get(reminderKey)"
+  },
+  {
+    "id": "X29",
+    "name": "B-1 回归：身份索引不记录 scope（带 scope 对账跳过墓碑）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      state.index[entry.hostId] = entry.reminderKey\n      state.indexScopes = state.indexScopes ?? {}\n      state.indexScopes[entry.hostId] = typeof entry.scope === 'string' ? entry.scope : ''",
+    "to": "      state.index[entry.hostId] = entry.reminderKey"
   }
 ]

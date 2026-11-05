@@ -78,37 +78,49 @@ try {
   const r2 = await adapter.reconcile(plans)
   eq('未删除任何宿主记录', r2.removed.length, 0)
   eq('未重复创建', r2.created.length, 0)
+  eq('无失败', r2.failed.length, 0)
   eq('宿主侧仍是 600 条', (await stub.catalog()).length, 600)
 
   say('')
-  say('--- 4) 只对账保留的 500 条：被裁的 100 条不得误删 ---')
+  say('--- 4) 只对账保留的 500 条：被裁的 100 条**应当被删除** ---')
+  // 复审 B-1 指出：这里原先断言「不被删除」，把「remove() 查不到墓碑」
+  // 这个缺陷固化成了正确行为。被裁的条目在 desired 里缺席 → 它们是多余项
+  // → **应当被删除**（否则就是幽灵提醒，继续响）。
   const keptPlans = plans.slice(100)   // 被裁掉的是前 100 条
   const r3 = await adapter.reconcile(keptPlans)
-  eq('被裁的 100 条不被删除', r3.removed.length, 0)
-  eq('宿主侧仍是 600 条', (await stub.catalog()).length, 600)
+  eq('被裁的 100 条被删除', r3.removed.length, 100)
+  eq('删除无失败', r3.failed.length, 0)
+  eq('宿主侧降到 500 条', (await stub.catalog()).length, 500)
   eq('仍全部可认领', (await adapter.catalog()).unmapped.length, 0)
 
   say('')
   say('--- 5) 裁剪不会「永久保护」失效提醒 ---')
-  // 关键：被裁掉的 key 若重新出现在 desired 里，应当被**重建**而不是被 protect 挡住
+  // 第 4 组已把 plans 前 100 条（含 k-0）从宿主删除 → 宿主上确实没有 k-0。
+  // 所以 k-0 重新出现在 desired 时**重建是正确的**（它确实不存在了）。
+  // 这里要验的是：**重建后不重复**（宿主侧恰好一条），而不是"复用"。
   const orphan = plans[0]
-  const r4 = await adapter.reconcile([orphan, ...keptPlans])
-  // 被裁掉的提醒重新出现时，身份索引仍认得它 → **复用**而不是重建（不重复创建）
-  eq('被裁掉的提醒重新出现 → 复用不重建', r4.created.length, 0)
-  eq('宿主侧仍是 600 条', (await stub.catalog()).length, 600)
+  const r4 = await adapter.reconcile([orphan])
+  eq('已从宿主删除的提醒重新出现 → 重建（正确）', r4.created.length, 1)
+  eq('无失败', r4.failed.length, 0)
+  eq('宿主侧恰好 1 条（不重复）', (await stub.catalog()).length, 1)
 
-  say('')
+
   say('--- 6) 重启后（重新从磁盘读映射）行为一致 ---')
   const hostMap2 = M.openHostMap({ filePath: mapPath, maxEntries: 500 })
   const adapter2 = M.createScheduleAdapter({
     backend: 'host', hostSchedule: stub, hostMap: hostMap2, sessionId: 's1', now: () => BASE,
   })
-  eq('重启后映射仍是 500', hostMap2.size, 500)
+  // 语义说明：size 只统计**完整条目**（entries）。k-0 此时是墓碑（身份在 index），
+  // 所以 entries=0、index=1 是正确状态——不是映射丢了。
+  eq('重启后 entries 数（墓碑不在其中）', hostMap2.size, 0)
+  eq('重启后身份索引仍认得 k-0', hostMap2.reminderKeyByHostId !== undefined, true)
+  // 重建全部 600 条：宿主此刻只剩 1 条，其余需新建
   const r5 = await adapter2.reconcile(plans)
-  eq('重启后对账：未删除', r5.removed.length, 0)
-  eq('重启后对账：未重复创建（已存在的被复用）', r5.created.length, 0)
-  eq('宿主侧仍是 600 条', (await stub.catalog()).length, 600)
+  eq('重启后对账：新建 599 条（宿主只剩 1 条）', r5.created.length, 599)
+  eq('重启后对账：无失败', r5.failed.length, 0)
+  eq('宿主侧恢复 600 条', (await stub.catalog()).length, 600)
   eq('重启后身份索引仍认领全部', (await adapter2.catalog()).rows.length, 600)
+
 } catch (error) {
   bad('P3 流程异常', String(error?.message ?? error).slice(0, 300))
 } finally {

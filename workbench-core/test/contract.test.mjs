@@ -1065,3 +1065,56 @@ test('R8 守卫：宿主 history 返回 {status:"unavailable"} 时判 UNKNOWN，
     assert.equal((await stub.catalog()).length, 1, '宿主提醒原样保留')
   })
 })
+
+test('R9 守卫：被裁成墓碑的提醒仍可被删除（复审 B-1，幽灵提醒）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'm.json'), maxEntries: 10 })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    const plans = Array.from({ length: 30 }, (_, i) => ({
+      reminderKey: `k-${String(i).padStart(3, '0')}`,
+      fireAtMs: BASE + (i + 1) * MIN,
+      title: `T${i}`,
+      prompt: 'p',
+      kind: 'event-start',
+    }))
+    await adapter.reconcile(plans)
+    assert.equal((await stub.catalog()).length, 30)
+    assert.equal(hostMap.size, 10, '条目被裁到 10')
+
+    // 用户取消前 20 条（正是被裁成墓碑的那些）
+    const res = await adapter.reconcile(plans.slice(20))
+    assert.equal(res.failed.length, 0, '墓碑的删除不得失败')
+    assert.equal(res.removed.length, 20, '墓碑必须真的被删除')
+    assert.equal((await stub.catalog()).length, 10, '宿主侧不得残留幽灵提醒')
+  })
+})
+
+test('R9 守卫：墓碑保留 scope，带 scope 对账时不被跳过', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    // maxEntries=2 → 绝大多数条目都会变成墓碑（scope 保留必须体现在墓碑上）
+    const hostMap = openHostMap({ filePath: join(dir, 'm.json'), maxEntries: 2 })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    const ev = Array.from({ length: 10 }, (_, i) => ({
+      reminderKey: `ev-${i}`, fireAtMs: BASE + (i + 1) * MIN, title: `E${i}`, prompt: 'p', kind: 'event-start',
+    }))
+    const tk = Array.from({ length: 10 }, (_, i) => ({
+      reminderKey: `tk-${i}`, fireAtMs: BASE + (i + 11) * MIN, title: `K${i}`, prompt: 'p', kind: 'task-due',
+    }))
+    await adapter.reconcile(ev, { scope: 'events' })
+    await adapter.reconcile(tk, { scope: 'tasks' })
+    assert.equal((await stub.catalog()).length, 20)
+    assert.equal(hostMap.size, 2, '绝大多数条目已成墓碑')
+
+    // events 只保留最后一条 → 前 9 条（含墓碑）应被删
+    const res = await adapter.reconcile(ev.slice(9), { scope: 'events' })
+    assert.equal(res.failed.length, 0, '墓碑删除不得失败')
+    assert.equal(res.removed.length, 9, '带 scope 对账时墓碑行不得被跳过')
+    assert.equal((await stub.catalog()).length, 11, '只剩 events 1 条 + tasks 10 条')
+  })
+})

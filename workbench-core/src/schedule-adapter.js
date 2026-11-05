@@ -276,7 +276,9 @@ export function createHostBackend(hostSchedule, options) {
           unmapped.push({ id: row.id, scheduledAt: row.scheduledAt, title: row.title })
           continue
         }
-        const mapped = hostMap.get(reminderKey) ?? { reminderKey, sessionId, fireAtMs: 0, title: '', scope: '' }
+        const mapped = typeof hostMap.describe === 'function'
+          ? (hostMap.describe(reminderKey) ?? { reminderKey, sessionId, fireAtMs: 0, title: '', scope: '' })
+          : (hostMap.get(reminderKey) ?? { reminderKey, sessionId, fireAtMs: 0, title: '', scope: '' })
         const at = row.scheduledAt === undefined ? NaN : Date.parse(row.scheduledAt)
         out.push({
           id: row.id,
@@ -400,7 +402,12 @@ export function createHostBackend(hostSchedule, options) {
     },
 
     async remove(reminderKey) {
-      const mapped = hostMap.get(reminderKey)
+      // **B-1 修复**：条目被裁成「墓碑」后 hostMap.get() 返回 undefined，
+      // 但身份索引仍能给出 hostId。用 hostIdOf 兜住，否则用户取消的提醒
+      // 永远删不掉 —— 宿主侧留下幽灵提醒继续响。
+      const mapped = typeof hostMap.describe === 'function'
+        ? hostMap.describe(reminderKey)
+        : hostMap.get(reminderKey)
       if (mapped === undefined) return { ok: false, reason: 'not-found' }
       const res = await hostSchedule.delete({ id: mapped.hostId, sessionId })
       if (res?.deleted === true) {
@@ -414,6 +421,12 @@ export function createHostBackend(hostSchedule, options) {
         if (typeof hostMap.flush === 'function') hostMap.flush()
         return { ok: true, alreadyGone: true }
       }
+      /**
+       * 删除**失败**（宿主报错/返回异常）：**保留身份**。
+       *
+       * 若此时清掉身份映射，宿主上那条提醒就变成了「我们认不出的孤儿」：
+       * 下次对账认不出它 → 重建 → 用户收到两次；而它其实还在宿主上。
+       */
       return { ok: false, reason: 'delete-failed', result: res }
     },
 
