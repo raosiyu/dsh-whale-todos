@@ -154,3 +154,48 @@ test('WP3：askApproval 转发到 service 的真实二参签名', async () => {
     assert.equal(r.reason, 'op-not-requiring-approval')
   })
 })
+
+test('WP3：并发审批各调用保持自己的 agent（AsyncLocalStorage，不串味）', async () => {
+  await withTmp(async (dir) => {
+    const { applyWorkbenchHostService } = await import('../src/index.js')
+    const seen = []
+    const ctx = { provide: () => {} }
+    const svc = applyWorkbenchHostService(ctx, {
+      rootDir: join(dir, 'concurrent'),
+      approval: {
+        request: async (req) => {
+          seen.push(req.agent?.session?.id ?? 'UNDEFINED')
+          await new Promise((r) => setTimeout(r, 10))
+          return 'allowed-once'   // 真宿主词汇
+        },
+      },
+    })
+    const agents = ['A', 'B', 'C', 'D', 'E'].map((id) => ({ session: { id } }))
+    await Promise.all(agents.map((agent, i) =>
+      svc.askApproval(`s${i}`, 'event.delete', { target: `t${i}`, summary: 'x' }, agent)))
+    assert.equal(seen.length, 5)
+    assert.deepEqual([...new Set(seen)].sort(), ['A', 'B', 'C', 'D', 'E'],
+      '并发审批不得串味或丢 agent')
+  })
+})
+
+test('WP3：真宿主审批词汇 allowed-once 才授予，其余一律拒绝', async () => {
+  await withTmp(async (dir) => {
+    const { applyWorkbenchHostService } = await import('../src/index.js')
+    const ctx = { provide: () => {} }
+    const agent = { session: { id: 's1' } }
+    for (const [outcome, expected] of [
+      ['allowed-once', true],
+      ['rejected', false],
+      ['cancelled', false],
+      ['unavailable', false],
+    ]) {
+      const svc = applyWorkbenchHostService(ctx, {
+        rootDir: join(dir, `vocab-${outcome}`),
+        approval: { request: async () => outcome },
+      })
+      const r = await svc.askApproval('s1', 'event.delete', { target: 'x', summary: 'x' }, agent)
+      assert.equal(r.approved, expected, `${outcome} 应 ${expected ? '授予' : '拒绝'}`)
+    }
+  })
+})

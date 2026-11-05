@@ -320,5 +320,6 @@ test('WP3-B2 守卫：审批适配器使用真 toolName 与 allowed-once 词汇'
   assert.match(src, /toolName:\s*req\.op/, '必须用真字段 toolName，不是 tool')
   assert.match(src, /'allowed-once'\s*\?\s*'approved'/, "必须把 allowed-once 映射为 approved")
   assert.match(src, /agent\.session/, '必须保证 req.agent.session 可用')
+  assert.match(src, /AsyncLocalStorage/, '并发 agent 必须按异步调用链隔离')
   assert.doesNotMatch(src, /tool:\s*req\.op/, '不得再用不存在的 tool 字段')
 })

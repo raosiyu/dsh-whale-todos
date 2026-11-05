@@ -27,6 +27,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -60,10 +61,45 @@ export function createWorkbenchHostService(options = {}) {
     mode = 'host',
     allowIsolated = false,
     now,
-    // 运行时 agent 提供者：真 ApprovalService.request 需要 req.agent.session，
-    // 而审批发生在**工具调用时**（exec.agent），不是构造期。
+    // 无显式 agent 时的兜底提供者（真 ApprovalService 需要 req.agent.session）。
+    // **并发路径必须显式传 agent**；此兜底只用于单调用者场景。
     currentAgent = () => undefined,
   } = options
+
+  /**
+   * **按异步调用链**隔离当前 agent：真 ApprovalService 需要 req.agent.session，
+   * 但 service.requestApproval 只透传 4 个字段（不传 detail.agent）。
+   * 用 AsyncLocalStorage 而不是模块级变量——后者在并发工具调用下会串味
+   * （实测 5 个并发审批全部看到 UNDEFINED / 串成同一个 agent）。
+   */
+  const agentStorage = new AsyncLocalStorage()
+
+  /**
+   * 把**真宿主** `ApprovalService.request` 的输出映射回 workbench-core gate
+   * 的词汇，并补齐真实现要求的 `toolName` 与 `req.agent.session`。
+   * 必须放在 createWorkbenchHostService 内部：它才能访问 agentStorage（并发隔离）。
+   */
+  const hostRequest = (typeof requestApproval === 'function')
+    ? async (req) => {
+        const agent = req.agent ?? agentStorage.getStore()
+          ?? (typeof currentAgent === 'function' ? currentAgent() : undefined)
+        if (agent === undefined || agent?.session === undefined) return 'unavailable'
+        let outcome
+        try {
+          outcome = await requestApproval({
+            agent,
+            toolName: req.op,
+            callId: req.callId,
+            reason: req.summary,
+            displayReason: req.summary,
+            signal: req.signal,
+          })
+        } catch {
+          return 'unavailable'
+        }
+        return outcome === 'allowed-once' ? 'approved' : 'denied'
+      }
+    : undefined
 
   if (typeof rootDir !== 'string' || rootDir === '') {
     throw new TypeError('rootDir 必须是非空字符串')
@@ -73,8 +109,6 @@ export function createWorkbenchHostService(options = {}) {
   /** sessionId → 该会话的门面实例。 */
   const sessions = new Map()
 
-  /** 当前调用的 Agent（由 invoke 设置；审批适配器读取）。 */
-  let activeAgent = undefined
 
   /** 每次调用的审计流水（进程内，供 UI/工具读取；持久化审计在 service 内）。 */
   const auditTrail = []
@@ -112,7 +146,7 @@ export function createWorkbenchHostService(options = {}) {
         dataDir,
         approvalMode: mode,
         allowIsolatedApproval: allowIsolated,
-        requestApproval,
+        requestApproval: hostRequest,
         now,
         nowApproval: now,
       })
@@ -134,8 +168,6 @@ export function createWorkbenchHostService(options = {}) {
     const scope = typeof meta.scope === 'string' ? meta.scope : ''
     const svc = forSession(sessionId, scope)
     const at = now ? now() : Date.now()
-    // 真 ApprovalService 需要 req.agent.session；由工具层从 exec.agent 注入
-    activeAgent = meta.agent ?? undefined
 
     let result
     let error
@@ -179,9 +211,11 @@ export function createWorkbenchHostService(options = {}) {
    * 审批申请入口（由工具层调用，凭证仍由宿主签发）。
    * 转发到 service.requestApproval(op, detail) 的**真实二参签名**。
    */
-  function askApproval(sessionId, op, detail = {}) {
-    const svc = forSession(sessionId)
-    return svc.requestApproval(op, detail)
+  function askApproval(sessionId, op, detail = {}, agent = undefined) {
+    const svc = forSession(sessionId, typeof detail.scope === 'string' ? detail.scope : '')
+    const effective = agent ?? (typeof currentAgent === 'function' ? currentAgent() : undefined)
+    // 每个异步调用链有自己的 agent，不会互相覆盖
+    return agentStorage.run(effective, () => svc.requestApproval(op, detail))
   }
 
   /** 只读：审计流水（进程内，供 UI/工具展示）。 */
@@ -203,15 +237,9 @@ export function createWorkbenchHostService(options = {}) {
     })
   }
 
-  /** 工具层在 execute 时注入 exec.agent（真审批路由需要）。 */
-  function bindAgent(agent) {
-    activeAgent = agent
-  }
-
   return Object.freeze({
     forSession,
     invoke,
-    bindAgent,
     listOps,
     askApproval,
     audit,
@@ -236,48 +264,9 @@ export function applyWorkbenchHostService(ctx, config = {}) {
   if (typeof ctx?.provide !== 'function') {
     throw new TypeError('applyWorkbenchHostService 需要带 provide 的 Host Context')
   }
-  /**
-   * **BLOCKER-2 修复**：对齐真 `ApprovalService.request` 的一手契约
-   * （`dsh-user-approval/lib/index.js:128-134`）：
-   *   - 请求字段是 `toolName`，不是 `tool`
-   *   - 必须带 `req.agent`（真实现读 `req.agent.session`）
-   *   - 返回词汇是 `'allowed-once'|'rejected'|'cancelled'|'unavailable'`，
-   *     **没有** `'approved'`；只有 `'allowed-once'` 是授予
-   *   - `reason` 只是展示文本，真正的 reason 字段见 `displayReason`
-   *
-   * 这里把真宿主词汇映射回 workbench-core 的 approval-gate 词汇，
-   * 避免改动 WP2 已验证的 gate 本体（降低回归风险）。
-   */
-  const requestApproval = config.approval?.request !== undefined
-    ? async (req) => {
-        const agent = req.agent ?? activeAgent ?? (typeof currentAgent === 'function' ? currentAgent() : undefined)
-        activeAgent = undefined
-        if (agent === undefined || agent?.session === undefined) {
-          // 真 ApprovalService.request 第 129 行会读 req.agent.session，
-          // 缺 agent 会抛；这里直接 fail closed，不把异常暴露给模型。
-          return 'unavailable'
-        }
-        let outcome
-        try {
-          outcome = await config.approval.request({
-            agent,
-            toolName: req.op,
-            callId: req.callId,
-            reason: req.summary,
-            displayReason: req.summary,
-            signal: req.signal,
-          })
-        } catch {
-          return 'unavailable'
-        }
-        // 真词汇 → gate 词汇
-        return outcome === 'allowed-once' ? 'approved' : 'denied'
-      }
-    : undefined
-
   const service = createWorkbenchHostService({
     rootDir: config.rootDir,
-    requestApproval,
+    requestApproval: config.approval?.request,
     mode: config.mode ?? 'host',
     currentAgent: config.currentAgent,
   })
