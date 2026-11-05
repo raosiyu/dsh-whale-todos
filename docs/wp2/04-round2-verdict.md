@@ -25,14 +25,28 @@
 | # | 要求 | 结论 | 证据 |
 | --- | --- | --- | --- |
 | 1 | 冻结代码，Review 期间禁止改 HEAD | ✅ 做到 | HEAD `72e09ef` 恒定；tracked-modified = 0；快照逐字节一致 |
-| 2 | 独立 Agent 只读审查 | ⚠️ **部分失败** | 已派独立只读 Agent（其 `/tmp/wp2rev2/` 内有 archive 副本与 b1/b2 日志，证明确实运行）；**但结论未回传**，与第一轮同一故障模式。**我不把它记作「已取得独立 Review」** |
+| 2 | 独立 Agent 只读审查 | ✅ **已取得结论**（后续回传） | 复审 Agent 报回 REQUEST CHANGES，1 新 blocker + 多条 major，诊断脚本 `/tmp/wp2rev2/exp1..exp27`。**它抓到的比我自己的结论更重**——见 `03-round2-issues.md` 追加部分 |
 | 3 | 复跑 142 测试与 B1/B2 | ✅ 做到 | 见上表（均在冻结副本内） |
 | 4 | 跨重启去重 / 防重发 / 跨 scope / 审批安全 | ✅ 全过 | b1/b2 脚本；`/tmp/wp2lead/named-items.mjs`（scope 隔离、4 类伪造全拒、重放被拒、`approvalGate` 已不暴露） |
 | 5 | `title+at` 备用键是否误合并 | ❌ **发现真缺陷** | 见下节 R2-1 / R2-2 / R2-3 |
 | 6 | 无真实投递历史时标 UNVERIFIED | ✅ 已遵守 | 文档中 `exactly-once` 类断言 **0 处**；报告 R2 行明写「host 投递 history 未直接读到」 |
 | 7 | 区分模拟与真实 macOS 验收 | ✅ 已区分 | 报告 R4：「休眠/退出用固定基准模拟，非真实系统睡眠，需 WP7 实机验收」 |
 
-## 三、唯一阻塞问题：合成键（用户第 5 项）
+## 二之二、复审追加发现，最重一条：**host 后端从未真正接通**
+
+复审 Agent 从 `app.asar` 读出一手源码，我用同源代码逐条核实：
+
+| 真实契约 | 我的适配器 | 后果 |
+| --- | --- | --- |
+| `create(sessionId, request, signal)`，`at` 需 RFC3339 **字符串** | `create({at: number})` 单参 | 真实宿主下 **TypeError，一条都建不成** |
+| `list({sessionId})`，返回 record，**无 `key`** | `list()` 无参 | 抛错被 `catch` **静默吞** → 退回内存视图 → B1 修复失效（5 次重启 1→2→3→4→5） |
+| `history({sessionId,id,limit∈[1,100]})` 单任务分页 | `history()` 无参 | 抛错 + `length>=0` 恒真 → `historyAvailable` 谎报 true → B2 失效 |
+| `delete({id, sessionId})` | `remove(id)` | 形状不符 |
+| `catalog()` 无参，返回全部含 status | 未使用 | 丢失了最合适的对账数据源 |
+
+**这是本轮最重要的结论**：我在两轮修复里两次宣布「B1/B2 已修」，两次都是**拿自造假宿主验证的**；真实契约就在 `app.asar` 里，我一次都没去读。**验证对象选错，不是实现疏漏。**
+
+## 三、阻塞问题：合成键（用户第 5 项）
 
 详见 `03-round2-issues.md`。摘要：
 
@@ -58,6 +72,14 @@
 冻结后我在副本**根目录**跑 `node demo/demo.mjs` → `MODULE_NOT_FOUND`，一度断言「demo.mjs 没进 git、我报的 EXIT 0 是假的」。
 **该断言错误。** 实测：`git ls-files` 显示 `workbench-core/demo/demo.mjs` **已跟踪**，`72e09ef` 内 12 个 demo 条目；正确路径下 **EXIT 0**。
 真实原因是我自己的相对路径写错。这属于**未验证归因**，已更正，不留结论不记过程。
+
+## 四之二、我对复审结论的裁决（不整盘照抄）
+
+**采信**：R2-5 契约不匹配（blocker）、R2-6 审批旁路（blocker）、R2-7 恢复层 scope、R2-9 `skipped` 经 spread 丢失、R2-10 `historyAvailable` 恒真、R2-11 scope 前缀与真实 key 永不匹配、R2-12 脚本退出码、R2-13 `skipped` 非枚举致可观测性丢失、R2-14 测试真空（4 项变异回退仍全绿）。
+
+**复核后推翻 2 条**（各自给了我的复跑证据）：
+- N3'「bulkDelete 逗号 id 可绕过」→ 我用等价构造实测 **`fingerprint-mismatch` 被拦**，通用不可利用；但**仍会改**（当前依赖「id 不含逗号」太脆弱）。
+- M2'「missed 恒 0、lookback 失效」→ 生产时钟复跑得到 `missed=1`，**能识别**；但其「文档易被误读」的批评采纳，需写清两段语义。
 
 ## 五、UNVERIFIED 清单（明确标记，不宣称严格 exactly-once）
 
