@@ -59,14 +59,29 @@
 
 **这条教训**：冻结的价值全在「审的确实是那份代码」。探针一旦指向别处，冻结就形同虚设。
 
-## 六、四类结果（分别报告）
+## 六、两轮独立 Review 结论
+
+| 轮次 | 基准 | 结论 | BLOCKER |
+| --- | --- | --- | --- |
+| 第一轮 | `2b0aabb` | 🔴 REQUEST CHANGES | 2（墓碑删不掉 / 并发重复投递） |
+| 第二轮 | `368207b` | 🟡 APPROVE WITH NITS | 0（两个 BLOCKER 均确认已修） |
+
+第二轮 Review 新发现（不阻塞）：
+- N-1：时间老化对墓碑无效（已修，用 indexMeta.fireAtMs）
+- N-2：indexScopes 无老化路径（已修，改用 indexMeta）
+- N-3：flush() 返回死值（已修）
+- N-4：createLocks 泄漏（已修）
+- N-5：upsert 每次 catalog() 导致端到端 O(N²)（继承缺陷，非本轮回归）
+- N-6：文档数字滞后（已修）
+
+## 七、四类结果（分别报告）
 
 | 类别 | 结果 |
 | --- | --- |
 | **真实 Host** | ✅ 真实 storageDomain 落盘/重启/去重通过（探针 P1）；真实 ScheduleService 类可实例化并跑通五方法（`r3-real-service.mjs`） |
 | **模拟环境** | ✅ 197 项单元/集成测试；36/36 变异被捕获（0 真空 0 跳过）；8 项验收 26/26 |
 | **macOS 系统级** | ❌ **UNVERIFIED** —— 真实休眠/唤醒/退出/重启、系统通知是否弹出，均未测试 |
-| **独立 Review** | ✅ 已取得结论（`evidence/wp2/review-final/REVIEW-WP2R5-Final.md`） |
+| **独立 Review** | ✅ 第一轮 REQUEST CHANGES（2 BLOCKER）→ 修复 → 第二轮 **APPROVE WITH NITS** |
 
 ## 七、UNVERIFIED 清单
 
@@ -77,7 +92,7 @@
 | **真实 macOS 休眠 / 唤醒 / 退出 / 重启** | **完全未测试** |
 | 系统通知是否真正弹出 | 未验证 |
 | 多进程并发写 | 文件存储非多进程安全；`hostMap` 无跨进程锁 |
-| 独立 Review 对最新 commit 的复核 | 复审基准为 `2b0aabb`；其后的 `8c264b1` 修复需再复审 |
+| 独立 Review 对最新 commit 的复核 | ✅ 第二轮（`368207b`）已复核并 APPROVE WITH NITS |
 
 ## 八、红线
 
