@@ -1,0 +1,16 @@
+=== P1 真实 storageDomain：持久化 / 重启 / 提醒恢复 ===
+存储根目录: /var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/p1-realstore-ZyjWSJ
+  ✅ 真实 Storage hub + JSON 后端 + domain facility 组装成功
+  ✅ 真实 scheduleDomain 打开成功（storageDomain → JSON 后端）
+  ✅ 真实 domain 写入一条 tasks  schedule-p1
+
+--- 1) 落盘检查（真实文件）---
+  ✅ 存储根目录已落盘  schedule.json
+
+--- 2) 新实例读回（模拟进程重启）---
+  ✅ 重启后从真实 JSON 后端读到 1 条  schedule-p1
+
+--- 3) 适配器跨重启不重复注册（真实 storageDomain）---
+  ✅ 5 次重启后真实 storageDomain 里只有 1 条提醒  = 1
+
+=== P1 汇总：PASS ===

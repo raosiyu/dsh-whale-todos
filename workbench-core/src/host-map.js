@@ -38,7 +38,7 @@ const SCHEMA_VERSION = 1
 const DEFAULT_MAX_ENTRIES = 500
 
 /** 空映射的初始形状。 */
-const emptyState = () => ({ version: SCHEMA_VERSION, entries: {} })
+const emptyState = () => ({ version: SCHEMA_VERSION, entries: {}, index: {} })
 
 /**
  * @param {{ filePath: string }} options
@@ -84,6 +84,11 @@ export function openHostMap(options) {
     if (entries === null || typeof entries !== 'object' || Array.isArray(entries)) {
       throw storeCorruptError('宿主映射 entries 必须是对象', { filePath })
     }
+    // index 是 hostId → reminderKey 的身份索引（可选，兼容旧文件）
+    const index = parsed.index === null || parsed.index === undefined ? {} : parsed.index
+    if (index === null || typeof index !== 'object' || Array.isArray(index)) {
+      throw storeCorruptError('宿主映射 index 必须是对象', { filePath })
+    }
     for (const [key, value] of Object.entries(entries)) {
       if (value === null || typeof value !== 'object') {
         throw storeCorruptError(`宿主映射条目非法：${key}`, { filePath, key })
@@ -95,7 +100,7 @@ export function openHostMap(options) {
         throw storeCorruptError(`宿主映射条目缺 sessionId：${key}`, { filePath, key })
       }
     }
-    state = { version: SCHEMA_VERSION, entries: { ...entries } }
+    state = { version: SCHEMA_VERSION, entries: { ...entries }, index: { ...index } }
   }
 
   const persist = () => {
@@ -118,6 +123,20 @@ export function openHostMap(options) {
    * 按 `fireAtMs` 保留最近 maxEntries 条；只动本地映射。
    * @returns {string[]} 被裁掉的 reminderKey
    */
+  /**
+   * 裁剪策略（修正 R5 探针发现的重复创建缺陷）。
+   *
+   * 原实现把超出上限的条目**整条删除**。后果：
+   * 这些 key 从本地映射消失 → `catalog()` 不认领宿主上对应的行 →
+   * 它们变成 unmapped → 下次 reconcile 认为「宿主没有这条」→ **再建一份**。
+   * 实测 600 条、maxEntries=500 时宿主侧涨到 700 条。
+   *
+   * 修正：**不丢身份**。超出上限的条目压缩成「墓碑」——
+   * 只留 `hostId`（用于在宿主侧认出这条）与 `fireAtMs`（用于排序），
+   * 丢弃 title/prompt/scope 等非必要字段。
+   * 墓碑仍能回答「宿主上这条 id 对应哪个 reminderKey」，因此不会重复创建；
+   * 同时体积大幅下降（标题往往比 id 长得多）。
+   */
   const prune = () => {
     const all = Object.entries(state.entries)
     if (all.length <= maxEntries) return []
@@ -127,9 +146,15 @@ export function openHostMap(options) {
       const fb = Number.isFinite(b[1].fireAtMs) ? b[1].fireAtMs : 0
       return fb - fa
     })
-    const drop = ordered.slice(maxEntries).map(([k]) => k)
-    for (const k of drop) delete state.entries[k]
-    return drop
+    const drop = ordered.slice(maxEntries)
+    for (const [k, v] of drop) {
+      // 关键：**条目**移出 entries（条目数因此受 maxEntries 限制），
+      // 但**身份**（hostId ↔ reminderKey）留在 index 里，体积很小。
+      // 这样裁剪既控制住了体积与条目数，又不会因「认不出宿主上的行」而重复创建。
+      state.index[v.hostId] = k
+      delete state.entries[k]
+    }
+    return drop.map(([k]) => k)
   }
 
   load()
@@ -137,6 +162,19 @@ export function openHostMap(options) {
   return {
     /** 重新从磁盘读取（模拟进程重启）。 */
     reload: load,
+
+    /**
+     * 按 hostId 反查 reminderKey。
+     *
+     * 裁剪后完整条目可能已被移除，但身份索引仍在 → 仍能认出宿主上的行，
+     * 因此不会重复创建（第三轮探针 P3 发现的缺陷）。
+     */
+    reminderKeyByHostId(hostId) {
+      const direct = state.index[hostId]
+      if (direct !== undefined) return direct
+      const hit = Object.entries(state.entries).find(([, v]) => v.hostId === hostId)
+      return hit === undefined ? undefined : hit[0]
+    },
 
     /** 按 reminderKey 取映射。 */
     get(reminderKey) {
@@ -176,6 +214,7 @@ export function openHostMap(options) {
           })
         }
       }
+      state.index[entry.hostId] = entry.reminderKey
       state.entries[entry.reminderKey] = {
         hostId: entry.hostId,
         sessionId: entry.sessionId,
@@ -198,8 +237,10 @@ export function openHostMap(options) {
 
     /** 删除一条映射；不存在返回 false。 */
     remove(reminderKey) {
-      if (state.entries[reminderKey] === undefined) return false
+      const entry = state.entries[reminderKey]
+      if (entry === undefined) return false
       delete state.entries[reminderKey]
+      if (state.index[entry.hostId] === reminderKey) delete state.index[entry.hostId]
       persist()
       return true
     },
@@ -209,6 +250,7 @@ export function openHostMap(options) {
       for (const [key, value] of Object.entries(state.entries)) {
         if (value.hostId === hostId) {
           delete state.entries[key]
+          if (state.index[hostId] === key) delete state.index[hostId]
           persist()
           return key
         }

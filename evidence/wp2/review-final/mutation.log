@@ -1,0 +1,41 @@
+=== 变异验证（删保护代码，测试应失败）===
+变异定义：31 项（scripts/r3-mutations.json）
+
+CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 195 fail 1
+CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 195 fail 1
+CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 172 fail 24
+CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 194 fail 2
+CAUGHT M5 恢复层不传 scope  → pass 194 fail 2
+CAUGHT M6 已投递判定失效（无视 history）  → pass 194 fail 2
+CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 191 fail 5
+CAUGHT M8 审批门放行（不校验 token）  → pass 179 fail 17
+CAUGHT M9 service 重新暴露 store 写方法  → pass 193 fail 3
+CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 194 fail 2
+CAUGHT M11 hostMap 不持久化（只写内存）  → pass 191 fail 5
+CAUGHT M12 hostMap 允许 hostId 重复  → pass 195 fail 1
+CAUGHT M13 损坏映射静默重建为空  → pass 195 fail 1
+CAUGHT M14 compileReminder 不再滤过期  → pass 195 fail 1
+CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 192 fail 4
+CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 195 fail 1
+CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 195 fail 1
+CAUGHT X11 UNKNOWN 纳入 future  → pass 191 fail 5
+CAUGHT X12 删除失败不计入 failed  → pass 195 fail 1
+CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 193 fail 3
+CAUGHT X14 hostMap 保留上限失效  → pass 192 fail 4
+CAUGHT X15 N-05 deny 模式不拦  → pass 195 fail 1
+CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 195 fail 1
+CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 195 fail 1
+CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 195 fail 1
+CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 193 fail 3
+CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 194 fail 2
+CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 188 fail 8
+CAUGHT X22 裁剪不生效（条目数无上限）  → pass 192 fail 4
+CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 195 fail 1
+CAUGHT X24 catalog 不用身份索引（退回线性查找+认不出）  → pass 189 fail 7
+
+=== 汇总 ===
+CAUGHT: 31
+VACUUM: 0
+SKIP:   0
+
+结论：全部保护点都有测试约束（0 真空，0 跳过）

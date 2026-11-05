@@ -828,3 +828,77 @@ test('N-17 守卫：protect 集合里的 key 不会被 reconcile 删除', async 
     assert.equal(rows.length, 1, 'keep-me 必须还在')
   })
 })
+
+test('R5-1 守卫：映射被裁剪后再次对账不得重复创建（P3 探针发现的缺陷）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'm.json'), maxEntries: 10 })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    const plans = Array.from({ length: 30 }, (_, i) => ({
+      reminderKey: `k-${String(i).padStart(3, '0')}`,
+      fireAtMs: BASE + (i + 1) * MIN,
+      title: `T${i}`,
+      prompt: 'p',
+      kind: 'event-start',
+    }))
+    const first = await adapter.reconcile(plans)
+    assert.equal(first.created.length, 30)
+    assert.equal((await stub.catalog()).length, 30)
+
+    // 第二次对账：被裁掉的条目仍应被复用，不能再建一份
+    const second = await adapter.reconcile(plans)
+    assert.equal(second.created.length, 0, '不得重复创建')
+    assert.equal(second.removed.length, 0, '不得误删')
+    assert.equal((await stub.catalog()).length, 30, '宿主侧仍是 30 条')
+  })
+})
+
+test('R5-2 守卫：条目上限生效，但身份索引保留认领能力', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'm.json')
+    const hostMap = openHostMap({ filePath, maxEntries: 10 })
+    for (let i = 0; i < 30; i += 1) {
+      hostMap.put({
+        reminderKey: `k-${i}`,
+        hostId: `h-${i}`,
+        sessionId: 's1',
+        fireAtMs: BASE + i * MIN,
+        title: `T${i}`,
+        kind: 'event-start',
+      })
+    }
+    assert.equal(hostMap.size, 10, '条目数受 maxEntries 限制')
+    // 身份索引仍能反查被裁掉的条目
+    assert.equal(hostMap.reminderKeyByHostId('h-0'), 'k-0', '被裁掉的条目仍可按 hostId 找回身份')
+    assert.equal(hostMap.reminderKeyByHostId('h-29'), 'k-29')
+
+    // 重启后身份索引仍在
+    const reloaded = openHostMap({ filePath, maxEntries: 10 })
+    assert.equal(reloaded.size, 10)
+    assert.equal(reloaded.reminderKeyByHostId('h-0'), 'k-0', '重启后身份索引仍有效')
+  })
+})
+
+test('R5-3 守卫：history 返回非法形状时判 UNKNOWN，不得重建（P2 探针发现的缺陷）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'm.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    const plan = { reminderKey: 'k', fireAtMs: BASE + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }
+    await adapter.reconcile([plan])
+
+    stub.history = async () => 'not-an-object'
+    const h = await adapter.historyFor('k')
+    assert.equal(h.status, HOST_READ.UNAVAILABLE, '非法形状必须报不可用')
+
+    const rec = createReminderRecovery({ adapter, now: () => BASE + HOUR + 30000, graceMs: MIN })
+    const out = await rec.recover([plan], { scenario: 'restart', atMs: BASE + HOUR + 30000 })
+    assert.equal(out.restored.length, 0, '不得重建')
+    assert.equal(out.unknown.length, 1)
+    assert.equal((await stub.catalog()).length, 1, '宿主提醒原样保留')
+  })
+})

@@ -251,21 +251,27 @@ export function createHostBackend(hostSchedule, options) {
        */
       const unmapped = []
       for (const row of mine) {
-        const mapped = hostMap.entries().find((e) => e.hostId === row.id)
-        if (mapped === undefined) {
+        // 身份反查：条目可能被裁剪，但身份索引仍在 → 仍能认出宿主上的行，
+        // 因此不会因为裁剪而重复创建（P3 探针发现的缺陷）。
+        // 用 Map 索引避免 O(宿主 × 映射) 的线性查找（600 条时是 O(n²)，会拖垮对账）。
+        const reminderKey = typeof hostMap.reminderKeyByHostId === 'function'
+          ? hostMap.reminderKeyByHostId(row.id)
+          : undefined
+        if (reminderKey === undefined) {
           unmapped.push({ id: row.id, scheduledAt: row.scheduledAt, title: row.title })
           continue
         }
+        const mapped = hostMap.get(reminderKey) ?? { reminderKey, sessionId, fireAtMs: 0, title: '', scope: '' }
         const at = row.scheduledAt === undefined ? NaN : Date.parse(row.scheduledAt)
         out.push({
           id: row.id,
-          reminderKey: mapped.reminderKey,
-          sessionId: mapped.sessionId,
+          reminderKey,
+          sessionId: mapped.sessionId ?? sessionId,
           scope: mapped.scope ?? '',
           status: row.status ?? 'active',
           scheduledAt: row.scheduledAt,
-          fireAtMs: Number.isFinite(at) ? at : mapped.fireAtMs,
-          title: row.title ?? mapped.title,
+          fireAtMs: Number.isFinite(at) ? at : (mapped.fireAtMs ?? 0),
+          title: row.title ?? mapped.title ?? '',
           source: 'host',
         })
       }
@@ -388,6 +394,15 @@ export function createHostBackend(hostSchedule, options) {
       }
       if (res?.code === 'schedule_not_found') {
         return { status: HOST_READ.OK, records: [] }
+      }
+      /**
+       * **形状校验**：宿主返回的不是对象（异常形状）时，
+       * **不能**当成「没投递过」——那会重建提醒并二次投递。
+       *
+       * 无法确认投递状态 = UNKNOWN，交由恢复流程保守处理（不重建、不删除）。
+       */
+      if (res === null || typeof res !== 'object' || Array.isArray(res)) {
+        return { status: HOST_READ.UNAVAILABLE, error: 'history-invalid-shape' }
       }
       const records = Array.isArray(res?.records) ? res.records : []
       return {

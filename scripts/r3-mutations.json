@@ -187,5 +187,33 @@
     "file": "workbench-core/src/reminder-recovery.js",
     "from": "        protect: unknown.map((u) => u.reminderKey),",
     "to": "        protect: [],"
+  },
+  {
+    "id": "X21",
+    "name": "身份反查完全失效（裁剪后认不出宿主行 → 重复创建）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      const direct = state.index[hostId]\n      if (direct !== undefined) return direct\n      const hit = Object.entries(state.entries).find(([, v]) => v.hostId === hostId)\n      return hit === undefined ? undefined : hit[0]",
+    "to": "      return undefined"
+  },
+  {
+    "id": "X22",
+    "name": "裁剪不生效（条目数无上限）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "    if (all.length <= maxEntries) return []",
+    "to": "    return []"
+  },
+  {
+    "id": "X23",
+    "name": "history 非法形状不再判不可用（P2 缺陷回归）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      if (res === null || typeof res !== 'object' || Array.isArray(res)) {\n        return { status: HOST_READ.UNAVAILABLE, error: 'history-invalid-shape' }\n      }",
+    "to": ""
+  },
+  {
+    "id": "X24",
+    "name": "catalog 不用身份索引（退回线性查找+认不出）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "        const reminderKey = typeof hostMap.reminderKeyByHostId === 'function'\n          ? hostMap.reminderKeyByHostId(row.id)\n          : undefined",
+    "to": "        const reminderKey = undefined"
   }
 ]

@@ -1,0 +1,46 @@
+=== 项1：创建真实宿主提醒，核实实际返回记录 ===
+  ✅ 创建后宿主记录形状正确（kind=at，scheduledAt=canonical UTC）
+  ✅ reconcile 报告 created=1
+  ✅ 零契约违规（签名全部匹配真实契约）
+
+=== 项2：连续重启五次，验证没有新增重复提醒 ===
+  ✅ 五次重启后宿主仍只有 1 条
+
+=== 项3：同标题同时刻、不同 ID 的提醒独立存在 ===
+  ✅ 宿主侧两条独立记录（不同 id）
+  ✅ reconcile created=2
+  ✅ 取消 A 后 B 仍在（无孤儿）
+
+=== 项4：提醒修改、取消、删除后宿主状态正确 ===
+  ✅ 建立后 1 条
+  ✅ 修改时刻后仍是 1 条且时刻已更新（旧记录被删）
+  ✅ 确实换了新 hostId（删旧建新）
+  ✅ 取消后宿主侧为空
+
+=== 项5：不同 sessionId 之间不相互删除或修改 ===
+  ✅ 两 session 各 1 条
+  ✅ sA 对账不删 sB 的记录
+  ✅ 对账后仍 2 条
+
+=== 项6：宿主接口抛错或历史不可用时，明确失败或降级 ===
+  ✅ catalog 失败 → 显式 UNAVAILABLE（不伪装空）
+  ✅ 标记 degraded=true
+  ✅ reconcile 标记 degraded
+  ✅ 读不到时只建不删（不误删用户提醒）
+  ✅ history 失败 → UNKNOWN（不谎报未投递）
+  ✅ 恢复时状态未知 → 记入 unknown，不删不建
+
+=== 项7：四类审批绕过攻击全部被拦截 ===
+  ✅ 类1 payload+meta confirmed 被拒
+  ✅ 类2 伪造 token 被拒
+  ✅ 类2 重放 token 被拒
+  ✅ 类3 底层写方法全部不可达
+  ✅ 类3 gate 对象不可达
+  ✅ 类4 逗号拼接 target 不能匹配 ids 数组
+
+=== 项8：关键测试的变异验证 ===
+  见 scripts/r3-mutate.sh（16 个变异，期望 16 CAUGHT / 0 VACUUM）
+  （本脚本不内联跑变异，避免与主测试并发冲突）
+
+=== 汇总 ===
+  PASS 26  FAIL 0  UNVERIFIED 0

@@ -1,0 +1,36 @@
+=== P2 N-17 与 protect 集合专项 ===
+
+--- 1) N-17：投递状态 UNKNOWN 时不得删除仍然有效的宿主提醒 ---
+  ✅ history 抛错（读不到投递状态）：宿主提醒原样保留  ["schedule-1/active"]
+  ✅ history 抛错（读不到投递状态）：未重建  = 0
+  ✅ 回执被 retention 裁剪：宿主提醒原样保留  ["schedule-1/active"]
+  ✅ 回执被 retention 裁剪：未重建  = 0
+  ✅ history 返回非法形状：宿主提醒原样保留  ["schedule-1/active"]
+  ✅ history 返回非法形状：未重建  = 0
+
+--- 2) protect 跨 session ---
+  ✅ 两个 session 各 1 条  = 2
+  ✅ s1 对账不删 s2 的  = 0
+  ✅ 两条都还在  = 2
+
+--- 3) protect 跨 scope ---
+  ✅ 两 scope 各 1 条  = 2
+  ✅ 只删 events 的  = "[\"ev-1\"]"
+  ✅ tasks 的保留  = 1
+
+--- 4) protect 在映射丢失时 ---
+  ✅ 无映射不认领  = 0
+  ✅ 上报 unmapped  = 1
+  ✅ needsAttention  = true
+  ✅ 映射丢失时宿主记录不被删除  = 0
+  ✅ 宿主仍保留（孤儿但可告警）  rows=2
+
+--- 5) protect 在宿主记录已失效时（not_found）---
+  ✅ 宿主已无此记录 → created=1（重建）  = 1
+  ✅ removed=0（无东西可删）  = 0
+
+--- 6) protect 在宿主 delete 失败时 ---
+  ✅ 删除失败计入 failed  = 1
+  ✅ 删除失败不计入 removed  = 0
+
+=== P2 汇总：PASS ===
