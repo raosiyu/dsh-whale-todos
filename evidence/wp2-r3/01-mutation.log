@@ -1,0 +1,21 @@
+=== 变异验证（删保护代码，测试应失败）===
+
+CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → # pass 179 # fail 1 
+CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → # pass 179 # fail 1 
+CAUGHT M3 host create 退回单参 + 数字 at  → # pass 167 # fail 13 
+CAUGHT M4 catalog 失败时静默当空（不降级）  → # pass 179 # fail 1 
+CAUGHT M5 恢复层不传 scope  → # pass 178 # fail 2 
+CAUGHT M6 已投递判定失效（无视 history）  → # pass 179 # fail 1 
+CAUGHT M7 UNKNOWN 也去重建（不保守）  → # pass 179 # fail 1 
+CAUGHT M8 审批门放行（不校验 token）  → # pass 163 # fail 17 
+CAUGHT M9 service 重新暴露 store 写方法  → # pass 177 # fail 3 
+CAUGHT M10 bulkDelete target 退回逗号拼接  → # pass 178 # fail 2 
+CAUGHT M11 hostMap 不持久化（只写内存）  → # pass 177 # fail 3 
+CAUGHT M12 hostMap 允许 hostId 重复  → # pass 179 # fail 1 
+CAUGHT M13 损坏映射静默重建为空  → # pass 179 # fail 1 
+CAUGHT M14 compileReminder 不再滤过期  → # pass 179 # fail 1 
+
+=== 汇总 ===
+CAUGHT: 14
+VACUUM: 0
+SKIP: 0

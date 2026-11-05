@@ -1,0 +1,30 @@
+=== L1 取包（从 app.asar 提取真实源码）===
+  ✅ 已取出（105046 字符）
+
+=== L2 加载真实模块 ===
+  ⚠️ 直接 import 失败（依赖解析）：Cannot find package '@deepseek-ai/schemastery' imported from /private/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/r3
+     将改用「在解出的整包目录内加载」的方式，见 L2b。
+
+=== L2b 在解出的整包目录内加载 ===
+  ✅ 加载成功，导出 34 个符号
+
+=== L3 用真实代码验证校验语义 ===
+  ✅ 合法 at 创建出正确 record（kind/scheduledAt/title/prompt/frozen）
+  ✅ record 不含 key 字段（身份不能靠宿主回报）
+  ✅ at 传数字被拒：invalid_rule
+  ✅ at 在过去被拒：not_future
+  ✅ at 无时区被拒：invalid_rule
+  ✅ at 不存在的日历日被拒：invalid_rule
+  ✅ 空 title 被拒：invalid_prompt
+  ✅ 超长 title 被拒：invalid_prompt
+
+=== L4 真实 ScheduleService 实例化 ===
+  ScheduleService 是 function
+  static inject: ["agents","sessions","storageDomain","sessionController","sessionPersistence"]
+  → 继承 Cordis Service，构造需运行中的 ctx（storageDomain/sessions/agents/…）
+  ❌ BLOCKED：本会话未启动完整 Host。启动 GUI 会挂起且可能触碰真实 profile，
+     故不在此执行；该项不计 PASS。
+
+=== 汇总 ===
+  L1-L3：PASS
+  L4 真实 Service 实例化：BLOCKED（需运行中 Host，不记 PASS）

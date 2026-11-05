@@ -455,3 +455,73 @@ test('公开 API：service 不暴露任何写方法（审批旁路已封闭）',
     assert.equal(svc.approvalGate, undefined, 'gate 不得暴露')
   })
 })
+
+// ---------------------------------------------------------------- 变异验证补齐（M1/M5）
+
+test('变异M1：catalog 必须能看见已投递的 inactive 记录', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    await adapter.reconcile([
+      { reminderKey: 'k-a', fireAtMs: BASE + HOUR, title: 'A', prompt: 'a', kind: 'event-start' },
+    ])
+    stub.tick(BASE + HOUR)
+
+    // list() 只看 active → 空
+    assert.equal((await stub.list({ sessionId: 's1' })).length, 0, '契约：list 看不见 inactive')
+    // 适配器 catalog 必须仍能看见它（这是判「已投递」的前提）
+    const cat = await adapter.catalog()
+    assert.equal(cat.status, HOST_READ.OK)
+    assert.equal(cat.rows.length, 1, 'catalog 必须看见 inactive 记录')
+    assert.equal(cat.rows[0].status, 'inactive')
+    assert.equal(cat.rows[0].reminderKey, 'k-a', '归属必须从持久化映射翻译回来')
+  })
+})
+
+test('变异M5：恢复层必须把 scope 透传给 reconcile', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    // 先建一条 task 提醒（不属于 events scope）
+    await adapter.reconcile([
+      { reminderKey: 'tasks:t1', fireAtMs: BASE + 2 * HOUR, title: 'T', prompt: 't', kind: 'task-due' },
+    ])
+    assert.equal((await stub.catalog()).length, 1)
+
+    // 只恢复 events 范围（空清单），若 scope 未透传就会把 tasks 的删掉
+    const rec = createReminderRecovery({ adapter, now: () => BASE, graceMs: MIN })
+    await rec.recover([], { scenario: 'restart', atMs: BASE, scope: 'events' })
+
+    assert.equal((await stub.catalog()).length, 1, 'scope 外的提醒不得被恢复流程删除')
+  })
+})
+
+test('变异M5b：恢复层的 scope 过滤确实生效（同 scope 内的多余项会被清理）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    // 用带前缀的 key，让 scope 语义可验证
+    await adapter.reconcile([
+      { reminderKey: 'events:stale', fireAtMs: BASE + HOUR, title: 'S', prompt: 's', kind: 'event-start' },
+      { reminderKey: 'tasks:t1', fireAtMs: BASE + 2 * HOUR, title: 'T', prompt: 't', kind: 'task-due' },
+    ])
+    assert.equal((await stub.catalog()).length, 2)
+
+    const rec = createReminderRecovery({ adapter, now: () => BASE, graceMs: MIN })
+    // events scope 内给出空清单 → 应删掉 events:stale，但保留下 tasks:t1
+    const res = await rec.recover([], { scenario: 'restart', atMs: BASE, scope: 'events' })
+    assert.deepEqual(res.removed, ['events:stale'], '同 scope 内的多余项应被清理')
+    const rows = await stub.catalog()
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].id !== undefined, true)
+  })
+})

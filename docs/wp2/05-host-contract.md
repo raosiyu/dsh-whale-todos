@@ -31,14 +31,32 @@ at | after_seconds | every_seconds | daily | weekly | cron
 | `title` | **必填**，`trim()` 后非空，**≤120 字符**；否则 `invalid_prompt` |
 | `prompt` | 必填，非空、已 trim（L268/L292） |
 
-### `at` 必须是 RFC3339 字符串
+### `at` 必须是**显式偏移的字符串**（或 local calendar object）
 
-- 格式：`YYYY-MM-DDTHH:mm:ss` + 可选 1-3 位小数秒 + **显式 `Z` 或 `±HH:MM`**（L186-206 `parseOffsetInstant`）
+> **用真实代码实测校正**（`scripts/r3-real-host.mjs` L3，见 `evidence/wp2-r3/02-real-host.log`）：
+> 传数字的报错原文是 `at must be an explicit-offset string or local calendar object`。
+> 即真实契约接受两种形态：**显式偏移字符串**，以及**本地日历对象**。
+> 本项目只用字符串形态（跨机可复现），因此实现上按字符串处理即可；
+> 但不能把契约描述成「只接受 RFC3339 字符串」——那是不准确的。
+
+- 字符串格式：`YYYY-MM-DDTHH:mm:ss` + 可选 1-3 位小数秒 + **显式 `Z` 或 `±HH:MM`**（L186-206 `parseOffsetInstant`）
 - 必须是**真实日历时刻**（L170 拒绝归一化，如 2 月 30 日）
 - 必须**严格在未来**：`epoch <= now` → `not_future`（L180）
 - 年份范围 `0001..9999`，否则 `time_out_of_range`（L179）
 
-**传给数字或 `Date` 对象都不行**：`request.at !== undefined` 时走 `parseAtInput`，非字符串必然抛 `invalid_rule`。
+**实测确认**（真实代码，非 stub）：
+
+| 输入 | 结果 |
+| --- | --- |
+| 合法 UTC 字符串 | ✅ 成功，record 为 `{id, kind:'at', title, prompt, scheduledAt}` 且 `Object.isFrozen` |
+| 数字（epoch ms） | ✅ 被拒 `invalid_rule` |
+| 过去时刻 | ✅ 被拒 `not_future` |
+| 无时区（`2026-11-05T09:00:00`） | ✅ 被拒 `invalid_rule` |
+| 不存在的日历日（2 月 30 日） | ✅ 被拒 `invalid_rule` |
+| 空 / 空白 title | ✅ 被拒 `invalid_prompt` |
+| 121 字符 title | ✅ 被拒 `invalid_prompt` |
+
+且真实 record **不含 `key` 字段**（实测），这正是「身份必须本地持久化」的直接依据。
 
 ## 三、record 形状（L280-300 `decodeAtRecord`）
 
@@ -107,6 +125,22 @@ at | after_seconds | every_seconds | daily | weekly | cron
 | `remove(id)` | `delete({id, sessionId})` | 形状不符 |
 | 用 `list` 判存在性 | 应用 `catalog()`（含 inactive） | 已投递任务被当「不存在」→ 重复投递 |
 | 无 `sessionId` 概念 | 所有方法都绑 `sessionId` | 跨会话隔离无法实现 |
+
+## 七之二、验证等级与结论（诚实分级）
+
+| 等级 | 内容 | 结果 | 证据 |
+| --- | --- | --- | --- |
+| L1 取包 | 从 app.asar 解出真实 `lib/index.js` | ✅ | `evidence/wp2-r3/02-real-host.log` |
+| L2 加载 | 真正 `import` 该模块（依赖从解出的整包解析） | ✅ 34 个导出 | 同上 |
+| L3 行为 | 调用真实 `createAtScheduleRecord` 验证校验语义 | ✅ 8/8 | 同上 |
+| L4 实例化 | `new ScheduleService(ctx)` | ❌ **BLOCKED** | 需运行中 Cordis Context（`static inject` 见日志） |
+
+**L4 未取得 PASS，不计通过。** 原因：`ScheduleService` 继承 Cordis Service，构造需要
+`agents / sessions / storageDomain / sessionController / sessionPersistence` 六个服务；
+本会话没有启动完整 Host（启动 GUI 会挂起，且存在触碰真实 profile 的风险）。
+
+**因此「真实 Service 端到端」仍是 UNVERIFIED**；L1-L3 能证明的是
+**契约形状与校验语义**，不能证明「服务在真实 Host 里跑通」。
 
 ## 八、因此必须遵守的三条实现纪律
 
