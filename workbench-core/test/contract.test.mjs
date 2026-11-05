@@ -377,7 +377,7 @@ test('hostMap：持久化并在重启后恢复映射', async () => {
   await withTmp(async (dir) => {
     const filePath = join(dir, 'hostmap.json')
     const m1 = openHostMap({ filePath })
-    m1.put({ reminderKey: 'k1', hostId: 'h1', sessionId: 's1', fireAtMs: 123, title: 't', kind: 'event-start' })
+    m1.put({ reminderKey: 'k1', hostId: 'h1', sessionId: 's1', fireAtMs: Date.now(), title: 't', kind: 'event-start' })
     assert.equal(m1.size, 1)
     m1.flush()   // 持久化契约：put 只置脏，flush 才落盘
 
@@ -391,9 +391,9 @@ test('hostMap：持久化并在重启后恢复映射', async () => {
 test('hostMap：拒绝两个 reminderKey 指向同一 hostId', async () => {
   await withTmp(async (dir) => {
     const m = openHostMap({ filePath: join(dir, 'hostmap.json') })
-    m.put({ reminderKey: 'k1', hostId: 'h1', sessionId: 's1', fireAtMs: 1, title: 't', kind: 'x' })
+    m.put({ reminderKey: 'k1', hostId: 'h1', sessionId: 's1', fireAtMs: Date.now(), title: 't', kind: 'x' })
     assert.throws(
-      () => m.put({ reminderKey: 'k2', hostId: 'h1', sessionId: 's1', fireAtMs: 1, title: 't', kind: 'x' }),
+      () => m.put({ reminderKey: 'k2', hostId: 'h1', sessionId: 's1', fireAtMs: Date.now(), title: 't', kind: 'x' }),
       /hostId 已被其它 reminderKey 占用/,
     )
   })
@@ -943,7 +943,7 @@ test('R6 契约：put 只置脏，flush 才落盘（持久化时机是显式的�
   await withTmp(async (dir) => {
     const filePath = join(dir, 'm.json')
     const m1 = openHostMap({ filePath })
-    m1.put({ reminderKey: 'k1', hostId: 'h1', sessionId: 's1', fireAtMs: 1, title: 't', kind: 'x' })
+    m1.put({ reminderKey: 'k1', hostId: 'h1', sessionId: 's1', fireAtMs: Date.now(), title: 't', kind: 'x' })
     assert.equal(m1.dirty, true, 'put 后应处于 dirty 状态')
 
     // 未 flush：新实例读不到
@@ -954,5 +954,76 @@ test('R6 契约：put 只置脏，flush 才落盘（持久化时机是显式的�
     assert.equal(m1.dirty, false, 'flush 后应已落盘')
     const after = openHostMap({ filePath })
     assert.equal(after.size, 1, 'flush 后应能读回')
+  })
+})
+
+test('R7 守卫：身份索引按时间老化，不按条数（不导致重复投递）', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'm.json')
+    const NOW = Date.UTC(2026, 10, 5)
+    const m = openHostMap({
+      filePath,
+      maxEntries: 10,
+      indexRetentionMs: 30 * 24 * MIN,
+      now: () => NOW,
+    })
+    // 两条：一条很老（180 天前）、一条很新
+    m.put({ reminderKey: 'old-1', hostId: 'h-old', sessionId: 's1', fireAtMs: NOW - 200 * 24 * MIN, title: 'old', kind: 'x' })
+    m.put({ reminderKey: 'new-1', hostId: 'h-new', sessionId: 's1', fireAtMs: NOW - 1 * MIN, title: 'new', kind: 'x' })
+    m.put({ reminderKey: 'new-2', hostId: 'h-new2', sessionId: 's1', fireAtMs: NOW - 2 * MIN, title: 'new2', kind: 'x' })
+    // 再加触发裁剪（条目上限 10，这里只有 3 条不会裁）
+    m.flush()
+
+    // 触发一次 prune（通过 put 触发）
+    m.put({ reminderKey: 'x', hostId: 'h-x', sessionId: 's1', fireAtMs: NOW, title: 'x', kind: 'x' })
+    m.flush()
+
+    assert.equal(m.reminderKeyByHostId('h-old'), undefined, '超过保留窗口的身份应被丢弃')
+    assert.equal(m.reminderKeyByHostId('h-new'), 'new-1', '近期身份必须保留')
+    assert.equal(m.reminderKeyByHostId('h-new2'), 'new-2', '近期身份必须保留')
+  })
+})
+
+test('R7 守卫：老身份被丢弃后，宿主侧那条已 inactive → 不会重建', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'm.json')
+    const NOW = Date.UTC(2026, 10, 5)
+    const stub = createContractStub({ now: () => NOW })
+    const hostMap = openHostMap({
+      filePath, indexRetentionMs: 30 * 24 * MIN, now: () => NOW,
+    })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => NOW,
+    })
+    // 阶段一：建立一条**未来**提醒（否则编译期就被滤掉，根本建不出来）
+    const plan = { reminderKey: 'k-old', fireAtMs: NOW + HOUR, title: 'T', prompt: 'p', kind: 'event-start' }
+    await adapter.reconcile([plan])
+    assert.equal((await stub.catalog()).length, 1, '前置：应建出 1 条')
+
+    // 阶段二：到点投递 → 宿主侧转 inactive
+    stub.tick(NOW + HOUR)
+    const cat = await adapter.catalog()
+    assert.equal(cat.rows.length, 1)
+    assert.equal(cat.rows[0].status, 'inactive', '前置：宿主侧应已 inactive')
+
+    // 阶段三：时间推进到保留窗口之后 → 身份被老化
+    const LATER = NOW + 200 * 24 * MIN
+    const later = openHostMap({
+      filePath, indexRetentionMs: 30 * 24 * MIN, now: () => LATER,
+    })
+    later.put({
+      reminderKey: 'trigger-prune', hostId: 'h-trigger', sessionId: 's1',
+      fireAtMs: LATER, title: 'x', kind: 'x',
+    })
+    later.flush()
+    assert.equal(later.reminderKeyByHostId('h-old'), undefined, '超窗身份应被老化')
+
+    // 关键：宿主侧那条仍是 inactive，且已过期 → 不会被重建、不会二次投递
+    const adapter2 = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap: later, sessionId: 's1', now: () => LATER,
+    })
+    const res = await adapter2.reconcile([])
+    assert.equal(res.created.length, 0, '不得重建')
+    assert.equal((await stub.catalog()).length, 1, '宿主侧仍只有那一条（未重复）')
   })
 })

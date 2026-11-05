@@ -37,6 +37,15 @@ const SCHEMA_VERSION = 1
  */
 const DEFAULT_MAX_ENTRIES = 500
 
+/**
+ * 身份索引的**时间**保留窗口（默认 180 天）。
+ *
+ * 只丢弃「早已投递、宿主侧已转 inactive」的身份；近期身份一律保留，
+ * 以免重复投递。窗口内的时间抖动不影响：判据是提醒的触发时刻，
+ * 不是写入时刻。
+ */
+const DEFAULT_INDEX_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
+
 /** 空映射的初始形状。 */
 const emptyState = () => ({ version: SCHEMA_VERSION, entries: {}, index: {} })
 
@@ -51,6 +60,10 @@ export function openHostMap(options) {
   const maxEntries = Number.isSafeInteger(options.maxEntries) && options.maxEntries > 0
     ? options.maxEntries
     : DEFAULT_MAX_ENTRIES
+  const indexRetentionMs = Number.isSafeInteger(options.indexRetentionMs) && options.indexRetentionMs > 0
+    ? options.indexRetentionMs
+    : DEFAULT_INDEX_RETENTION_MS
+  const now = options.now ?? (() => Date.now())
 
   /** @type {{ version: number, entries: Record<string, {hostId: string, sessionId: string, fireAtMs: number, title: string, kind: string}> }} */
   let state = emptyState()
@@ -152,6 +165,35 @@ export function openHostMap(options) {
    * 同时体积大幅下降（标题往往比 id 长得多）。
    */
   const prune = () => {
+    /**
+     * **时间老化（无条件执行）**。
+     *
+     * 放在条数裁剪之前：条数裁剪只在超限时才跑，而老化必须**每次**都跑，
+     * 否则索引永不收敛。
+     */
+    /**
+     * 时间老化：**只**丢弃「触发时刻早于保留窗口」的身份。
+     *
+     * 保守性说明：判据用 `fireAtMs`（提醒的触发时刻，绝对时间戳）。
+     * 若时钟异常导致 fireAtMs 落在窗口外，身份会被丢 → 可能重复投递。
+     * 因此窗口取 180 天（远大于任何合理时钟偏差），且**条目**与索引一起删
+     * ——只删索引的话回退路径仍会命中，身份等于没丢（实测 drop=true 仍能反查到）。
+     *
+     * 已知取舍：老条目被删后，若它仍在 desired 里会被重建。
+     * 但那类提醒的触发时刻早已过去，`compileReminder` 会把它滤掉，
+     * 正常路径不会进 desired。
+     */
+    const cutoff = now() - indexRetentionMs
+    for (const [hostId, key] of Object.entries(state.index)) {
+      const fireAt = state.entries[key]?.fireAtMs
+      // 条目已被条数裁剪掉时没有 fireAtMs 可依据 → 保守保留（不冒重复投递的风险）
+      if (fireAt === undefined) continue
+      if (fireAt < cutoff) {
+        delete state.index[hostId]
+        delete state.entries[key]
+      }
+    }
+
     const all = Object.entries(state.entries)
     if (all.length <= maxEntries) return []
     // 未来时刻优先保留，其次按时间倒序
@@ -168,19 +210,6 @@ export function openHostMap(options) {
       state.index[v.hostId] = k
       delete state.entries[k]
     }
-    /**
-     * **index 刻意不封顶**。
-     *
-     * 我试过封顶（实测 2000 条时 index 被裁掉 1500 条 → 第二次对账
-     * **重复创建 1500 条**，宿主侧 2000 → 3500）。
-     *
-     * 体积增长是渐进的（每条约 46 字节），而重复投递是**用户可见的严重故障**。
-     * 这个取舍没有第二种正确解法：要么身份齐全（体积线性增长），
-     * 要么丢身份（重复投递）。**正确性优先**。
-     *
-     * 体积控制改由「条目封顶」承担：entries 里每条含 title/prompt/scope 等
-     * 大字段，而 index 只有 hostId→reminderKey 的短键，体积小一个量级。
-     */
     return drop.map(([k]) => k)
   }
 

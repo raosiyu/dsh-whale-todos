@@ -1,0 +1,27 @@
+=== WP2R5-Final 探针 08：并发丢更新 ===
+
+--- A) hostMap.put 并发交错 ---
+  ✅ 200 次并发 put 后 entries 齐全  = 200
+  ✅ 落盘 entries 齐全（无丢更新）  = 200
+  ✅ 落盘 index 齐全  = 200
+  ✅ 全部 hostId 能反查回 reminderKey  = 0
+
+--- B) 两个 reconcile 并发，desired 不重叠 ---
+  ✅ 宿主 40 条  = 40
+  ✅ A 未误删  = 0
+  ✅ B 未误删  = 0
+  ✅ 重启前仍认领 40 条  = 40
+  ✅ 无重复 hostId  = 40
+
+--- C) 两个 reconcile 并发，desired 部分重叠 ---
+    A: created=20 removed=0
+    B: created=20 removed=0
+    宿主行数 = 40（期望 30）
+  ❌ 无重复提醒（shared 未被建两份）  got 10 want 0
+  ❌ 宿主行数 = 30  got 40 want 30
+
+--- D) 服务层 store.mutate 并发 ---
+  ✅ 20 次并发 create 后事件齐全  = 20
+  ✅ 无重复 id  = 20
+
+=== 探针 08 汇总：FAIL（2 项） ===

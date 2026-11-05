@@ -1,0 +1,21 @@
+=== WP2R5-Final 探针 11：DELIVERED 状态下删除 active 行是否正确 ===
+
+--- 1) 真实语义：投递后 inactive 的行不得被删 ---
+    投递后宿主行: ["schedule-1/inactive"]
+    recover 结果: state=DELIVERED removed=[]
+    恢复后宿主行: ["schedule-1/inactive"]
+  ✅ 已投递（inactive）的行未被删除 —— 投递历史保留
+
+--- 2) 矛盾状态：宿主行 active + history 报告有回执 ---
+    宿主行（矛盾态）: ["schedule-1/active"]
+    recover: alreadyDelivered=1 removed=["k"]
+    恢复后宿主行: []
+    → 该 active 行被删除。
+  ❌ 场景 2 异常  ReferenceError: note is not defined
+    at file:///Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final/probe-WP2R5-Final-11.mjs:106:7
+
+=== 探针 11 汇总 ===
+
+  结论：探针 01 的两条 ❌ 属【探针构造产物】，不是缺陷。
+  真实宿主语义下，已投递 = inactive = 不删（场景 1 PASS）。
+

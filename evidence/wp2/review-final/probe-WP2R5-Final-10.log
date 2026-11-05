@@ -1,0 +1,38 @@
+=== WP2R5-Final 探针 10：诚实性核对 ===
+
+--- A) 三个探针的 import 目标 ---
+  ❌ p1-real-storage-domain：REPO 指向主仓库工作副本（/Users/sylas/Developer/dsh-workbench）→ 测的不是冻结版
+  ❌ p2-protect：REPO 指向主仓库工作副本（/Users/sylas/Developer/dsh-workbench）→ 测的不是冻结版
+  ❌ p3-retention：REPO 指向主仓库工作副本（/Users/sylas/Developer/dsh-workbench）→ 测的不是冻结版
+
+--- B) 已提交证据日志的数字 vs 冻结版实测 ---
+    已提交 unit-tests.log: pass=196 fail=0
+  ℹ️      我实测（冻结版）: pass=196 fail=0
+  ✅ 测试数一致（196）
+    已提交 mutation.log: CAUGHT=31 VACUUM=0 SKIP=0
+  ℹ️      我实测（冻结版）: CAUGHT=31 VACUUM=0 SKIP=0
+  ✅ 变异数一致（31）
+
+--- C) 「模拟通过」是否被写成「真实通过」 ---
+  ✅ round4-audit 如实记录：L4 用假 storageDomain
+  ✅ round4-audit 如实记录：不能生产端到端
+  ✅ round4-audit 如实记录：第三方复审未产出
+  ✅ round4-audit 未见夸大措辞（明确列出「不能说」清单）
+
+--- D) round4-audit 记录的 N-17 是否真实存在（代码验证）---
+  ✅ recover 把 UNKNOWN 的 key 传给 protect（修法 2 在位）
+  ✅ deliveryStateOf 对 earlierRecordsUnavailable=true 判 UNKNOWN
+  ✅ reconcile 跳过 protect 集合（修法 1 在位）
+  ✅ 非对象 history → UNAVAILABLE（R5-1 新修在位）
+  ✅ N-03 unmapped 上报 在位
+  ✅ N-04 create 失败不中断 在位
+  ✅ N-11 scope 按字段过滤 在位
+  ✅ N-08 删除失败计入 failed 在位
+  ✅ N-05 deny 在唯一入口拦截 在位
+  ✅ N-06 restore/upsert 入危险清单 在位
+
+--- E) 报告声称的 8 项门禁是否与冻结目录一致 ---
+    冻结版门禁项（8）: unit-tests, demo, probe-real-storage, probe-protect, probe-retention, real-service-l4, acceptance-8, mutations
+  ✅ 已提交证据日志齐全
+
+=== 探针 10 汇总：FAIL（3 项） ===
