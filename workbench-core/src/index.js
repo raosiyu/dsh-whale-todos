@@ -130,3 +130,10 @@ export {
   createWorkbenchHostService,
   applyWorkbenchHostService,
 } from './host-service.js'
+
+export {
+  TOOL_ERRORS,
+  renderValue,
+  createWorkbenchToolDefinitions,
+  applyWorkbenchTools,
+} from './host-tools.js'

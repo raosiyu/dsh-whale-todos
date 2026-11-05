@@ -2,7 +2,7 @@
   ✅ 真实 ScheduleService 实例化成功
 
 === 2) 真实代码上跑五个方法 ===
-  ✅ create(sessionId, {title,prompt,at}) 成功  {"id":"schedule-520c739a-f285-4d01-a8e6-cdec70f8e158","kind":"at","title":"真实验证","prompt":"p","scheduledAt":"2026-11-05T14:50:21.349Z"}
+  ✅ create(sessionId, {title,prompt,at}) 成功  {"id":"schedule-e34789f8-a640-4049-b41e-1ddd7e7b620c","kind":"at","title":"真实验证","prompt":"p","scheduledAt":"2026-11-05T15:30:52.569Z"}
   ✅ record 是 frozen
   ✅ record 无 key 字段（身份必须本地持久化）
   ✅ list({sessionId}) 返回 1 条  = 1
