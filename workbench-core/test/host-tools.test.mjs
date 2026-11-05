@@ -272,3 +272,53 @@ test('WP3：自然语言意图映射说明（文档级，防止自造 NLP 解析
   const help = defs.find((d) => d.name === 'workbench_help')
   assert.match(help.description, /natural-language|tool/i)
 })
+
+// ---------------------------------------------------------------- 最终 Review 的 BLOCKER 守卫
+const asarReady2 = existsSync(`${ASAR}/@deepseek-ai/dsh-tools/lib/index.js`)
+
+test('WP3-B1 守卫：真 defineTool 出参校验对错误与成功值都通过（oneOf 互斥）',
+  { skip: asarReady2 ? false : 'asar 解包目录不存在' }, async () => {
+    const { defineTool, validateJsonSchemaValue } = await import(`${ASAR}/@deepseek-ai/dsh-tools/lib/index.js`)
+    const defs = createWorkbenchToolDefinitions({ service: { invoke: () => ({}) } })
+    for (const d of defs) {
+      const tool = defineTool(d)
+      // 错误值（无 agent）：用无必填参数的工具，避免真 defineTool 的入参校验先抛
+      const args = Object.keys(d.parameters ?? {}).length === 0 ? {} : undefined
+      if (args === undefined) continue // 必填参数工具的错误路径由 B1 第二条覆盖
+      const err = await tool.execute(args, { signal: new AbortController().signal })
+      assert.equal(
+        validateJsonSchemaValue(tool.output.schema, err, '').length, 0,
+        `${d.name} 的错误输出必须恰好命中 oneOf 一支`,
+      )
+      // 成功值
+      const success = { ok: true, op: 'x', result: [] }
+      assert.equal(
+        validateJsonSchemaValue(tool.output.schema, success, '').length, 0,
+        `${d.name} 的成功输出必须恰好命中 oneOf 一支`,
+      )
+    }
+  })
+
+test('WP3-B1 守卫：真 ToolRuntime 端到端不把业务错误变成 ToolOutputError',
+  { skip: asarReady2 ? false : 'asar 解包目录不存在' }, async () => {
+    const { defineTool, validateJsonSchemaValue } = await import(`${ASAR}/@deepseek-ai/dsh-tools/lib/index.js`)
+    await withTmp(async (dir) => {
+      const defs = createWorkbenchToolDefinitions({ service: mkService(dir) })
+      const tool = defineTool(defs.find((d) => d.name === 'workbench_event_get'))
+      const out = await tool.execute({ id: 'no-such-id' }, execFor('s1'))
+      assert.equal(out.ok, false)
+      assert.equal(out.code, 'not-found')
+      // 真出参校验必须通过（否则真 ToolRuntime 会 ToolOutputError）
+      assert.equal(validateJsonSchemaValue(tool.output.schema, out, '').length, 0)
+    })
+  })
+
+test('WP3-B2 守卫：审批适配器使用真 toolName 与 allowed-once 词汇', async () => {
+  // 静态核对源码（不依赖真 ApprovalService 的 open turn 运行时）
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../src/host-service.js', import.meta.url), 'utf8')
+  assert.match(src, /toolName:\s*req\.op/, '必须用真字段 toolName，不是 tool')
+  assert.match(src, /'allowed-once'\s*\?\s*'approved'/, "必须把 allowed-once 映射为 approved")
+  assert.match(src, /agent\.session/, '必须保证 req.agent.session 可用')
+  assert.doesNotMatch(src, /tool:\s*req\.op/, '不得再用不存在的 tool 字段')
+})

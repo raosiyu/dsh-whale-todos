@@ -45,7 +45,8 @@ function sessionDirName(sessionId) {
  *
  * @param {{
  *   rootDir: string,
- *   // 真宿主审批请求：由 apply() 从 ctx.approval.request 注入
+ *   // 真宿主审批请求：由 apply() 从 ctx.approval.request 注入。
+ *   // req 里带 agent（真 ApprovalService 需要 req.agent.session）。
  *   requestApproval?: (req) => Promise<'approved'|'denied'|'unavailable'>,
  *   mode?: 'host'|'isolated'|'deny',
  *   allowIsolated?: boolean,
@@ -59,6 +60,9 @@ export function createWorkbenchHostService(options = {}) {
     mode = 'host',
     allowIsolated = false,
     now,
+    // 运行时 agent 提供者：真 ApprovalService.request 需要 req.agent.session，
+    // 而审批发生在**工具调用时**（exec.agent），不是构造期。
+    currentAgent = () => undefined,
   } = options
 
   if (typeof rootDir !== 'string' || rootDir === '') {
@@ -68,6 +72,9 @@ export function createWorkbenchHostService(options = {}) {
 
   /** sessionId → 该会话的门面实例。 */
   const sessions = new Map()
+
+  /** 当前调用的 Agent（由 invoke 设置；审批适配器读取）。 */
+  let activeAgent = undefined
 
   /** 每次调用的审计流水（进程内，供 UI/工具读取；持久化审计在 service 内）。 */
   const auditTrail = []
@@ -127,6 +134,8 @@ export function createWorkbenchHostService(options = {}) {
     const scope = typeof meta.scope === 'string' ? meta.scope : ''
     const svc = forSession(sessionId, scope)
     const at = now ? now() : Date.now()
+    // 真 ApprovalService 需要 req.agent.session；由工具层从 exec.agent 注入
+    activeAgent = meta.agent ?? undefined
 
     let result
     let error
@@ -194,9 +203,15 @@ export function createWorkbenchHostService(options = {}) {
     })
   }
 
+  /** 工具层在 execute 时注入 exec.agent（真审批路由需要）。 */
+  function bindAgent(agent) {
+    activeAgent = agent
+  }
+
   return Object.freeze({
     forSession,
     invoke,
+    bindAgent,
     listOps,
     askApproval,
     audit,
@@ -221,17 +236,42 @@ export function applyWorkbenchHostService(ctx, config = {}) {
   if (typeof ctx?.provide !== 'function') {
     throw new TypeError('applyWorkbenchHostService 需要带 provide 的 Host Context')
   }
+  /**
+   * **BLOCKER-2 修复**：对齐真 `ApprovalService.request` 的一手契约
+   * （`dsh-user-approval/lib/index.js:128-134`）：
+   *   - 请求字段是 `toolName`，不是 `tool`
+   *   - 必须带 `req.agent`（真实现读 `req.agent.session`）
+   *   - 返回词汇是 `'allowed-once'|'rejected'|'cancelled'|'unavailable'`，
+   *     **没有** `'approved'`；只有 `'allowed-once'` 是授予
+   *   - `reason` 只是展示文本，真正的 reason 字段见 `displayReason`
+   *
+   * 这里把真宿主词汇映射回 workbench-core 的 approval-gate 词汇，
+   * 避免改动 WP2 已验证的 gate 本体（降低回归风险）。
+   */
   const requestApproval = config.approval?.request !== undefined
     ? async (req) => {
-        // 真宿主 ask 策略：无 answerer / 失败 → unavailable（fail closed）
-        const decision = await config.approval.request({
-          agent: req.agent,
-          tool: req.op,
-          callId: req.callId,
-          reason: req.summary,
-          signal: req.signal,
-        })
-        return decision
+        const agent = req.agent ?? activeAgent ?? (typeof currentAgent === 'function' ? currentAgent() : undefined)
+        activeAgent = undefined
+        if (agent === undefined || agent?.session === undefined) {
+          // 真 ApprovalService.request 第 129 行会读 req.agent.session，
+          // 缺 agent 会抛；这里直接 fail closed，不把异常暴露给模型。
+          return 'unavailable'
+        }
+        let outcome
+        try {
+          outcome = await config.approval.request({
+            agent,
+            toolName: req.op,
+            callId: req.callId,
+            reason: req.summary,
+            displayReason: req.summary,
+            signal: req.signal,
+          })
+        } catch {
+          return 'unavailable'
+        }
+        // 真词汇 → gate 词汇
+        return outcome === 'allowed-once' ? 'approved' : 'denied'
       }
     : undefined
 
@@ -239,6 +279,7 @@ export function applyWorkbenchHostService(ctx, config = {}) {
     rootDir: config.rootDir,
     requestApproval,
     mode: config.mode ?? 'host',
+    currentAgent: config.currentAgent,
   })
   ctx.provide('workbench', service)
   return service

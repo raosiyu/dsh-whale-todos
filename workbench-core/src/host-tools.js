@@ -31,9 +31,9 @@
 
 /** 稳定错误码（模型可见，不泄露内部存储异常）。 */
 export const TOOL_ERRORS = Object.freeze({
-  noAgent: Object.freeze({ code: 'internal_error', message: 'The workbench operation failed: no calling Agent.' }),
-  aborted: Object.freeze({ code: 'internal_error', message: 'The workbench operation was cancelled.' }),
-  internal: Object.freeze({ code: 'internal_error', message: 'The workbench operation failed.' }),
+  noAgent: Object.freeze({ ok: false, code: 'internal_error', message: 'The workbench operation failed: no calling Agent.' }),
+  aborted: Object.freeze({ ok: false, code: 'internal_error', message: 'The workbench operation was cancelled.' }),
+  internal: Object.freeze({ ok: false, code: 'internal_error', message: 'The workbench operation failed.' }),
 })
 
 /** output.render：真实 `dsh-tool-schedule` 用的是同一形状。 */
@@ -50,23 +50,38 @@ function operationError(error) {
     'validation', 'not-found', 'conflict', 'confirmation-required', 'unsupported',
   ])
   if (!EXPOSED.has(code)) return TOOL_ERRORS.internal
-  return { code, message: String(error?.message ?? code) }
+  return { ok: false, code, message: String(error?.message ?? code) }
 }
 
-/** 统一的错误 schema（所有工具共用）。 */
+/**
+ * 统一的错误 schema（所有工具共用）。
+ *
+ * **BLOCKER-1 修复**：`additionalProperties: false` + `ok: {const:false}` 让
+ * 错误对象**不会**同时命中成功分支。真 `validateJsonSchemaValue` 的 oneOf
+ * 要求「恰好一支」；原 RESULT_SCHEMA 是 `additionalProperties:true`，错误对象
+ * 会同时匹配两支 → 真 ToolRuntime 抛 ToolOutputError，模型拿不到稳定错误。
+ * 对照真 `dsh-tool-schedule/lib/index.js:158-190`，它用 const 让互斥成立。
+ */
 const ERROR_SCHEMA = Object.freeze({
   type: 'object',
   additionalProperties: false,
   properties: {
+    ok: { type: 'boolean', const: false, required: true },
     code: { type: 'string', required: true },
     message: { type: 'string', required: true },
   },
 })
 
-/** 任意 JSON 结果（op 返回值形态各不同，用宽松 object 承载）。 */
+/** 成功结果：必须有 ok:true，与 ERROR_SCHEMA 的 ok:false 互斥。 */
 const RESULT_SCHEMA = Object.freeze({
   type: 'object',
   additionalProperties: true,
+  properties: {
+    ok: { type: 'boolean', const: true, required: true },
+    op: { type: 'string', required: true },
+    // result 形态各 op 不同（数组/对象/标量），由 additionalProperties:true 承载；
+    // 不声明其 schema —— 真 DSL 的 json 属性对数组/对象会要求 lossless，反而误判。
+  },
 })
 
 const OUTPUT_SCHEMA = Object.freeze({
@@ -90,6 +105,9 @@ async function runTool({ service, exec, args, op, payload, meta = {} }) {
     const result = service.invoke(sessionId, op, payload(args), {
       ...meta,
       actor: 'agent-tool',
+      // 真 ApprovalService.request 需要 req.agent.session；
+      // sessionId 与 agent 都只取自 exec（唯一可信来源）
+      agent,
       // 凭证只可能来自 Host；工具绝不从 args 里读 confirmed
       approvalToken: meta.approvalToken,
     })

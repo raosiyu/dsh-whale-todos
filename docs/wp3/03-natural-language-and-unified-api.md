@@ -58,7 +58,8 @@ Agent┘        └─→ forSession(sessionId, scope).execute(op, payload, meta
 - 危险操作（`delete/bulkDelete/import/replace/rollback`）**不注册为 AI 工具**；
 - 工具不读 `args.confirmed`；凭证只能来自 Host 签发的 `approvalToken`；
 - `host` 模式把 `ctx.approval.request` 注入 approval-gate，
-  无 answerer → `unavailable` → **fail closed**（实测 `confirmation-required`）；
+  用真字段 `toolName` + `req.agent.session`，把真词汇 `allowed-once` 映射为
+  gate 的 `approved`；无 answerer / 无 open turn → `unavailable` → **fail closed**；
 - 参数由真 `defineTool` 预校验（`ToolArgsError`），业务规则另在 execute 内显式校验；
 - 错误只回传白名单码（`validation/not-found/conflict/confirmation-required/unsupported`），
   内部存储异常不暴露给模型。

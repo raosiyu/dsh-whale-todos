@@ -57,8 +57,14 @@ export { apply, inject, name }
 
 - `policy: ask`（默认）/ `never`；`ask` 交给 `approval/request` waterfall 的
   answerers；**无 answerer 或失败 → `unavailable`，fail closed**
-- `request(req)` 命名 agent / tool / callId / reason + abort signal；
-  **必须在 open turn 内**，否则抛出且不写审计
+- `request(req)` 命名 **agent / toolName / callId / reason** + abort signal；
+  **必须在 open turn 内**（`hasOpenTurn(session)` 读 `turn/start` 未闭合），
+  否则抛出且不写审计。
+  **返回词汇**：`'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'`，
+  **只有 `'allowed-once'` 是授予**（没有 `'approved'`）。
+  见 `dsh-user-approval/lib/index.js:29-34, 128-143`；
+  `dsh-tools/lib/index.js:3553` 的 `serviceAsk` 用 `toolName: exec.name` 与
+  `agent: exec.agent` 调用它。
 - 每次请求与结果写入**请求会话的审计日志**；模型看不到审批 UI 与审计事件
 - `setPolicy(agent, policy)` / `setApprovalPolicy(session, policy)`
 - 工具流水线的 `tools/pre-execute` → `ask` → `serviceAsk` 即走此 seam
