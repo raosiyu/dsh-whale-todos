@@ -3,27 +3,38 @@
  *
  * ## 为什么需要它
  *
- * `ctx.schedule` 负责「准时投递」，但它不负责「我错过了怎么办」。真实故障形态有三种：
+ * `ctx.schedule` 负责「准时投递」，但它不负责「我错过了怎么办」。真实故障形态三种：
  *
  * 1. **重启（restart）**：进程退出再起来。内存里的计划全没了，必须从持久化状态重建。
  * 2. **休眠（suspend）**：进程在，但时钟停了很久；醒来后一批提醒已过期。
  * 3. **退出（exit）**：用户在提醒到点前主动关掉应用。
  *
- * ## 语义（明确写死不模糊）
+ * ## 语义（写死不模糊）
  *
- * - **过期未投递的提醒：不补发**（避免醒来被 20 条历史提醒轰炸）。
- *   只记录一条 `missed` 计数，供 UI 展示「有 N 条提醒在离线期间错过」。
- * - **仍在未来的提醒：恢复**（重新落到 schedule）。
- * - **重复事件的后续发生：照常建立**（未来实例不受影响）。
- * - **恢复过程幂等**：同一状态重复恢复不产生重复提醒（靠 reminderKey）。
+ * - **已投递过的不重建**：查宿主 `history({sessionId, id, limit})`，有回执即跳过。
+ * - **读不到历史 → UNKNOWN**：不谎报「没投递过」，也不据此删任何东西。
+ * - **过期较久的不补发**：记 `missed` 并给摘要，避免醒来被 N 条历史提醒轰炸。
+ * - **宽限期内补建的，触发时刻钳到未来**：绝不把过去时刻交给宿主。
+ * - **恢复过程幂等**：靠 `reminderKey`。
+ * - **宿主读不到时只建不删**：`reconcile` 会返回 `degraded: true`。
  *
- * 这三条是产品决策，不是技术顺带；写进测试锁定。
+ * ## scope 纪律
+ *
+ * 恢复只对**本批次负责的范围**做增删。不给 scope 时保持全量语义（向后兼容），
+ * 但调用方应显式传 scope，避免「只恢复事件把任务提醒删光」。
  */
 
 import { reminderKeyOf } from './schedule-adapter.js'
 
-/** 恢复结果。 */
+/** 恢复场景。 */
 export const RECOVERY_SCENARIOS = Object.freeze(['restart', 'suspend', 'exit'])
+
+/** 投递状态三态：确认投递 / 确认未投递 / 未知。 */
+export const DELIVERY_STATE = Object.freeze({
+  DELIVERED: 'delivered',
+  NOT_DELIVERED: 'not-delivered',
+  UNKNOWN: 'unknown',
+})
 
 /**
  * @param {{
@@ -36,25 +47,47 @@ export function createReminderRecovery(options) {
   const adapter = options.adapter
   const now = options.now ?? (() => Date.now())
   /**
-   * 宽限期：到期后仍在这个窗口内的提醒视为「还能补投」（比如刚睡醒 30 秒内）。
+   * 宽限期：到期后仍在这个窗口内的提醒视为「还能补投」（如刚睡醒 30 秒内）。
    * 超过宽限期的一律按「错过」处理，不补发。
    */
   const graceMs = options.graceMs ?? 60 * 1000
 
+  /**
+   * 查某条提醒的投递状态。**显式三态**，不把「查不到」当成「没投递」。
+   * @returns {Promise<{ state: string, records?: object[], reason?: string }>}
+   */
+  const deliveryStateOf = async (reminderKey) => {
+    if (typeof adapter.historyFor !== 'function') {
+      return { state: DELIVERY_STATE.UNKNOWN, reason: 'backend-without-history' }
+    }
+    let res
+    try {
+      res = await adapter.historyFor(reminderKey)
+    } catch (error) {
+      return { state: DELIVERY_STATE.UNKNOWN, reason: String(error?.code ?? error?.message ?? error) }
+    }
+    if (res === undefined || res === null) {
+      return { state: DELIVERY_STATE.UNKNOWN, reason: 'empty-result' }
+    }
+    if (res.status === 'unavailable') {
+      return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-unavailable' }
+    }
+    const records = Array.isArray(res.records) ? res.records : []
+    return {
+      state: records.length > 0 ? DELIVERY_STATE.DELIVERED : DELIVERY_STATE.NOT_DELIVERED,
+      records,
+    }
+  }
+
   return {
+    /** 单条投递状态（对外也暴露，供 UI 展示）。 */
+    deliveryStateOf,
+
     /**
      * 执行恢复。
      *
      * @param {Array<{reminderKey: string, fireAtMs: number, title: string, prompt: string}>} plans
-     *   从持久化状态重新编译出的「应存在的提醒」
-     * @param {{ scenario: 'restart'|'suspend'|'exit', atMs?: number }} input
-     * @returns {Promise<{
-     *   scenario: string,
-     *   restored: string[],
-     *   missed: string[],
-     *   skippedPast: number,
-     *   removed: string[],
-     * }>}
+     * @param {{ scenario: 'restart'|'suspend'|'exit', atMs?: number, scope?: string }} input
      */
     async recover(plans, input) {
       const scenario = input.scenario
@@ -63,66 +96,53 @@ export function createReminderRecovery(options) {
       }
       const atMs = input.atMs ?? now()
 
-      /**
-       * 先读宿主投递历史（能读到才用）。
-       *
-       * 宿主「投递即出队」，所以一条已投递的提醒在宿主侧表现为"不存在"；
-       * 如果只看时间，宽限期内的重启会把它当成"缺失"重新注册 → 用户被重投。
-       * 这里用 history 里出现过的 key 作为「已投递」证据，直接跳过。
-       */
-      let deliveredKeys = new Set()
-      let historyAvailable = false
-      try {
-        const hist = await adapter.history()
-        if (Array.isArray(hist) && hist.length >= 0) {
-          historyAvailable = true
-          deliveredKeys = new Set(hist.map((h) => h.key).filter((k) => typeof k === 'string' && k !== ''))
-        }
-      } catch {
-        historyAvailable = false
-      }
-
       const future = []
       const missed = []
       const alreadyDelivered = []
+      const unknown = []
+
       for (const plan of plans) {
-        if (historyAvailable && deliveredKeys.has(plan.reminderKey)) {
-          // 已投递过：不重建，也不计入 missed（它没被"错过"）
+        const delivery = await deliveryStateOf(plan.reminderKey)
+
+        if (delivery.state === DELIVERY_STATE.DELIVERED) {
+          // 已投递：不重建，也不算「错过」
           alreadyDelivered.push(plan.reminderKey)
           continue
         }
+        if (delivery.state === DELIVERY_STATE.UNKNOWN) {
+          // 投递状态未知：**不删不建**，只记录。宁可留着，不可误删误建。
+          unknown.push({ reminderKey: plan.reminderKey, reason: delivery.reason })
+          continue
+        }
+
         if (plan.fireAtMs > atMs) {
           future.push(plan)
         } else if (atMs - plan.fireAtMs <= graceMs) {
-          /**
-           * 宽限期内补建，但**把触发时刻钳到 atMs 之后**。
-           * 否则会把一个过去时刻交给宿主，语义上等于"立即补投"，
-           * 而本包的承诺是不补投历史提醒。
-           */
+          // 宽限期内补建；触发时刻**钳到 now 之后**，绝不把过去时刻交给宿主
           future.push({ ...plan, fireAtMs: Math.max(plan.fireAtMs, atMs + 1000) })
         } else {
           missed.push(plan)
         }
       }
 
-      // 幂等对账：把当前后端状态对齐到「未来应有的提醒」
-      const res = await adapter.reconcile(future)
+      // scope 必须透传：只恢复 events 时不得删掉 tasks 的提醒
+      const res = await adapter.reconcile(future, { scope: input.scope })
 
       return {
         scenario,
         restored: [...res.created, ...res.updated],
         missed: missed.map((p) => p.reminderKey),
         alreadyDelivered,
+        unknown,
         skippedPast: missed.length,
         removed: res.removed,
-        historyAvailable,
+        failed: res.failed ?? [],
+        degraded: res.degraded === true,
+        historyAvailable: unknown.length === 0,
       }
     },
 
-    /**
-     * 计算「错过摘要」，供 UI 展示。
-     * @param {Array<{reminderKey: string, fireAtMs: number, title: string}>} missedPlans
-     */
+    /** 错过摘要，供 UI 展示。 */
     summarizeMissed(missedPlans) {
       if (missedPlans.length === 0) return '没有错过的提醒'
       const titles = missedPlans.slice(0, 3).map((p) => p.title).join('、')
@@ -137,8 +157,11 @@ export function createReminderRecovery(options) {
  *
  * @param {{
  *   adapter: Object, events: Array<object>, tasks?: Array<object>,
- *   now?: () => number, windowDays?: number, leadMinutes?: number,
+ *   now?: () => number, windowDays?: number, lookbackDays?: number,
+ *   leadMinutes?: number, monthEndPolicy?: string,
  * }} input
+ * @returns {{ plans: Array, skipped: Array }}
+ *   **普通对象**：`skipped` 不会再随 spread / JSON 静默丢失。
  */
 export function rebuildPlans(input) {
   const now = input.now ?? (() => Date.now())
@@ -154,14 +177,17 @@ export function rebuildPlans(input) {
     windowEnd: base + windowDays * 86400000,
     monthEndPolicy: input.monthEndPolicy ?? 'rfc',
   }
-  const eventPlans = input.adapter.planForEvents(input.events, {
+  const eventResult = input.adapter.planForEvents(input.events, {
     ...window,
     leadMinutes: input.leadMinutes,
   })
-  const taskPlans = input.adapter.planForTasks(input.tasks ?? [], {
+  const taskResult = input.adapter.planForTasks(input.tasks ?? [], {
     leadMinutes: input.leadMinutes,
   })
-  return [...eventPlans, ...taskPlans]
+  return {
+    plans: [...eventResult.plans, ...taskResult.plans],
+    skipped: [...eventResult.skipped, ...taskResult.skipped],
+  }
 }
 
 export { reminderKeyOf }

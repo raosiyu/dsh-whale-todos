@@ -159,10 +159,10 @@ const adapter = createScheduleAdapter({
   defaultLeadMinutes: 15,
 })
 const live = svc.execute('event.list')
-const plans = adapter.planForEvents(live, {
+const { plans, skipped } = adapter.planForEvents(live, {
   windowStart: BASE, windowEnd: BASE + 30 * 86400000,
 })
-log(`  为 ${live.length} 个事件编译出 ${plans.length} 条提醒`)
+log(`  为 ${live.length} 个事件编译出 ${plans.length} 条提醒${skipped.length > 0 ? `（跳过 ${skipped.length} 条无法展开的规则）` : ''}`)
 const rec1 = await adapter.reconcile(plans)
 log(`  首次对账：created=${rec1.created.length} removed=${rec1.removed.length}`)
 const rec2 = await adapter.reconcile(plans)
@@ -173,8 +173,11 @@ if (plans.length > 0) {
   const first = adapter._tick(fireAt)
   const second = adapter._tick(fireAt + 60000)
   log(`  到点投递：第一次 ${first.length} 条，重复 tick ${second.length} 条（应为 0）`)
-  const hist = await adapter.history()
-  log(`  投递历史 ${hist.length} 条（与真实投递一致）`)
+  // 每条都查（historyFor 是单任务查询，与真实契约一致）
+  const histTotals = await Promise.all(plans.map((p) => adapter.historyFor(p.reminderKey)))
+  const histRecords = histTotals.reduce((n, h) => n + h.records.length, 0)
+  const histStatus = histTotals.every((h) => h.status === 'ok') ? 'ok' : 'unavailable'
+  log(`  投递历史合计 ${histRecords} 条（status=${histStatus}），与真实投递一致=${histRecords === first.length}`)
 }
 
 rmSync(dir, { recursive: true, force: true })

@@ -48,7 +48,7 @@ test('场景 restart：过期事件不再生成计划（compileReminder 的 null
   const adapter = mkAdapter(base)
   // 事件 A：2 小时后（未来）；事件 B：3 小时前（其提醒已过期）
   const events = [ev('2026-11-01T02:15'), ev('2026-10-31T21:15')]
-  const plans = rebuildPlans({ adapter, events, now: () => base, leadMinutes: 15 })
+  const { plans } = rebuildPlans({ adapter, events, now: () => base, leadMinutes: 15 })
 
   // 过期项在编译期就被过滤掉，不会进计划（WP2 修复：不再补建历史提醒）
   assert.equal(plans.length, 1, '只有未来事件产生计划')
@@ -91,7 +91,7 @@ test('场景 exit：退出期间到点的提醒不补发（避免轰炸）', asy
   const adapter = mkAdapter(base)
   // 模拟用户关掉应用 6 小时后又打开
   const events = [ev('2026-11-01T01:00'), ev('2026-11-01T02:00'), ev('2026-11-01T03:00'), ev('2026-11-01T20:00')]
-  const plans = rebuildPlans({ adapter, events, now: () => base, leadMinutes: 0 })
+  const { plans } = rebuildPlans({ adapter, events, now: () => base, leadMinutes: 0 })
   const wakeAt = base + 6 * 3600 * 1000
 
   const rec = createReminderRecovery({ adapter, now: () => wakeAt, graceMs: MIN })
@@ -105,7 +105,7 @@ test('恢复幂等：同一状态重复恢复不产生重复提醒', async () =>
   const base = Date.UTC(2026, 10, 1, 0, 0, 0)
   const adapter = mkAdapter(base)
   const events = [ev('2026-11-01T02:15'), ev('2026-11-01T03:15')]
-  const plans = rebuildPlans({ adapter, events, now: () => base, leadMinutes: 15 })
+  const { plans } = rebuildPlans({ adapter, events, now: () => base, leadMinutes: 15 })
   const rec = createReminderRecovery({ adapter, now: () => base, graceMs: MIN })
 
   const first = await rec.recover(plans, { scenario: 'restart', atMs: base })
@@ -121,11 +121,11 @@ test('恢复会清掉不再需要的旧提醒（事件被删后）', async () =>
   // 复用同一事件 id，才能验证「事件被删 → 其提醒被取消」
   const keepEvent = ev('2026-11-01T02:15', {}, 'keep-me')
   const dropEvent = ev('2026-11-01T03:15', {}, 'drop-me')
-  const before = rebuildPlans({ adapter, events: [keepEvent, dropEvent], now: () => base, leadMinutes: 15 })
+  const { plans: before } = rebuildPlans({ adapter, events: [keepEvent, dropEvent], now: () => base, leadMinutes: 15 })
   await adapter.reconcile(before)
   assert.equal((await adapter.list()).length, 2)
 
-  const after = rebuildPlans({ adapter, events: [keepEvent], now: () => base, leadMinutes: 15 })
+  const { plans: after } = rebuildPlans({ adapter, events: [keepEvent], now: () => base, leadMinutes: 15 })
   const rec = createReminderRecovery({ adapter, now: () => base, graceMs: MIN })
   const res = await rec.recover(after, { scenario: 'restart', atMs: base })
   assert.equal(res.removed.length, 1, '被删事件的提醒必须取消')
@@ -148,7 +148,7 @@ test('错过摘要：空与多条都给出可读文案', () => {
 test('rebuildPlans 合并事件与任务提醒，且不把已完成的算进来', () => {
   const base = Date.UTC(2026, 10, 1, 0, 0, 0)
   const adapter = mkAdapter(base)
-  const plans = rebuildPlans({
+  const { plans } = rebuildPlans({
     adapter,
     events: [ev('2026-11-01T02:15')],
     tasks: [

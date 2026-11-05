@@ -115,7 +115,7 @@ test('服务：批量删除需确认，且逐条生效', async () => {
   const a = svc.execute('event.create', { event: timedEvent({ start: '2026-11-05T09:00', end: '2026-11-05T10:00' }) }).event
   const b = svc.execute('event.create', { event: timedEvent({ start: '2026-11-06T09:00', end: '2026-11-06T10:00' }) }).event
   assert.throws(() => svc.execute('event.bulkDelete', { ids: [a.id, b.id] }), /需要宿主审批凭证/)
-  const bulkToken = await tokenFor(svc, 'event.bulkDelete', { target: [a.id, b.id].sort().join(',') })
+  const bulkToken = await tokenFor(svc, 'event.bulkDelete', { ids: [a.id, b.id] })
   const r = svc.execute('event.bulkDelete', { ids: [a.id, b.id] }, { approvalToken: bulkToken })
   assert.equal(r.deleted.length, 2)
   assert.equal(svc.execute('event.list').length, 0)
@@ -181,7 +181,7 @@ test('服务：快照导出→替换→可回滚', async () => {
   svc.execute('snapshot.replace', { text: snap.text }, { approvalToken: replaceToken })
   assert.equal(svc.execute('event.list').length, 1, '替换后应为快照里的 1 条')
 
-  // 指纹现在绑定具体备份名（N4 修复），不再用 'latest'
+  // 指纹绑定具体备份名（N4），且必须显式指定
   const preBackups = svc.store.listPreBackups()
   const targetBackup = preBackups[preBackups.length - 1]
   const rbToken = await tokenFor(svc, 'store.rollback', { target: targetBackup })
@@ -257,7 +257,7 @@ test('审批门矩阵：所有破坏性操作都必须确认，常规编辑不�
       : op === 'event.bulkDelete' ? { ids: [event.id] }
       : op === 'event.import' ? { text: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR' }
       : op === 'snapshot.replace' ? { text: '{}' }
-      : {}
+      : { name: 'probe-pre.json' }   // rollback 现在必须显式指定目标
     assert.throws(
       () => svc.execute(op, payload),
       (err) => err instanceof WorkbenchError && err.code === ERROR_CODES.CONFIRMATION_REQUIRED,

@@ -1,27 +1,25 @@
 /**
  * ScheduleAdapter：把 Event/Task 的提醒统一到一套调度语义上。
  *
- * ## 为什么需要适配层
+ * ## 契约依据
  *
- * - Event 有起止时间与重复规则；Task 只有「到期时间 + 偏移」。
- * - DSH 原生 `ctx.schedule` 的形态是「一个绝对时刻 + 一段提示文本 + 投递模式」，
- *   它不关心业务对象，只负责**准时投递**。
- * - 所以适配层的职责是：把业务对象编译成 schedule 记录，并把 schedule 的
- *   状态/投递历史**映射回**业务对象；业务侧不需要知道 schedule 的内部形状。
+ * 宿主侧一切形状以 `docs/wp2/05-host-contract.md` 为准（逐行取自
+ * `@deepseek-ai/dsh-schedule@0.2.1-rc.5/lib/index.js`）。任何与此不符的调用都是缺陷。
  *
- * ## 幂等键（关键）
+ * ## 三条硬纪律
  *
- * 每条提醒都有稳定的 `reminderKey = <entityType>:<entityId>:<occurrence>:<offsetMinutes>`。
- * 重复 reconcile 时用这个键做 upsert，保证：
- * - 同一提醒不会因为「服务重启后又算了一遍」而重复投递；
- * - 事件改时间 → 旧键失效、新键建立，旧 schedule 被取消。
+ * 1. **不用 `list()` 判存在性** —— 它只返回 `active`；一次性提醒投递后转
+ *    `inactive` 但行仍在，用 `list` 会把「已投递」误判成「从未存在」→ 重复投递。
+ *    判存在性一律用 `catalog()`。
+ * 2. **不许静默 catch** —— 宿主异常必须上抛或显式降级为 `degraded`，
+ *    不得伪造成「后端为空」。
+ * 3. **不许用 `title + scheduledAt` 当身份** —— 同标题同刻的两条不同提醒会撞键。
+ *    身份只来自 `host-map.js` 持久化的 `reminderKey ↔ hostId` 映射。
  *
- * ## 双后端
+ * ## 幂等键
  *
- * - `memory`：隔离测试用，把记录放内存并记录「若到点会投递什么」。
- * - `host`：真实 DSH `ctx.schedule`，通过注入的 `create/list/remove/history` 调用。
- *
- * 两种后端实现同一接口，业务代码与测试用同一套断言。
+ * `reminderKey = sha256(kind|entityId|occurrenceKey|offsetMinutes)`，稳定且唯一。
+ * 与宿主 id 的对应关系落盘，重启从磁盘恢复。
  */
 
 import { createHash } from 'node:crypto'
@@ -38,6 +36,12 @@ export const BACKENDS = Object.freeze(['memory', 'host'])
 /** 默认提前量（分钟）。 */
 export const DEFAULT_LEAD_MINUTES = 15
 
+/** 宿主读取状态：显式区分「读到了」与「读不到」，不谎报。 */
+export const HOST_READ = Object.freeze({
+  OK: 'ok',
+  UNAVAILABLE: 'unavailable',
+})
+
 /**
  * 生成稳定幂等键。
  * @param {{ kind: string, entityId: string, occurrenceKey?: string, offsetMinutes: number }} input
@@ -48,15 +52,21 @@ export function reminderKeyOf(input) {
 }
 
 /**
+ * 把毫秒瞬时转成宿主要求的 canonical RFC3339 UTC 字符串。
+ *
+ * 宿主约束（契约 §二）：必须是 `YYYY-MM-DDTHH:mm:ss.sssZ`，且字面等于
+ * `new Date(epoch).toISOString()`；`at` 传数字会被判 `invalid_rule`。
+ */
+export function toHostInstant(ms) {
+  if (!Number.isFinite(ms)) throw validationError('提醒触发时刻非法', { ms })
+  return new Date(ms).toISOString()
+}
+
+/**
  * 把一条提醒编译成「绝对触发时刻 + 文案」。
  *
- * @param {{
- *   kind: string, entityId: string, title: string,
- *   atMs: number, offsetMinutes: number, occurrenceKey?: string,
- *   timeZone?: string,
- * }} input
- * @returns {{ reminderKey: string, fireAtMs: number, title: string, prompt: string } | null}
- *   计算出的触发时刻已过去则返回 null（不再补建历史提醒，避免重启后轰炸）。
+ * @returns {{ reminderKey, fireAtMs, title, prompt } | null}
+ *   已过期返回 null（不补建历史提醒）。
  */
 export function compileReminder(input) {
   if (!REMINDER_KINDS.includes(input.kind)) {
@@ -73,10 +83,6 @@ export function compileReminder(input) {
   if (!Number.isFinite(fireAtMs)) {
     throw validationError('提醒触发时刻非法', { fireAtMs })
   }
-  /**
-   * 过期即不建：注释早已承诺「不再补建历史提醒」，这里补上实现。
-   * `nowMs` 由调用方给（默认 Date.now），便于测试注入。
-   */
   const nowMs = input.nowMs ?? Date.now()
   if (fireAtMs <= nowMs) return null
   return {
@@ -104,15 +110,27 @@ function buildPrompt(input, fireAtMs) {
  */
 export function createMemoryBackend(options = {}) {
   const now = options.now ?? (() => Date.now())
-  /** key → record */
   const records = new Map()
-  /** 投递历史：{ key, firedAtMs, deliveredAtMs, title } */
-  const history = []
+  const deliveryHistory = []
 
   return {
     name: 'memory',
+    async catalog() {
+      return {
+        status: HOST_READ.OK,
+        degraded: false,
+        rows: [...records.values()].map((r) => ({
+          id: r.reminderKey,
+          reminderKey: r.reminderKey,
+          sessionId: r.sessionId ?? '',
+          status: r.status ?? 'active',
+          fireAtMs: r.fireAtMs,
+          title: r.title,
+        })),
+      }
+    },
     async upsert(record) {
-      records.set(record.reminderKey, { ...record, state: 'scheduled', createdAtMs: now() })
+      records.set(record.reminderKey, { ...record, status: 'active' })
       return { ok: true, reminderKey: record.reminderKey }
     },
     async remove(reminderKey) {
@@ -120,16 +138,13 @@ export function createMemoryBackend(options = {}) {
       records.delete(reminderKey)
       return { ok: true }
     },
-    async list() {
-      return [...records.values()].map((r) => ({ ...r }))
-    },
     async get(reminderKey) {
       const found = records.get(reminderKey)
       return found === undefined ? undefined : { ...found }
     },
     /**
-     * 模拟「时间到了」：把已到点的提醒记为投递，并从计划中移除。
-     * 测试用它验证幂等（重复 tick 不会重复投递）。
+     * 模拟到点投递：从计划移除，但**保留投递读取能力**
+     * （对应宿主 inactive 仍在 catalog 的语义）。
      */
     tick(atMs = now()) {
       const delivered = []
@@ -137,166 +152,221 @@ export function createMemoryBackend(options = {}) {
         if (record.fireAtMs <= atMs) {
           records.delete(key)
           const entry = { key, fireAtMs: record.fireAtMs, deliveredAtMs: atMs, title: record.title }
-          history.push(entry)
+          deliveryHistory.push(entry)
           delivered.push(entry)
         }
       }
       return delivered
     },
-    async historyList() {
-      return history.map((h) => ({ ...h }))
-    },
-    /** 测试观察用。 */
-    snapshot() {
-      return { scheduled: [...records.values()].map((r) => ({ ...r })), history: history.map((h) => ({ ...h })) }
-    },
-  }
-}
-
-/**
- * 宿主后端：包装真实 `ctx.schedule`。
- *
- * 注入点（都来自 Host，业务层不自己实现）：
- * @param {{
- *   create: (input: {title: string, prompt: string, at: number, key: string}) => Promise<{id: string}>,
- *   remove: (id: string) => Promise<void>,
- *   list: () => Promise<Array<{id: string, title?: string, scheduledAt?: string, state?: string}>>,
- *   history: () => Promise<Array<{scheduleId?: string, deliveredAt?: string}>>,
- * }} hostSchedule
- */
-/**
- * 宿主条目不带 key 时的合成键。
- * 目的不是「精确等价」，而是「同一条提醒两次读到同一个键」，避免重复注册。
- */
-function syntheticKey(row) {
-  const basis = `${row.title ?? ''}|${row.scheduledAt ?? ''}`
-  return `host:${createHash('sha256').update(basis).digest('hex').slice(0, 24)}`
-}
-
-export function createHostBackend(hostSchedule) {
-  if (hostSchedule === null || typeof hostSchedule !== 'object') {
-    throw validationError('host 后端需要注入真实的 ctx.schedule 适配对象')
-  }
-  for (const fn of ['create', 'remove', 'list']) {
-    if (typeof hostSchedule[fn] !== 'function') {
-      throw unsupportedError(`host 后端缺少必需方法：${fn}`, { missing: fn })
-    }
-  }
-  /** reminderKey → host schedule id（真实契约里 host 只认自己的 id） */
-  const idByKey = new Map()
-  const recordByKey = new Map()
-
-  return {
-    name: 'host',
-    async upsert(record) {
-      const existingId = idByKey.get(record.reminderKey)
-      if (existingId !== undefined) {
-        // 已存在则先取消再重建，避免宿主侧残留旧时刻
-        try {
-          await hostSchedule.remove(existingId)
-        } catch {
-          /* 取消失败不阻塞重建；下面的 create 会覆盖映射 */
-        }
-        idByKey.delete(record.reminderKey)
-      }
-      const created = await hostSchedule.create({
-        title: record.title,
-        prompt: record.prompt,
-        at: record.fireAtMs,
-        key: record.reminderKey,
-      })
-      idByKey.set(record.reminderKey, created.id)
-      recordByKey.set(record.reminderKey, { ...record })
-      return { ok: true, reminderKey: record.reminderKey, hostId: created.id }
-    },
-    async remove(reminderKey) {
-      const id = idByKey.get(reminderKey)
-      if (id === undefined) return { ok: false, reason: 'not-found' }
-      await hostSchedule.remove(id)
-      idByKey.delete(reminderKey)
-      recordByKey.delete(reminderKey)
-      return { ok: true }
-    },
-    /**
-     * 列出「宿主侧实际存在的提醒」。
-     *
-     * **必须以宿主为准**：进程重启后内存映射是空的，若只看 recordByKey，
-     * reconcile 会把「宿主里已存在的提醒」当成不存在而重复 create，
-     * 导致每次重启多注册一条、到点重复投递。
-     *
-     * 宿主条目若带得回 key 就直接用；带不回（真实 ctx.schedule 可能只给 id/title/at）
-     * 则按 title+at 反推一个合成 key，至少保证不会对同一条重复 create。
-     */
-    async list() {
-      let hostRows
-      try {
-        hostRows = await hostSchedule.list()
-      } catch {
-        // 宿主不可读时退回内存视图（并标记 degraded，由调用方决定是否信任）
-        return [...recordByKey.entries()].map(([key, rec]) => ({
-          ...rec, hostId: idByKey.get(key), source: 'memory-fallback',
-        }))
-      }
-      const rows = Array.isArray(hostRows) ? hostRows : []
-      const out = []
-      for (const row of rows) {
-        const at = row.scheduledAt === undefined ? undefined : Date.parse(row.scheduledAt)
-        const key = row.key ?? syntheticKey(row)
-        // 把宿主席位回填到内存映射，后续 upsert/remove 能直接命中
-        if (row.id !== undefined && key !== undefined) {
-          idByKey.set(key, row.id)
-          if (!recordByKey.has(key)) {
-            recordByKey.set(key, { reminderKey: key, fireAtMs: Number.isFinite(at) ? at : 0, title: row.title ?? '', prompt: '' })
-          }
-        }
-        out.push({
-          reminderKey: key,
-          fireAtMs: Number.isFinite(at) ? at : undefined,
-          title: row.title ?? '',
-          hostId: row.id,
-          source: 'host',
-        })
-      }
-      return out
-    },
-    async get(reminderKey) {
-      const rec = recordByKey.get(reminderKey)
-      return rec === undefined ? undefined : { ...rec, hostId: idByKey.get(reminderKey) }
-    },
-    /**
-     * 宿主投递历史，映射回**reminderKey**。
-     *
-     * 恢复逻辑要靠它判断「这条是不是已经投递过」，所以 key 必须是 reminderKey，
-     * 不能是宿主的 scheduleId 或空字符串（早期实现取 `row.scheduleId` 导致
-     * 已投递提醒被当成未投递而重投，即 Review 的 B2）。
-     */
-    async historyList() {
-      if (typeof hostSchedule.history !== 'function') return []
-      const rows = await hostSchedule.history()
-      const list = Array.isArray(rows) ? rows : []
-      // 反向索引：hostId → reminderKey
-      const keyByHostId = new Map()
-      for (const [reminderKey, hostId] of idByKey.entries()) keyByHostId.set(hostId, reminderKey)
-
-      return list.map((row) => {
-        const explicitKey = typeof row.key === 'string' && row.key !== '' ? row.key : undefined
-        const hostId = row.scheduleId ?? row.id
-        const mapped = explicitKey ?? keyByHostId.get(hostId) ?? ''
-        return {
-          key: mapped,
-          hostId,
-          fireAtMs: row.deliveredAt === undefined ? null : Date.parse(row.deliveredAt),
-          title: row.title ?? '',
-        }
-      })
+    async historyFor(reminderKey) {
+      const rows = deliveryHistory.filter((h) => h.key === reminderKey)
+      return { status: HOST_READ.OK, records: rows.map((r) => ({ deliveredAtMs: r.deliveredAtMs })) }
     },
     snapshot() {
       return {
-        scheduled: [...recordByKey.entries()].map(([key, rec]) => ({ ...rec, hostId: idByKey.get(key) })),
-        history: [],
+        scheduled: [...records.values()].map((r) => ({ ...r })),
+        history: deliveryHistory.map((h) => ({ ...h })),
       }
     },
   }
+}
+
+/**
+ * 宿主后端：严格包装真实 `ctx.schedule`。
+ *
+ * 注入的方法必须与契约一致（**不接受任何简化形状**）：
+ * @param {{
+ *   create: (sessionId: string, request: {title: string, prompt: string, at: string}, signal?: AbortSignal) => Promise<object>,
+ *   list: (request: {sessionId: string}) => Promise<object[]>,
+ *   catalog: () => Promise<object[]>,
+ *   history: (request: {sessionId: string, id: string, limit: number}) => Promise<object>,
+ *   delete: (request: {id: string, sessionId: string}, signal?: AbortSignal) => Promise<object>,
+ * }} hostSchedule 真实 ctx.schedule（或同形状的 contract stub）
+ * @param {{ hostMap: object, sessionId: string }} options
+ */
+export function createHostBackend(hostSchedule, options) {
+  if (hostSchedule === null || typeof hostSchedule !== 'object') {
+    throw validationError('host 后端需要注入真实 ctx.schedule 适配对象')
+  }
+  for (const fn of ['create', 'list', 'catalog', 'history', 'delete']) {
+    if (typeof hostSchedule[fn] !== 'function') {
+      throw unsupportedError(`host 后端缺少必需方法：${fn}（见 docs/wp2/05-host-contract.md）`, { missing: fn })
+    }
+  }
+  const hostMap = options?.hostMap
+  if (hostMap === undefined || hostMap === null) {
+    throw validationError('host 后端需要持久化映射表（hostMap），否则重启后无法识别提醒归属')
+  }
+  const sessionId = options?.sessionId
+  if (typeof sessionId !== 'string' || sessionId === '') {
+    throw validationError('host 后端需要 sessionId：宿主所有方法都绑定会话')
+  }
+
+  let lastCatalogError
+
+  const readCatalog = async () => {
+    try {
+      const rows = await hostSchedule.catalog()
+      lastCatalogError = undefined
+      if (!Array.isArray(rows)) {
+        throw validationError('宿主 catalog 返回非数组', { got: typeof rows })
+      }
+      return { status: HOST_READ.OK, rows }
+    } catch (error) {
+      // 纪律 2：不静默吞；记录原因并显式返回 UNAVAILABLE，由调用方拒绝危险动作。
+      lastCatalogError = error
+      return { status: HOST_READ.UNAVAILABLE, error }
+    }
+  }
+
+  const backend = {
+    name: 'host',
+
+    /** 最近一次 catalog 失败原因（诊断用）。 */
+    get lastError() {
+      return lastCatalogError
+    },
+
+    /**
+     * 列出「本 session 在宿主侧真实存在」的提醒。
+     *
+     * 用 `catalog()` 而非 `list()`：必须看见 inactive，否则已投递的会被当成不存在
+     * 而被重建（这正是 B2 的机制）。归属只从持久化映射翻译，**绝不靠 title+at 猜**。
+     */
+    async catalog() {
+      const read = await readCatalog()
+      if (read.status !== HOST_READ.OK) {
+        return { status: HOST_READ.UNAVAILABLE, error: read.error, rows: [], degraded: true }
+      }
+      const mine = read.rows.filter((row) => row.sessionId === undefined || row.sessionId === sessionId)
+      const out = []
+      for (const row of mine) {
+        const mapped = hostMap.entries().find((e) => e.hostId === row.id)
+        if (mapped === undefined) continue   // 映射里没有 = 不是我们建的，不认领
+        const at = row.scheduledAt === undefined ? NaN : Date.parse(row.scheduledAt)
+        out.push({
+          id: row.id,
+          reminderKey: mapped.reminderKey,
+          sessionId: mapped.sessionId,
+          status: row.status ?? 'active',
+          scheduledAt: row.scheduledAt,
+          fireAtMs: Number.isFinite(at) ? at : mapped.fireAtMs,
+          title: row.title ?? mapped.title,
+          source: 'host',
+        })
+      }
+      return { status: HOST_READ.OK, rows: out, degraded: false }
+    },
+
+    /** 兼容接口：仅 active（不得用于存在性判断）。 */
+    async list() {
+      const res = await backend.catalog()
+      return res.rows.filter((r) => r.status === 'active')
+    },
+
+    async get(reminderKey) {
+      const res = await backend.catalog()
+      return res.rows.find((r) => r.reminderKey === reminderKey)
+    },
+
+    /**
+     * 建立或更新一条提醒。
+     *
+     * - 已存在且时刻一致 → 幂等复用，不重建；
+     * - 已存在但时刻不同 → 删旧建新；
+     * - catalog 读不到 → **拒绝**，不盲目补建（纪律 2）。
+     */
+    async upsert(record) {
+      const current = await backend.catalog()
+      if (current.status !== HOST_READ.OK) {
+        return { ok: false, reason: 'host-unavailable', error: current.error }
+      }
+      const existing = current.rows.find((r) => r.reminderKey === record.reminderKey)
+
+      if (existing !== undefined && existing.status === 'active' && existing.fireAtMs === record.fireAtMs) {
+        return { ok: true, reminderKey: record.reminderKey, hostId: existing.id, reused: true }
+      }
+      if (existing !== undefined) {
+        const del = await hostSchedule.delete({ id: existing.id, sessionId })
+        if (del?.deleted !== true) {
+          return { ok: false, reason: 'delete-failed', hostId: existing.id, result: del }
+        }
+        hostMap.remove(record.reminderKey)
+      }
+
+      const created = await hostSchedule.create(sessionId, {
+        title: record.title,
+        prompt: record.prompt,
+        at: toHostInstant(record.fireAtMs),
+      })
+      if (created === null || typeof created !== 'object' || typeof created.id !== 'string') {
+        throw validationError('宿主 create 未返回合法记录', {
+          got: created === null ? 'null' : typeof created,
+        })
+      }
+      hostMap.put({
+        reminderKey: record.reminderKey,
+        hostId: created.id,
+        sessionId,
+        fireAtMs: record.fireAtMs,
+        title: record.title,
+        kind: record.kind ?? 'unknown',
+      })
+      return { ok: true, reminderKey: record.reminderKey, hostId: created.id }
+    },
+
+    async remove(reminderKey) {
+      const mapped = hostMap.get(reminderKey)
+      if (mapped === undefined) return { ok: false, reason: 'not-found' }
+      const res = await hostSchedule.delete({ id: mapped.hostId, sessionId })
+      if (res?.deleted === true) {
+        hostMap.remove(reminderKey)
+        return { ok: true }
+      }
+      if (res?.code === 'schedule_not_found') {
+        // 宿主侧已不存在：清本地映射，视作已删除
+        hostMap.remove(reminderKey)
+        return { ok: true, alreadyGone: true }
+      }
+      return { ok: false, reason: 'delete-failed', result: res }
+    },
+
+    /**
+     * 查某条提醒的投递历史。
+     *
+     * 真实签名 `history({sessionId, id, limit})`：**单任务、分页**。
+     * 返回显式三态；读不到时返回 UNAVAILABLE（UNKNOWN），绝不谎报「没投递过」。
+     */
+    async historyFor(reminderKey) {
+      const mapped = hostMap.get(reminderKey)
+      if (mapped === undefined) return { status: HOST_READ.OK, records: [] }
+      let res
+      try {
+        res = await hostSchedule.history({ sessionId, id: mapped.hostId, limit: 100 })
+      } catch (error) {
+        return { status: HOST_READ.UNAVAILABLE, error }
+      }
+      if (res?.code === 'schedule_not_found') {
+        return { status: HOST_READ.OK, records: [] }
+      }
+      const records = Array.isArray(res?.records) ? res.records : []
+      return {
+        status: HOST_READ.OK,
+        records: records.map((r) => ({
+          scheduledAt: r.scheduledAt,
+          deliveredAt: r.deliveredAt,
+          messageId: r.messageId,
+        })),
+        earlierRecordsUnavailable: res?.earlierRecordsUnavailable === true,
+      }
+    },
+
+    snapshot() {
+      return { scheduled: hostMap.entries(), history: [] }
+    },
+  }
+
+  return backend
 }
 
 /**
@@ -307,6 +377,9 @@ export function createHostBackend(hostSchedule) {
  *   now?: () => number,
  *   defaultLeadMinutes?: number,
  *   windowDays?: number,
+ *   hostSchedule?: object,
+ *   hostMap?: object,
+ *   sessionId?: string,
  * }} options
  */
 export function createScheduleAdapter(options) {
@@ -318,42 +391,44 @@ export function createScheduleAdapter(options) {
   if (options.backend === 'memory') backend = createMemoryBackend({ now })
   else if (options.backend === 'host') {
     if (options.hostSchedule === undefined) {
-      throw validationError('backend=host 时必须注入 hostSchedule')
+      throw validationError('backend=host 时必须注入 hostSchedule（真实 ctx.schedule 形状）')
     }
-    backend = createHostBackend(options.hostSchedule)
+    backend = createHostBackend(options.hostSchedule, {
+      hostMap: options.hostMap,
+      sessionId: options.sessionId,
+    })
   } else if (typeof options.backend === 'object' && options.backend !== null) {
     backend = options.backend
   } else {
     throw validationError(`未知调度后端：${options.backend}`, { backend: options.backend })
   }
 
-  return {
+  const adapter = {
     backendName: backend.name,
+    sessionId: options.sessionId,
 
     /**
-     * 把一组事件编译成提醒计划（不写后端）。
-     * @param {Array<object>} events 已归一的 Event
-     * @param {{ leadMinutes?: number, includeEnd?: boolean, windowStart?: number, windowEnd?: number }} [opts]
+     * 编译事件提醒。返回 `{ plans, skipped }`——**用普通对象而非非枚举属性**，
+     * 以免经 spread / JSON / 日志时静默丢失（第二轮 Review 的 m3）。
      */
     planForEvents(events, opts = {}) {
       const leadMinutes = opts.leadMinutes ?? defaultLeadMinutes
       const includeEnd = opts.includeEnd === true
-      // 可观测：记录被跳过的计划，不再"静默丢光"
-      const skipped = []
       const windowStart = opts.windowStart ?? now()
       const windowEnd = opts.windowEnd ?? windowStart + windowDays * 86400000
       const plans = []
+      const skipped = []
       for (const event of events) {
         if (event.status === 'cancelled' || event.deletedAt !== null) continue
         let occurrences
         try {
-          occurrences = expandEvent(event, { windowStart, windowEnd })
-        } catch (error) {
-          // 单条规则不合法不应拖垮整体，但必须可观测
-          skipped.push({
-            eventId: event.id,
-            reason: String(error?.code ?? error?.message ?? error),
+          occurrences = expandEvent(event, {
+            windowStart,
+            windowEnd,
+            monthEndPolicy: opts.monthEndPolicy ?? 'rfc',
           })
+        } catch (error) {
+          skipped.push({ eventId: event.id, reason: String(error?.code ?? error?.message ?? error) })
           continue
         }
         for (const occ of occurrences) {
@@ -381,21 +456,20 @@ export function createScheduleAdapter(options) {
           }
         }
       }
-      Object.defineProperty(plans, 'skipped', { value: skipped, enumerable: false })
-      return plans
+      return { plans, skipped }
     },
 
-    /**
-     * 把一组任务编译成到期提醒。
-     * @param {Array<object>} tasks 形如 { id, title, dueAt?: string, done?: boolean }
-     */
     planForTasks(tasks, opts = {}) {
       const leadMinutes = opts.leadMinutes ?? defaultLeadMinutes
       const plans = []
+      const skipped = []
       for (const task of tasks) {
         if (task.done === true || task.dueAt === undefined || task.dueAt === null) continue
         const dueMs = Date.parse(task.dueAt)
-        if (!Number.isFinite(dueMs)) continue
+        if (!Number.isFinite(dueMs)) {
+          skipped.push({ taskId: String(task.id), reason: 'invalid-dueAt' })
+          continue
+        }
         const plan = compileReminder({
           kind: 'task-due',
           entityId: String(task.id),
@@ -406,85 +480,116 @@ export function createScheduleAdapter(options) {
         })
         if (plan !== null) plans.push(plan)
       }
-      return plans
+      return { plans, skipped }
+    },
+
+    /** 宿主侧真实存在（含 inactive）的提醒。 */
+    async catalog() {
+      if (typeof backend.catalog !== 'function') {
+        return { status: HOST_READ.OK, rows: [], degraded: false }
+      }
+      return backend.catalog()
     },
 
     /**
-     * 用计划对齐后端：upsert 新计划、取消不再需要的旧提醒。
-     * **幂等**：同一计划重复 reconcile 不产生重复提醒。
+     * 用计划对齐后端。
      *
-     * @param {Array<{reminderKey: string, fireAtMs: number, title: string, prompt: string}>} plans
-     * @param {{ scope?: string }} [opts] scope 用于区分「这批计划负责的范围」
+     * **安全降级**：宿主读不到时**只建不删**（宁可有重复，不可删用户提醒），
+     * 并返回 `degraded: true` 让调用方告警。绝不把「读不到」当成「没有」。
+     *
+     * @param {Array} plans
+     * @param {{ scope?: string }} [opts]
      */
     async reconcile(plans, opts = {}) {
       const desired = new Map()
       for (const plan of plans) desired.set(plan.reminderKey, plan)
 
-      /**
-       * scope：只对「本批次负责的那部分」做增删。
-       *
-       * 不给 scope 时保持全量语义（向后兼容）；给了就只看 reminderKey 以
-       * `<scope>:` 开头的条目，避免「只恢复事件」把任务提醒顺手删光。
-       */
       const scope = opts.scope
       const inScope = (key) => (scope === undefined ? true : String(key).startsWith(`${scope}:`))
 
-      const existing = await backend.list()
-      const existingKeys = new Set(existing.map((r) => r.reminderKey).filter(inScope))
+      const cat = await adapter.catalog()
+      const degraded = cat.status !== HOST_READ.OK
+
+      /**
+       * 只把 **active** 的记录纳入「可删除」范围。
+       *
+       * 已投递的一次性提醒会转 `inactive` 但行仍在（契约 §五）。它此刻必然
+       * 不在 `desired` 里（因为 `compileReminder` 会滤掉过期项），若参与差量
+       * 删除就会被清掉——**投递记录随之丢失**，重启后无法再判定「这条已提醒过」，
+       * 于是又被重建、重复投递（第二轮 Review 的 B2 根因）。
+       *
+       * 所以：inactive 一律保留。它不会再响，删它没有功能收益，只有历史损失。
+       */
+      const activeKeys = degraded
+        ? new Set()   // 读不到就不知道有哪些：只建不删
+        : new Set(
+            cat.rows
+              .filter((r) => (r.status ?? 'active') === 'active')
+              .map((r) => r.reminderKey)
+              .filter(inScope),
+          )
+      const existingKeys = activeKeys
 
       const created = []
       const updated = []
       const removed = []
+      const failed = []
 
       for (const [key, plan] of desired) {
         if (!existingKeys.has(key)) {
-          await backend.upsert(plan)
-          created.push(key)
-        } else {
-          const current = await backend.get(key)
-          if (current === undefined || current.fireAtMs !== plan.fireAtMs) {
-            await backend.upsert(plan)
-            updated.push(key)
+          const res = await backend.upsert(plan)
+          if (res.ok === true) (res.reused === true ? updated : created).push(key)
+          else failed.push({ key, reason: res.reason })
+          continue
+        }
+        const current = await backend.get(key)
+        if (current === undefined || current.fireAtMs !== plan.fireAtMs) {
+          const res = await backend.upsert(plan)
+          if (res.ok === true) updated.push(key)
+          else failed.push({ key, reason: res.reason })
+        }
+      }
+
+      if (!degraded) {
+        for (const key of existingKeys) {
+          if (!desired.has(key)) {
+            const res = await backend.remove(key)
+            if (res.ok === true) removed.push(key)
           }
         }
       }
-      for (const key of existingKeys) {
-        if (!desired.has(key)) {
-          await backend.remove(key)
-          removed.push(key)
-        }
-      }
-      return { created, updated, removed, total: desired.size }
+
+      return { created, updated, removed, failed, total: desired.size, degraded }
     },
 
-    /** 列出当前计划中的提醒。 */
-    list() {
-      return backend.list()
+    async list() {
+      const cat = await adapter.catalog()
+      return cat.rows
     },
 
-    /** 取单条。 */
     get(reminderKey) {
       return backend.get(reminderKey)
     },
 
-    /** 取消单条提醒。 */
     async cancel(reminderKey) {
       const res = await backend.remove(reminderKey)
-      if (res.ok !== true) throw notFoundError(`提醒不存在：${reminderKey}`, { reminderKey })
+      if (res.ok !== true) {
+        throw notFoundError(`提醒不存在或取消失败：${reminderKey}`, {
+          reminderKey,
+          reason: res.reason,
+        })
+      }
       return res
     },
 
-    /** 调度历史（真实投递记录）。 */
-    history() {
-      return backend.historyList()
+    /** 某条提醒的投递历史（显式三态，不谎报）。 */
+    historyFor(reminderKey) {
+      if (typeof backend.historyFor !== 'function') {
+        return Promise.resolve({ status: HOST_READ.UNAVAILABLE, error: 'backend-without-history' })
+      }
+      return backend.historyFor(reminderKey)
     },
 
-    /**
-     * 测试辅助：内存后端的时间推进。
-     *
-     * 只在 `backend === 'memory'` 时可用；自定义/host 后端一律拒绝，
-     * 避免把「时间旅行」这种测试能力当成业务能力泄漏出去。
-     */
     _tick(atMs) {
       if (options.backend !== 'memory' || typeof backend.tick !== 'function') {
         throw unsupportedError('tick 仅 memory 后端可用（测试专用）')
@@ -492,9 +597,10 @@ export function createScheduleAdapter(options) {
       return backend.tick(atMs)
     },
 
-    /** 测试辅助：观察后端快照。 */
     _snapshot() {
       return backend.snapshot()
     },
   }
+
+  return adapter
 }

@@ -45,6 +45,12 @@ export const confirmationRequired = (message, details) =>
 export const unsupportedError = (message, details) =>
   new WorkbenchError(ERROR_CODES.UNSUPPORTED, message, details)
 
+export const storeCorruptError = (message, details) =>
+  new WorkbenchError(ERROR_CODES.STORE_CORRUPT, message, details)
+
+export const schemaTooNewError = (message, details) =>
+  new WorkbenchError(ERROR_CODES.SCHEMA_TOO_NEW, message, details)
+
 /** 判断是否为可预期的业务错误（而非程序 bug）。 */
 export const isWorkbenchError = (error) =>
   error instanceof WorkbenchError && typeof error.code === 'string'

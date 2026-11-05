@@ -107,9 +107,16 @@ export function createWorkbenchService(options) {
     }
     // 内容类操作：摘要必须由内容本身算，调用方传入的 digest 不参与
     const digest = typeof detail.text === 'string' ? contentDigest(detail.text) : detail.digest
+    /**
+     * bulkDelete 的 target 由 id 集合推导（JSON），与 execute 侧完全一致。
+     * 调用方传 `ids` 即可，不必知道内部编码。
+     */
+    const target = op === 'event.bulkDelete' && Array.isArray(detail.ids)
+      ? JSON.stringify([...detail.ids].map(String).sort())
+      : detail.target
     return gate.request({
       op,
-      target: detail.target,
+      target,
       digest,
       summary: detail.summary ?? op,
     })
@@ -196,7 +203,15 @@ export function createWorkbenchService(options) {
       if (!Array.isArray(ids) || ids.length === 0) {
         throw validationError('ids 必须是非空数组')
       }
-      requireConfirmation('event.bulkDelete', meta, { target: [...ids].map(String).sort().join(',') })
+      /**
+       * target 用 **JSON.stringify(sortedIds)**，不用逗号拼接。
+       *
+       * 第二轮 Review 的 N3'：`join(',')` 让 `['a,b']` 与 `['a','b']` 撞同一串，
+       * 一份批量删除凭证可覆盖另一个 id 集合。JSON 消除该歧义。
+       */
+      requireConfirmation('event.bulkDelete', meta, {
+        target: JSON.stringify([...ids].map(String).sort()),
+      })
       const results = []
       for (const id of ids) {
         results.push(events.remove(String(id), { actor: meta?.actor }))
@@ -317,19 +332,27 @@ export function createWorkbenchService(options) {
     'store.listBackups': () => store.listBackups(),
     'store.rollback': (payload, meta) => {
       /**
-       * 指纹绑定**具体备份名**（N4）：只写 'latest' 会 TOCTOU——
-       * 审批之后又产生新备份，实际回滚目标就前移了。
+       * **审批必须在查数据之前**。
+       *
+       * 否则无凭证的调用者能从 `not-found`（没有备份）与 `confirmation-required`
+       * 的差异里推断出库内状态——审批门成了信息探测器。
+       *
+       * 同时指纹仍绑定**具体备份名**（N4）：不接受 `'latest'` 这种会在审批后
+       * 前移的目标。调用方必须显式给 `name`；不给就取「当前最新」并把它写进
+       * 指纹，之后若出现更新的备份，指纹自然不匹配 → 拒绝，而不是悄悄换目标。
        */
+      const declared = payload?.name
+      if (typeof declared !== 'string' || declared === '') {
+        throw validationError('store.rollback 必须显式指定 name（不接受隐式 latest）', {
+          reason: 'explicit-target-required',
+        })
+      }
+      requireConfirmation('store.rollback', meta, { target: declared })
       const backups = store.listPreBackups()
-      if (backups.length === 0) {
-        throw notFoundError('没有可用备份')
+      if (!backups.includes(declared)) {
+        throw notFoundError(`备份不存在：${declared}`, { targetName: declared })
       }
-      const targetName = payload?.name ?? backups[backups.length - 1]
-      if (!backups.includes(targetName)) {
-        throw notFoundError(`备份不存在：${targetName}`, { targetName })
-      }
-      requireConfirmation('store.rollback', meta, { target: targetName })
-      return store.rollback(targetName)
+      return store.rollback(declared)
     },
     'store.audit': (payload = {}) => events.auditLog({ entityId: payload.entityId }),
 
@@ -362,12 +385,24 @@ export function createWorkbenchService(options) {
   }
 
   return {
-    store,
-    events,
     /**
-     * 有意**不暴露 gate 对象**：拿到它就能自己 request() 自签 token，
-     * 审批等于形同虚设（独立 Review 的 N1）。调用方只用 requestApproval()。
+     * **只读投影**，不含任何写方法。
+     *
+     * 第二轮 Review 的 N1' 指认：原先直接返回 `store` / `events`，于是
+     * `svc.events.remove(id)`、`svc.store.replace()`、`svc.store.rollback()`
+     * 都能**绕过审批**直接改数据——把审批门开在一扇装了锁的门旁边。
+     *
+     * 现在只暴露两个只读查询；所有写路径必须走 `execute()`，由它做审批校验。
+     * 也**有意不暴露 gate 对象**（拿到它就能自签 token）。
      */
+    store: Object.freeze({
+      listBackups: () => store.listBackups(),
+      listPreBackups: () => store.listPreBackups(),
+    }),
+    events: Object.freeze({
+      list: () => events.list(),
+      get: (id) => events.get(id),
+    }),
     requestApproval,
     defaultTimeZone,
     /**
