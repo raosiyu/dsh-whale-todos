@@ -36,6 +36,24 @@ export const DANGEROUS_OPS = Object.freeze([
   'event.import',
   'snapshot.replace',
   'store.rollback',
+  /**
+   * **N-06**：这两个也是写操作——`event.restore` 能撤销软删、`task.upsert`
+   * 能覆盖既有任务。原清单漏了它们，导致 `deny` 模式下仍可改数据。
+   */
+  'event.restore',
+  'task.upsert',
+])
+
+/**
+ * **N-05**：`deny` 模式下**所有写操作**都必须拒绝，不只危险清单里的。
+ *
+ * 原实现只对 `DANGEROUS_OPS` 调审批校验，`gate.writable` 从未被读取，
+ * 于是 deny 模式下 `event.create` / `event.update` / `store.backup` 全部放行——
+ * "deny" 名不副实。
+ */
+export const WRITE_OPS = Object.freeze([
+  'event.create', 'event.update', 'event.restore', 'event.delete', 'event.bulkDelete',
+  'event.import', 'task.upsert', 'snapshot.replace', 'store.rollback', 'store.backup',
 ])
 
 /**
@@ -415,6 +433,18 @@ export function createWorkbenchService(options) {
       const handler = ops[op]
       if (handler === undefined) {
         throw unsupportedError(`不支持的操作：${op}`, { op, supported: Object.keys(ops).sort() })
+      }
+      /**
+       * **N-05**：`deny` 模式的拦截必须放在**唯一入口**。
+       *
+       * 放在各 handler 的 `requireConfirmation` 里会漏——`store.backup` 不在
+       * 危险清单，于是 deny 下照样备份；实测就是这么漏的。
+       * 在 `execute` 统一拦住，才能覆盖全部写操作，且将来新增 handler 自动受控。
+       */
+      if (gate.mode === 'deny' && WRITE_OPS.includes(op)) {
+        throw confirmationRequired(`不可写模式（deny）：${op} 一律拒绝`, {
+          op, reason: 'approval-mode-deny',
+        })
       }
       return handler(payload, meta)
     },

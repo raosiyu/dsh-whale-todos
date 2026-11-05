@@ -240,14 +240,28 @@ export function createHostBackend(hostSchedule, options) {
       }
       const mine = read.rows.filter((row) => row.sessionId === undefined || row.sessionId === sessionId)
       const out = []
+      /**
+       * **N-03**：宿主行在本地映射里找不到 → 无法确定归属。
+       * 原实现静默 `continue`，后果是：映射丢条目/丢文件后，同一提醒在宿主侧
+       * 已有 1 份，适配器看不见 → reconcile 又建 1 份 → 变 2 份；旧行成孤儿
+       * 仍会投递，且 `cancel` 报 not-found。
+       *
+       * 现在把它收集到 `unmapped` 随结果返回，由上层告警；**仍然不认领**
+       * （不能猜归属），但至少不再无声无息。
+       */
+      const unmapped = []
       for (const row of mine) {
         const mapped = hostMap.entries().find((e) => e.hostId === row.id)
-        if (mapped === undefined) continue   // 映射里没有 = 不是我们建的，不认领
+        if (mapped === undefined) {
+          unmapped.push({ id: row.id, scheduledAt: row.scheduledAt, title: row.title })
+          continue
+        }
         const at = row.scheduledAt === undefined ? NaN : Date.parse(row.scheduledAt)
         out.push({
           id: row.id,
           reminderKey: mapped.reminderKey,
           sessionId: mapped.sessionId,
+          scope: mapped.scope ?? '',
           status: row.status ?? 'active',
           scheduledAt: row.scheduledAt,
           fireAtMs: Number.isFinite(at) ? at : mapped.fireAtMs,
@@ -255,7 +269,14 @@ export function createHostBackend(hostSchedule, options) {
           source: 'host',
         })
       }
-      return { status: HOST_READ.OK, rows: out, degraded: false }
+      return {
+        status: HOST_READ.OK,
+        rows: out,
+        degraded: false,
+        unmapped,
+        // 上层应据此告警：宿主有记录但我们认不出归属
+        needsAttention: unmapped.length > 0,
+      }
     },
 
     /** 兼容接口：仅 active（不得用于存在性判断）。 */
@@ -294,15 +315,33 @@ export function createHostBackend(hostSchedule, options) {
         hostMap.remove(record.reminderKey)
       }
 
-      const created = await hostSchedule.create(sessionId, {
-        title: record.title,
-        prompt: record.prompt,
-        at: toHostInstant(record.fireAtMs),
-      })
-      if (created === null || typeof created !== 'object' || typeof created.id !== 'string') {
-        throw validationError('宿主 create 未返回合法记录', {
-          got: created === null ? 'null' : typeof created,
+      /**
+       * **N-04**：`create` 可能因宿主侧校验失败而抛（例如标题超过 120 字符时
+       * `invalid_prompt`——本地 5000 字符也允许，宿主只收 120）。
+       * 若不捕获，一次失败会让**整轮 reconcile/recover 中断**，且已建的部分半途而废。
+       * 改为返回 `{ok:false}`，由主循环逐条决策。
+       */
+      let created
+      try {
+        created = await hostSchedule.create(sessionId, {
+          title: record.title,
+          prompt: record.prompt,
+          at: toHostInstant(record.fireAtMs),
         })
+      } catch (error) {
+        return {
+          ok: false,
+          reason: 'host-create-rejected',
+          code: error?.code,
+          message: String(error?.message ?? error),
+        }
+      }
+      if (created === null || typeof created !== 'object' || typeof created.id !== 'string') {
+        return {
+          ok: false,
+          reason: 'host-create-invalid-result',
+          got: created === null ? 'null' : typeof created,
+        }
       }
       hostMap.put({
         reminderKey: record.reminderKey,
@@ -311,6 +350,7 @@ export function createHostBackend(hostSchedule, options) {
         fireAtMs: record.fireAtMs,
         title: record.title,
         kind: record.kind ?? 'unknown',
+        scope: typeof record.scope === 'string' ? record.scope : '',
       })
       return { ok: true, reminderKey: record.reminderKey, hostId: created.id }
     },
@@ -504,8 +544,15 @@ export function createScheduleAdapter(options) {
       const desired = new Map()
       for (const plan of plans) desired.set(plan.reminderKey, plan)
 
+      /**
+       * **scope 按映射字段过滤**（M3'/N-11 修复）。
+       *
+       * 旧实现 `String(key).startsWith(`${scope}:`)` 对裸 sha256 key 永不成立，
+       * 于是"给了 scope"等于"什么也不算在内"，隔离实际失效。
+       * 现在用 `catalog()` 行上的 `scope` 字段比较；不给 scope 时保持全量语义。
+       */
       const scope = opts.scope
-      const inScope = (key) => (scope === undefined ? true : String(key).startsWith(`${scope}:`))
+      const inScopeRow = (row) => (scope === undefined ? true : row.scope === scope)
 
       const cat = await adapter.catalog()
       const degraded = cat.status !== HOST_READ.OK
@@ -525,8 +572,8 @@ export function createScheduleAdapter(options) {
         : new Set(
             cat.rows
               .filter((r) => (r.status ?? 'active') === 'active')
-              .map((r) => r.reminderKey)
-              .filter(inScope),
+              .filter(inScopeRow)
+              .map((r) => r.reminderKey),
           )
       const existingKeys = activeKeys
 
@@ -536,25 +583,34 @@ export function createScheduleAdapter(options) {
       const failed = []
 
       for (const [key, plan] of desired) {
-        if (!existingKeys.has(key)) {
-          const res = await backend.upsert(plan)
-          if (res.ok === true) (res.reused === true ? updated : created).push(key)
-          else failed.push({ key, reason: res.reason })
-          continue
-        }
-        const current = await backend.get(key)
-        if (current === undefined || current.fireAtMs !== plan.fireAtMs) {
-          const res = await backend.upsert(plan)
-          if (res.ok === true) updated.push(key)
-          else failed.push({ key, reason: res.reason })
+        // 单条失败不得中断整轮（N-04）
+        // reconcile 的 scope 落到 plan 上，供 upsert 写进映射
+        const scopedPlan = scope === undefined ? plan : { ...plan, scope }
+        try {
+          if (!existingKeys.has(key)) {
+            const res = await backend.upsert(scopedPlan)
+            if (res.ok === true) (res.reused === true ? updated : created).push(key)
+            else failed.push({ key, reason: res.reason, code: res.code })
+            continue
+          }
+          const current = await backend.get(key)
+          if (current === undefined || current.fireAtMs !== plan.fireAtMs) {
+            const res = await backend.upsert(scopedPlan)
+            if (res.ok === true) updated.push(key)
+            else failed.push({ key, reason: res.reason, code: res.code })
+          }
+        } catch (error) {
+          failed.push({ key, reason: 'exception', message: String(error?.message ?? error) })
         }
       }
 
       if (!degraded) {
         for (const key of existingKeys) {
           if (!desired.has(key)) {
+            // N-08：删除失败不能静默吞掉，必须计入 failed 让调用方看见
             const res = await backend.remove(key)
             if (res.ok === true) removed.push(key)
+            else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })
           }
         }
       }

@@ -1,7 +1,8 @@
 # WP2-R3 交付报告：真实宿主契约与安全修复
 
 状态：**修复完成，四类测试分级报告如下；真实 Service 端到端仍 UNVERIFIED**
-测试：**180 / 180 pass，0 fail，0 skip**（R3 前 161）
+测试：**190 / 190 pass，0 fail，0 skip**
+（历史口径实测：WP1-6 `d43326a`=93 → WP2-0 `cebced2`=96 → WP2-1 `f1fb509`=133 → 第二轮 Review 基准 `58c0516`=142 → `a23785c`=177 → R3 冻结基准 `4ae8455`=180 → 第三轮 Review 修复后=190。此前报告里写的「R3 前 161」不存在，是笔误，已按实测更正。）
 演示：`node workbench-core/demo/demo.mjs` EXIT 0
 变异：**14 / 14 被捕获，0 真空**
 
@@ -57,7 +58,7 @@
 
 | 项 | 结果 |
 | --- | --- |
-| `node --test test/*.test.mjs` | **180 / 180 pass，0 fail，0 skip** |
+| `node --test test/*.test.mjs` | **190 / 190 pass，0 fail，0 skip** |
 | 其中 domain（schema 13 / recurrence 22 / conflict 13 / store 12 / ics 16 / service 20） | 96 项全部通过 |
 | 其中审批与调度（schedule 29 / recovery 10 / bypass 16 / contract 29） | 84 项全部通过 |
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -223,10 +223,31 @@ test('服务：审计日志记录每次写操作', () => {
 })
 
 test('服务：DANGEROUS_OPS 覆盖所有需确认操作', () => {
+  // N-06 后新增 event.restore / task.upsert：二者都能改数据（撤销软删 / 覆盖任务）
   assert.deepEqual(
     [...DANGEROUS_OPS].sort(),
-    ['event.bulkDelete', 'event.delete', 'event.import', 'snapshot.replace', 'store.rollback'].sort(),
+    [
+      'event.bulkDelete', 'event.delete', 'event.import', 'event.restore',
+      'snapshot.replace', 'store.rollback', 'task.upsert',
+    ].sort(),
   )
+})
+
+test('N-05：deny 模式下所有写操作一律拒绝（不只危险清单）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wb-deny-'))
+  try {
+    const svc = createWorkbenchService({ dataDir: dir, approvalMode: 'deny' })
+    for (const op of ['event.create', 'event.update', 'task.upsert', 'store.backup', 'event.restore']) {
+      assert.throws(
+        () => svc.execute(op, {}),
+        (e) => e instanceof WorkbenchError
+          && (e.code === ERROR_CODES.CONFIRMATION_REQUIRED || e.code === ERROR_CODES.VALIDATION),
+        `deny 模式下 ${op} 必须被拒`,
+      )
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('服务：持久化——新实例读到同样数据', () => {

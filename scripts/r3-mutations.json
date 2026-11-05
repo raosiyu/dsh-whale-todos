@@ -1,0 +1,177 @@
+[
+  {
+    "id": "M1",
+    "name": "catalog 改为只读 active（退化为 list 语义）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": ".filter((row) => row.sessionId === undefined || row.sessionId === sessionId)",
+    "to": ".filter((row) => (row.sessionId === undefined || row.sessionId === sessionId) && row.status === 'active')"
+  },
+  {
+    "id": "M2",
+    "name": "reconcile 恢复删除 inactive（缺陷回归）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": ".filter((r) => (r.status ?? 'active') === 'active')",
+    "to": ""
+  },
+  {
+    "id": "M3",
+    "name": "host create 退回单参（丢掉 sessionId 参数）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "created = await hostSchedule.create(sessionId, {",
+    "to": "created = await hostSchedule.create({"
+  },
+  {
+    "id": "M4",
+    "name": "catalog 失败时静默当空（不降级）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "return { status: HOST_READ.UNAVAILABLE, error: read.error, rows: [], degraded: true }",
+    "to": "return { status: HOST_READ.OK, rows: [], degraded: false }"
+  },
+  {
+    "id": "M5",
+    "name": "恢复层不传 scope",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "const res = await adapter.reconcile(future, { scope: input.scope })",
+    "to": "const res = await adapter.reconcile(future)"
+  },
+  {
+    "id": "M6",
+    "name": "已投递判定失效（无视 history）",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "if (delivery.state === DELIVERY_STATE.DELIVERED) {",
+    "to": "if (false) {"
+  },
+  {
+    "id": "M7",
+    "name": "UNKNOWN 也去重建（不保守）",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "if (delivery.state === DELIVERY_STATE.UNKNOWN) {",
+    "to": "if (false) {"
+  },
+  {
+    "id": "M8",
+    "name": "审批门放行（不校验 token）",
+    "file": "workbench-core/src/service.js",
+    "from": "const check = gate.verify(",
+    "to": "const check = { ok: true }; const __unused = gate.verify("
+  },
+  {
+    "id": "M9",
+    "name": "service 重新暴露 store 写方法",
+    "file": "workbench-core/src/service.js",
+    "from": "store: Object.freeze({\n      listBackups: () => store.listBackups(),\n      listPreBackups: () => store.listPreBackups(),\n    }),",
+    "to": "store,"
+  },
+  {
+    "id": "M10",
+    "name": "bulkDelete target 退回逗号拼接",
+    "file": "workbench-core/src/service.js",
+    "from": "target: JSON.stringify([...ids].map(String).sort()),",
+    "to": "target: [...ids].map(String).sort().join(','),"
+  },
+  {
+    "id": "M11",
+    "name": "hostMap 不持久化（只写内存）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      prune()\n      persist()\n      return { ...state.entries[entry.reminderKey] }",
+    "to": "      prune()\n      return { ...state.entries[entry.reminderKey] }"
+  },
+  {
+    "id": "M12",
+    "name": "hostMap 允许 hostId 重复",
+    "file": "workbench-core/src/host-map.js",
+    "from": "if (key !== entry.reminderKey && value.hostId === entry.hostId) {",
+    "to": "if (false) {"
+  },
+  {
+    "id": "M13",
+    "name": "损坏映射静默重建为空",
+    "file": "workbench-core/src/host-map.js",
+    "from": "    } catch (error) {\n      throw storeCorruptError(`宿主映射不是合法 JSON：${String(error?.message ?? error)}`, { filePath })\n    }",
+    "to": "    } catch (error) {\n      state = emptyState()\n      return\n    }"
+  },
+  {
+    "id": "M14",
+    "name": "compileReminder 不再滤过期",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "if (fireAtMs <= nowMs) return null",
+    "to": ""
+  },
+  {
+    "id": "M15",
+    "name": "hostMap 不裁剪（无界增长）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      prune()\n      persist()",
+    "to": "      persist()"
+  },
+  {
+    "id": "M16",
+    "name": "prune 按错误方向裁剪（保留最旧）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      return fb - fa",
+    "to": "      return fa - fb"
+  },
+  {
+    "id": "X6",
+    "name": "degraded 时 upsert 仍强行 create（不检查宿主状态）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      if (current.status !== HOST_READ.OK) {\n        return { ok: false, reason: 'host-unavailable', error: current.error }\n      }",
+    "to": "      if (false) {\n        return { ok: false, reason: 'host-unavailable', error: current.error }\n      }"
+  },
+  {
+    "id": "X11",
+    "name": "UNKNOWN 纳入 future",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "        if (delivery.state === DELIVERY_STATE.UNKNOWN) {\n          // 投递状态未知：**不删不建**，只记录。宁可留着，不可误删误建。\n          unknown.push({ reminderKey: plan.reminderKey, reason: delivery.reason })\n          continue\n        }",
+    "to": "        if (delivery.state === DELIVERY_STATE.UNKNOWN) {\n          future.push(plan)\n          continue\n        }"
+  },
+  {
+    "id": "X12",
+    "name": "删除失败不计入 failed",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "            else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })",
+    "to": ""
+  },
+  {
+    "id": "X13",
+    "name": "回执裁剪判 not-delivered（N-02 回归）",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "    if (records.length === 0 && res.earlierRecordsUnavailable === true) {\n      return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-pruned' }\n    }",
+    "to": ""
+  },
+  {
+    "id": "X14",
+    "name": "hostMap 保留上限失效",
+    "file": "workbench-core/src/host-map.js",
+    "from": "    if (all.length <= maxEntries) return []",
+    "to": "    return []"
+  },
+  {
+    "id": "X15",
+    "name": "N-05 deny 模式不拦",
+    "file": "workbench-core/src/service.js",
+    "from": "if (gate.mode === 'deny' && WRITE_OPS.includes(op)) {",
+    "to": "if (false) {"
+  },
+  {
+    "id": "X16",
+    "name": "N-03 unmapped 不报告（回到静默 continue）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "          unmapped.push({ id: row.id, scheduledAt: row.scheduledAt, title: row.title })\n          continue",
+    "to": "          continue"
+  },
+  {
+    "id": "X17",
+    "name": "N-04 create 失败抛穿（中断整轮）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      } catch (error) {\n        return {\n          ok: false,\n          reason: 'host-create-rejected',",
+    "to": "      } catch (error) {\n        throw error\n        return {\n          ok: false,\n          reason: 'host-create-rejected',"
+  },
+  {
+    "id": "X18",
+    "name": "scope 退回前缀匹配（M3' 原样回归）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "const inScopeRow = (row) => (scope === undefined ? true : row.scope === scope)",
+    "to": "const inScopeRow = (row) => (scope === undefined ? true : String(row.reminderKey).startsWith(scope + ':'))"
+  }
+]

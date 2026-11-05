@@ -73,6 +73,18 @@ export function createReminderRecovery(options) {
       return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-unavailable' }
     }
     const records = Array.isArray(res.records) ? res.records : []
+    /**
+     * **N-02（第三轮 Review 的 MAJOR，我修 B2 时引入的回归）**：
+     * 宿主会按 retention 裁剪投递回执（`deliveryHistoryDays` 默认 30 天）。
+     * 裁剪后 `records` 为空，但 `earlierRecordsUnavailable` 为 true——
+     * 这表示「有更早的记录但读不到了」，**不等于从未投递**。
+     *
+     * 若把它判成 NOT_DELIVERED，恢复流程会重建一条 active 提醒 → 用户二次收到
+     * 同一提醒。所以此时必须返回 UNKNOWN：不重建、不删除、如实标记。
+     */
+    if (records.length === 0 && res.earlierRecordsUnavailable === true) {
+      return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-pruned' }
+    }
     return {
       state: records.length > 0 ? DELIVERY_STATE.DELIVERED : DELIVERY_STATE.NOT_DELIVERED,
       records,

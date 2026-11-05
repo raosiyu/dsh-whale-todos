@@ -56,16 +56,8 @@ mutate "M2 reconcile 恢复删除 inactive（缺陷回归）" \
 
 mutate "M3 host create 退回单参 + 数字 at" \
   "$CORE/src/schedule-adapter.js" \
-  "const created = await hostSchedule.create(sessionId, {
-        title: record.title,
-        prompt: record.prompt,
-        at: toHostInstant(record.fireAtMs),
-      })" \
-  "const created = await hostSchedule.create({
-        title: record.title,
-        prompt: record.prompt,
-        at: record.fireAtMs,
-      })"
+  'created = await hostSchedule.create(sessionId, {' \
+  'created = await hostSchedule.create({' 
 
 mutate "M4 catalog 失败时静默当空（不降级）" \
   "$CORE/src/schedule-adapter.js" \
@@ -144,6 +136,69 @@ mutate "M16 prune 按错误方向裁剪（保留最旧）" \
   "$CORE/src/host-map.js" \
   "      return fb - fa" \
   "      return fa - fb"
+
+# --- 第三轮 Review 指出的 6 处测试真空（X6/X9/X11/X12/X13）---
+mutate "X6 degraded 时不检查仍然盲目建（应只建不删但仍需判重）" \
+  "$CORE/src/schedule-adapter.js" \
+  "      const existingKeys = activeKeys" \
+  "      const existingKeys = activeKeys.size > 0 ? activeKeys : new Set()"
+
+mutate "X11 UNKNOWN 纳入 future（应保持不建不删）" \
+  "$CORE/src/reminder-recovery.js" \
+  "        if (delivery.state === DELIVERY_STATE.UNKNOWN) {
+          // 投递状态未知：**不删不建**，只记录。宁可留着，不可误删误建。
+          unknown.push({ reminderKey: plan.reminderKey, reason: delivery.reason })
+          continue
+        }" \
+  "        if (delivery.state === DELIVERY_STATE.UNKNOWN) {
+          future.push(plan)
+          continue
+        }"
+
+mutate "X12 删除失败不计入 failed（回到静默吞）" \
+  "$CORE/src/schedule-adapter.js" \
+  "            else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })" \
+  ""
+
+mutate "X13 回执裁剪判 not-delivered（N-02 回归）" \
+  "$CORE/src/reminder-recovery.js" \
+  "    if (records.length === 0 && res.earlierRecordsUnavailable === true) {
+      return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-pruned' }
+    }" \
+  ""
+
+mutate "X14 hostMap 保留上限失效" \
+  "$CORE/src/host-map.js" \
+  "    if (all.length <= maxEntries) return []" \
+  "    return []"
+
+mutate "X15 N-05 deny 模式不拦（回到分散判断）" \
+  "$CORE/src/service.js" \
+  "      if (gate.mode === 'deny' && WRITE_OPS.includes(op)) {" \
+  "      if (false) {"
+
+mutate "X16 N-03 unmapped 不报告（回到静默 continue）" \
+  "$CORE/src/schedule-adapter.js" \
+  "          unmapped.push({ id: row.id, scheduledAt: row.scheduledAt, title: row.title })
+          continue" \
+  "          continue"
+
+mutate "X17 N-04 create 失败抛穿（中断整轮）" \
+  "$CORE/src/schedule-adapter.js" \
+  "      } catch (error) {
+        return {
+          ok: false,
+          reason: 'host-create-rejected'," \
+  "      } catch (error) {
+        throw error
+        return {
+          ok: false,
+          reason: 'host-create-rejected',"
+
+mutate "X18 scope 退回前缀匹配（M3' 原样回归）" \
+  "$CORE/src/schedule-adapter.js" \
+  "      const inScopeRow = (row) => (scope === undefined ? true : row.scope === scope)" \
+  'const inScopeRow = (row) => (scope === undefined ? true : String(row.reminderKey).startsWith(String(scope) + ":"))' 
 
 echo "" | tee -a "$OUT"
 echo "=== 汇总 ===" | tee -a "$OUT"

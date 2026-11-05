@@ -1,0 +1,22 @@
+=== 1) 用真实 Context 实例化真实 ScheduleService ===
+  ✅ 真实 ScheduleService 实例化成功
+
+=== 2) 真实代码上跑五个方法 ===
+  ✅ create(sessionId, {title,prompt,at}) 成功  {"id":"schedule-89fcbe9c-0aa0-4ec9-91f3-e40a9cb1f7d5","kind":"at","title":"真实验证","prompt":"p","scheduledAt":"2026-11-05T03:54:29.499Z"}
+  ✅ record 是 frozen
+  ✅ record 无 key 字段（身份必须本地持久化）
+  ✅ list({sessionId}) 返回 1 条  = 1
+  ✅ catalog() 返回 1 条  = 1
+  ✅ history 返回 records 数组  len=0
+  ✅ history limit=0 被拒（invalid_rule）  = "invalid_rule"
+  ✅ at 传数字被拒  = "invalid_rule"
+
+=== 3) 适配器 × 真实 Service 端到端 ===
+  ✅ 5 次重启后真实宿主仍只有 1 条  = 1
+  ✅ 重复对账 created=0  = 0
+  ✅ 重复对账 failed=0  = 0
+  ✅ 清空对账未抛错  removed=1 failed=0
+
+=== 汇总 ===
+RESULT: L4 PASS（真 Service 类 + 适配器端到端）
+边界：假 storageDomain ≠ 真实 Host 的 fiber/effect 生命周期；生产端到端仍 UNVERIFIED。

@@ -509,20 +509,23 @@ test('变异M5b：恢复层的 scope 过滤确实生效（同 scope 内的多余
     const adapter = createScheduleAdapter({
       backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
     })
-    // 用带前缀的 key，让 scope 语义可验证
-    await adapter.reconcile([
-      { reminderKey: 'events:stale', fireAtMs: BASE + HOUR, title: 'S', prompt: 's', kind: 'event-start' },
-      { reminderKey: 'tasks:t1', fireAtMs: BASE + 2 * HOUR, title: 'T', prompt: 't', kind: 'task-due' },
-    ])
+    // scope 是一等字段（第三轮 Review M3'/N-11 修复），不再靠 key 前缀
+    await adapter.reconcile(
+      [{ reminderKey: 'stale-1', fireAtMs: BASE + HOUR, title: 'S', prompt: 's', kind: 'event-start' }],
+      { scope: 'events' },
+    )
+    await adapter.reconcile(
+      [{ reminderKey: 'task-1', fireAtMs: BASE + 2 * HOUR, title: 'T', prompt: 't', kind: 'task-due' }],
+      { scope: 'tasks' },
+    )
     assert.equal((await stub.catalog()).length, 2)
 
     const rec = createReminderRecovery({ adapter, now: () => BASE, graceMs: MIN })
-    // events scope 内给出空清单 → 应删掉 events:stale，但保留下 tasks:t1
+    // events scope 内给出空清单 → 只删 events 的，tasks 的留下
     const res = await rec.recover([], { scenario: 'restart', atMs: BASE, scope: 'events' })
-    assert.deepEqual(res.removed, ['events:stale'], '同 scope 内的多余项应被清理')
+    assert.deepEqual(res.removed, ['stale-1'], '同 scope 内的多余项应被清理，且只清该 scope')
     const rows = await stub.catalog()
-    assert.equal(rows.length, 1)
-    assert.equal(rows[0].id !== undefined, true)
+    assert.equal(rows.length, 1, 'tasks 的必须保留')
   })
 })
 
@@ -590,5 +593,147 @@ test('R3-1：裁剪映射不得影响宿主侧记录（宿主自己管 retention
     // 再投递并重启：被裁掉的映射对应的宿主记录仍在（只是本地不再认领）
     stub.tick(BASE + 10 * MIN)
     assert.equal((await stub.catalog()).length, 6, '投递后宿主仍保留记录')
+  })
+})
+
+// ---------------------------------------------------------------- 第三轮 Review 修复点守卫
+
+test('N-02 守卫：回执被 retention 裁剪时判 UNKNOWN，不得判 not-delivered', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    await adapter.reconcile([{ reminderKey: 'k-pruned', fireAtMs: BASE + HOUR, title: 'P', prompt: 'p', kind: 'event-start' }])
+
+    // 模拟"回执被 retention 裁掉"：records 空但 earlierRecordsUnavailable=true
+    stub.history = async () => ({ records: [], earlierRecordsUnavailable: true })
+
+    const h = await adapter.historyFor('k-pruned')
+    assert.equal(h.status, HOST_READ.OK)
+
+    const rec = createReminderRecovery({ adapter, now: () => BASE + HOUR + 30 * 1000, graceMs: MIN })
+    const out = await rec.recover(
+      [{ reminderKey: 'k-pruned', fireAtMs: BASE + HOUR, title: 'P', prompt: 'p' }],
+      { scenario: 'restart', atMs: BASE + HOUR + 30 * 1000 },
+    )
+    assert.equal(out.unknown.length, 1, '回执被裁剪必须判 UNKNOWN')
+    assert.equal(out.restored.length, 0, '不得重建（否则二次投递）')
+    assert.deepEqual(out.alreadyDelivered, [])
+  })
+})
+
+test('N-02 守卫：records 空且 earlierRecordsUnavailable=false 才是真未投递', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    await adapter.reconcile([{ reminderKey: 'k-fresh', fireAtMs: BASE + HOUR, title: 'F', prompt: 'p', kind: 'event-start' }])
+    stub.history = async () => ({ records: [], earlierRecordsUnavailable: false })
+
+    const rec = createReminderRecovery({ adapter, now: () => BASE + HOUR + 30 * 1000, graceMs: MIN })
+    const out = await rec.recover(
+      [{ reminderKey: 'k-fresh', fireAtMs: BASE + HOUR, title: 'F', prompt: 'p' }],
+      { scenario: 'restart', atMs: BASE + HOUR + 30 * 1000 },
+    )
+    assert.equal(out.unknown.length, 0, '确认未投递不应判 UNKNOWN')
+  })
+})
+
+test('N-04 守卫：宿主 create 抛错不中断整轮，其余提醒仍建立', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    // 第 2 条 create 会失败（标题过长触发真实宿主 invalid_prompt）
+    const origCreate = stub.create
+    let n = 0
+    stub.create = async (sid, req, sig) => {
+      n += 1
+      if (n === 2) throw Object.assign(new Error('title must be at most 120 characters'), { code: 'invalid_prompt' })
+      return origCreate(sid, req, sig)
+    }
+    const res = await adapter.reconcile([
+      { reminderKey: 'ok-1', fireAtMs: BASE + HOUR, title: 'A', prompt: 'p', kind: 'event-start' },
+      { reminderKey: 'bad-1', fireAtMs: BASE + 2 * HOUR, title: 'B', prompt: 'p', kind: 'event-start' },
+      { reminderKey: 'ok-2', fireAtMs: BASE + 3 * HOUR, title: 'C', prompt: 'p', kind: 'event-start' },
+    ])
+    assert.equal(res.created.length, 2, '两条成功的仍要建立')
+    assert.equal(res.failed.length, 1, '失败的一条计入 failed')
+    assert.equal(res.failed[0].code, 'invalid_prompt')
+    assert.equal((await stub.catalog()).length, 2, '宿主侧 2 条')
+  })
+})
+
+test('N-08 守卫：删除失败计入 failed 而非静默', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    await adapter.reconcile([{ reminderKey: 'k-del', fireAtMs: BASE + HOUR, title: 'D', prompt: 'p', kind: 'event-start' }])
+
+    // 让 delete 失败（既非 deleted:true 也非 not_found）
+    stub.delete = async () => ({ id: 'x', deleted: false, code: 'boom' })
+
+    const res = await adapter.reconcile([])
+    assert.equal(res.removed.length, 0)
+    assert.equal(res.failed.length, 1, '删除失败必须可见')
+    assert.equal(res.failed[0].op, 'remove')
+  })
+})
+
+test('N-03 守卫：宿主机有行但本地无映射时，必须上报告警', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    await adapter.reconcile([{ reminderKey: 'k1', fireAtMs: BASE + HOUR, title: 'A', prompt: 'p', kind: 'event-start' }])
+    // 模拟"映射丢失"：宿主仍有行，但本地映射被清
+    hostMap.clear()
+
+    const cat = await adapter.catalog()
+    assert.equal(cat.rows.length, 0, '无映射不认领')
+    assert.equal(cat.unmapped.length, 1, '必须报告 unmapped')
+    assert.equal(cat.needsAttention, true, '必须置需要注意标志')
+  })
+})
+
+test('X6 守卫：degraded 时确实"不建也不删"（不是"盲目建"）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json') })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    // 先建一条
+    await adapter.reconcile([{ reminderKey: 'pre', fireAtMs: BASE + HOUR, title: 'P', prompt: 'p', kind: 'event-start' }])
+    assert.equal((await stub.catalog()).length, 1)
+    const before = hostMap.size
+
+    // catalog 读不到
+    const orig = stub.catalog
+    stub.catalog = async () => { throw new Error('宿主不可用') }
+
+    const res = await adapter.reconcile([
+      { reminderKey: 'pre', fireAtMs: BASE + HOUR, title: 'P', prompt: 'p', kind: 'event-start' },
+    ])
+    assert.equal(res.degraded, true)
+    // 关键：读不到时不得新建（upper bound），也不得删除
+    assert.equal(res.created.length, 0, 'degraded 时不得盲目新建')
+    assert.equal(res.removed.length, 0, 'degraded 时不得删除')
+    assert.ok(res.failed.length >= 1, '建不起来必须计入 failed')
+    assert.equal(hostMap.size, before, '映射不变')
+
+    stub.catalog = orig
+    assert.equal((await stub.catalog()).length, 1, '原有提醒仍在')
   })
 })

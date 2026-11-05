@@ -182,6 +182,14 @@ export function openHostMap(options) {
         fireAtMs: entry.fireAtMs,
         title: entry.title,
         kind: entry.kind,
+        /**
+         * **scope 是一等字段**（第三轮 Review 的 M3'/N-11）。
+         *
+         * 旧实现用 `reminderKey.startsWith('<scope>:')` 判断归属，但真实 key 是
+         * 裸 sha256（如 `9e053361…`），永远不可能带前缀 → 隔离实质失效。
+         * 改为把 scope 存成映射字段，按字段比较。
+         */
+        scope: typeof entry.scope === 'string' ? entry.scope : '',
       }
       prune()
       persist()

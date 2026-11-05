@@ -1,23 +1,35 @@
 === 变异验证（删保护代码，测试应失败）===
+变异定义：25 项（scripts/r3-mutations.json）
 
-CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → # pass 182 # fail 1 
-CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → # pass 182 # fail 1 
-CAUGHT M3 host create 退回单参 + 数字 at  → # pass 169 # fail 14 
-CAUGHT M4 catalog 失败时静默当空（不降级）  → # pass 182 # fail 1 
-CAUGHT M5 恢复层不传 scope  → # pass 181 # fail 2 
-CAUGHT M6 已投递判定失效（无视 history）  → # pass 182 # fail 1 
-CAUGHT M7 UNKNOWN 也去重建（不保守）  → # pass 182 # fail 1 
-CAUGHT M8 审批门放行（不校验 token）  → # pass 166 # fail 17 
-CAUGHT M9 service 重新暴露 store 写方法  → # pass 180 # fail 3 
-CAUGHT M10 bulkDelete target 退回逗号拼接  → # pass 181 # fail 2 
-CAUGHT M11 hostMap 不持久化（只写内存）  → # pass 179 # fail 4 
-CAUGHT M12 hostMap 允许 hostId 重复  → # pass 182 # fail 1 
-CAUGHT M13 损坏映射静默重建为空  → # pass 182 # fail 1 
-CAUGHT M14 compileReminder 不再滤过期  → # pass 182 # fail 1 
-CAUGHT M15 hostMap 不裁剪（无界增长）  → # pass 180 # fail 3 
-CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → # pass 182 # fail 1 
+CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 189 fail 1
+CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 189 fail 1
+CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 171 fail 19
+CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 188 fail 2
+CAUGHT M5 恢复层不传 scope  → pass 188 fail 2
+CAUGHT M6 已投递判定失效（无视 history）  → pass 189 fail 1
+CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 188 fail 2
+CAUGHT M8 审批门放行（不校验 token）  → pass 173 fail 17
+CAUGHT M9 service 重新暴露 store 写方法  → pass 187 fail 3
+CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 188 fail 2
+CAUGHT M11 hostMap 不持久化（只写内存）  → pass 186 fail 4
+CAUGHT M12 hostMap 允许 hostId 重复  → pass 189 fail 1
+CAUGHT M13 损坏映射静默重建为空  → pass 189 fail 1
+CAUGHT M14 compileReminder 不再滤过期  → pass 189 fail 1
+CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 187 fail 3
+CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 189 fail 1
+CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 189 fail 1
+CAUGHT X11 UNKNOWN 纳入 future  → pass 188 fail 2
+CAUGHT X12 删除失败不计入 failed  → pass 189 fail 1
+CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 189 fail 1
+CAUGHT X14 hostMap 保留上限失效  → pass 187 fail 3
+CAUGHT X15 N-05 deny 模式不拦  → pass 189 fail 1
+CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 189 fail 1
+CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 189 fail 1
+CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 189 fail 1
 
 === 汇总 ===
-CAUGHT: 16
+CAUGHT: 25
 VACUUM: 0
-SKIP: 0
+SKIP:   0
+
+结论：全部保护点都有测试约束（0 真空）
