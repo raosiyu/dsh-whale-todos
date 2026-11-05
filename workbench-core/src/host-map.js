@@ -25,6 +25,18 @@ import { storeCorruptError, validationError } from './errors.js'
 
 const SCHEMA_VERSION = 1
 
+/**
+ * 本地映射的保留上限。
+ *
+ * 为什么需要：修 B2 时保留了 `inactive`（已投递）记录以免丢投递历史，
+ * 但保留没上限 → 长期运行后 `hostmap.json` 与 `catalog()` 扫描成本线性增长
+ * （自查实测：30 条即 4.8 KB，且宿主侧同样累积）。
+ *
+ * 策略：按 `fireAtMs` 保留最近 `maxEntries` 条，且**只删本地映射**——
+ * 宿主记录由宿主自己的 retention 管理，删它等于丢掉投递回执。
+ */
+const DEFAULT_MAX_ENTRIES = 500
+
 /** 空映射的初始形状。 */
 const emptyState = () => ({ version: SCHEMA_VERSION, entries: {} })
 
@@ -36,6 +48,9 @@ export function openHostMap(options) {
   if (typeof filePath !== 'string' || filePath === '') {
     throw validationError('hostMap 需要 filePath')
   }
+  const maxEntries = Number.isSafeInteger(options.maxEntries) && options.maxEntries > 0
+    ? options.maxEntries
+    : DEFAULT_MAX_ENTRIES
 
   /** @type {{ version: number, entries: Record<string, {hostId: string, sessionId: string, fireAtMs: number, title: string, kind: string}> }} */
   let state = emptyState()
@@ -99,6 +114,24 @@ export function openHostMap(options) {
     renameSync(tmp, filePath)
   }
 
+  /**
+   * 按 `fireAtMs` 保留最近 maxEntries 条；只动本地映射。
+   * @returns {string[]} 被裁掉的 reminderKey
+   */
+  const prune = () => {
+    const all = Object.entries(state.entries)
+    if (all.length <= maxEntries) return []
+    // 未来时刻优先保留，其次按时间倒序
+    const ordered = all.sort((a, b) => {
+      const fa = Number.isFinite(a[1].fireAtMs) ? a[1].fireAtMs : 0
+      const fb = Number.isFinite(b[1].fireAtMs) ? b[1].fireAtMs : 0
+      return fb - fa
+    })
+    const drop = ordered.slice(maxEntries).map(([k]) => k)
+    for (const k of drop) delete state.entries[k]
+    return drop
+  }
+
   load()
 
   return {
@@ -150,6 +183,7 @@ export function openHostMap(options) {
         title: entry.title,
         kind: entry.kind,
       }
+      prune()
       persist()
       return { ...state.entries[entry.reminderKey] }
     },
@@ -172,6 +206,18 @@ export function openHostMap(options) {
         }
       }
       return undefined
+    },
+
+    /** 手动裁剪映射（只删本地，不碰宿主）。返回被裁掉的 key。 */
+    prune() {
+      const dropped = prune()
+      if (dropped.length > 0) persist()
+      return dropped
+    },
+
+    /** 当前保留上限。 */
+    get maxEntries() {
+      return maxEntries
     },
 
     /** 清空（测试用）。 */

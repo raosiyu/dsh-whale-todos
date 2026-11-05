@@ -134,6 +134,17 @@ mutate "M14 compileReminder 不再滤过期" \
   "if (fireAtMs <= nowMs) return null" \
   ""
 
+mutate "M15 hostMap 不裁剪（无界增长）" \
+  "$CORE/src/host-map.js" \
+  "      prune()
+      persist()" \
+  "      persist()"
+
+mutate "M16 prune 按错误方向裁剪（保留最旧）" \
+  "$CORE/src/host-map.js" \
+  "      return fb - fa" \
+  "      return fa - fb"
+
 echo "" | tee -a "$OUT"
 echo "=== 汇总 ===" | tee -a "$OUT"
 grep -c '^CAUGHT' "$OUT" | sed 's/^/CAUGHT: /' | tee -a "$OUT"

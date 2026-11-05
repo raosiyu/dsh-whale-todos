@@ -525,3 +525,70 @@ test('变异M5b：恢复层的 scope 过滤确实生效（同 scope 内的多余
     assert.equal(rows[0].id !== undefined, true)
   })
 })
+
+// ---------------------------------------------------------------- 有界保留（R3-1）
+
+test('R3-1：hostMap 超过上限时按 fireAtMs 裁剪，只删本地映射', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'hostmap.json')
+    const hostMap = openHostMap({ filePath, maxEntries: 5 })
+    assert.equal(hostMap.maxEntries, 5)
+
+    for (let i = 0; i < 12; i += 1) {
+      hostMap.put({
+        reminderKey: `k-${i}`,
+        hostId: `h-${i}`,
+        sessionId: 's1',
+        fireAtMs: BASE + i * MIN,
+        title: `T${i}`,
+        kind: 'event-start',
+      })
+    }
+    assert.equal(hostMap.size, 5, '不得超过 maxEntries')
+    // 保留的应是 fireAtMs 最大的 5 条（k-7..k-11）
+    for (let i = 7; i < 12; i += 1) {
+      assert.notEqual(hostMap.get(`k-${i}`), undefined, `k-${i} 应保留`)
+    }
+    for (let i = 0; i < 7; i += 1) {
+      assert.equal(hostMap.get(`k-${i}`), undefined, `k-${i} 应被裁掉`)
+    }
+  })
+})
+
+test('R3-1：裁剪后重启读回仍不超限', async () => {
+  await withTmp(async (dir) => {
+    const filePath = join(dir, 'hostmap.json')
+    const m1 = openHostMap({ filePath, maxEntries: 3 })
+    for (let i = 0; i < 8; i += 1) {
+      m1.put({ reminderKey: `k-${i}`, hostId: `h-${i}`, sessionId: 's1', fireAtMs: BASE + i * MIN, title: 't', kind: 'x' })
+    }
+    assert.equal(m1.size, 3)
+
+    const m2 = openHostMap({ filePath, maxEntries: 3 })
+    assert.equal(m2.size, 3, '重启后仍为 3 条')
+  })
+})
+
+test('R3-1：裁剪映射不得影响宿主侧记录（宿主自己管 retention）', async () => {
+  await withTmp(async (dir) => {
+    const stub = createContractStub({ now: () => BASE })
+    const hostMap = openHostMap({ filePath: join(dir, 'hostmap.json'), maxEntries: 2 })
+    const adapter = createScheduleAdapter({
+      backend: 'host', hostSchedule: stub, hostMap, sessionId: 's1', now: () => BASE,
+    })
+    const plans = Array.from({ length: 6 }, (_, i) => ({
+      reminderKey: `k-${i}`,
+      fireAtMs: BASE + (i + 1) * MIN,
+      title: `T${i}`,
+      prompt: 'p',
+      kind: 'event-start',
+    }))
+    await adapter.reconcile(plans)
+    assert.equal((await stub.catalog()).length, 6, '宿主侧 6 条都应存在')
+    assert.ok(hostMap.size <= 2, `本地映射应被裁剪（实际 ${hostMap.size}）`)
+
+    // 再投递并重启：被裁掉的映射对应的宿主记录仍在（只是本地不再认领）
+    stub.tick(BASE + 10 * MIN)
+    assert.equal((await stub.catalog()).length, 6, '投递后宿主仍保留记录')
+  })
+})
