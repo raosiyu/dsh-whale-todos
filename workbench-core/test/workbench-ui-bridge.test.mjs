@@ -674,3 +674,40 @@ test('WP4：用户确认凭证绑定 op+target、一次性，伪造与挪用均�
     )
   })
 })
+
+test('WP4：用户确认凭证只限 DANGEROUS_OPS，不是万能钥匙', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+    const svc = host.getService().forSession('s1')
+
+    // 危险 op 可以签发
+    const ok = svc.confirmUserAction('event.delete', 'id-1', { summary: 'x' })
+    assert.equal(typeof ok.token, 'string', '危险 op 应能签发')
+
+    // 非危险 op 必须被拒（否则等于万能钥匙）
+    assert.throws(
+      () => svc.confirmUserAction('event.list', 'id-1', {}),
+      (e) => e?.code === 'validation',
+      '非危险 op 不得签发用户确认凭证',
+    )
+    assert.throws(
+      () => svc.confirmUserAction('task.list', 'id-1', {}),
+      (e) => e?.code === 'validation',
+      'task.list 不在 DANGEROUS_OPS，应被拒',
+    )
+    // snapshot.replace 本身是危险 op，允许签发（凭证仍绑定 op+target、一次性）
+    assert.equal(
+      typeof svc.confirmUserAction('snapshot.replace', 'id-1', {}).token,
+      'string',
+      '危险 op 可以签发凭证',
+    )
+  })
+})
+
+test('WP4：用户确认凭证不在 AI 工具面暴露', () => {
+  const tools = readFileSync(new URL('../src/host-tools.js', import.meta.url), 'utf8')
+  assert.equal(tools.includes('confirmUserAction'), false,
+    'AI 工具面不得暴露 confirmUserAction（否则模型可自取凭证）')
+})

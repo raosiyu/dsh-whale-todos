@@ -1,22 +1,22 @@
 === 数据目录 ===
-/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/wb-demo-S6rYQn
+/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/wb-demo-WiDVrO
 
 === 1) 创建定时事件（重复：每周一/三，共 4 次）===
-created: f79e5bc0-01f6-4e25-bac8-a82c8122a4a7 产品周会
+created: eb9215e0-956c-43bf-a473-8d1f35a4b0fb 产品周会
 
 === 2) 创建全天事件 ===
-created: ccc7a3dc-7af0-4d62-aade-3ab7c680b4be 2026-11-05 → 2026-11-07
+created: 00c585ed-101b-4b2a-a057-e4af98483668 2026-11-05 → 2026-11-07
 
 === 3) 展开窗口内的实例（11/01–11/16）===
-  f79e5bc0  2026-11-02 09:00:00 → 2026-11-02 10:00:00  allDay=false
-  f79e5bc0  2026-11-04 09:00:00 → 2026-11-04 10:00:00  allDay=false
-  ccc7a3dc  2026-11-05 00:00:00 → 2026-11-07 00:00:00  allDay=true
-  f79e5bc0  2026-11-09 09:00:00 → 2026-11-09 10:00:00  allDay=false
-  f79e5bc0  2026-11-11 09:00:00 → 2026-11-11 10:00:00  allDay=false
+  eb9215e0  2026-11-02 09:00:00 → 2026-11-02 10:00:00  allDay=false
+  eb9215e0  2026-11-04 09:00:00 → 2026-11-04 10:00:00  allDay=false
+  00c585ed  2026-11-05 00:00:00 → 2026-11-07 00:00:00  allDay=true
+  eb9215e0  2026-11-09 09:00:00 → 2026-11-09 10:00:00  allDay=false
+  eb9215e0  2026-11-11 09:00:00 → 2026-11-11 10:00:00  allDay=false
 
 === 4) 冲突检测：插入一个与周会重叠的事件 ===
   已按预期拒绝：conflict — 存在时间冲突
-  allowOverlap 放行：86f70630-1e55-4211-b029-7866480fb7ce
+  allowOverlap 放行：2f6adf57-115d-4ee6-9181-329607b1fdf3
 
 === 5) 空闲时段（11/02 08:00–18:00，最小 30 分钟）===
   空闲 2026-11-02 08:00:00 → 2026-11-02 09:00:00
@@ -33,17 +33,17 @@ created: ccc7a3dc-7af0-4d62-aade-3ab7c680b4be 2026-11-05 → 2026-11-07
   无凭证被拒：confirmation-required
   伪造 confirmed 被拒：confirmation-required
   宿主审批：approved=true，取得一次性凭证
-  凭凭证删除成功：deletedAt=2026-11-06T09:38:12.828Z
+  凭凭证删除成功：deletedAt=2026-11-06T09:44:50.218Z
 
 === 8) 快照导出 / 替换 / 回滚 ===
-  快照指纹：059faeb12800427e…  事件数=2
-  回滚到：0010-pre-2026-11-06T09-38-12-847Z.json
+  快照指纹：e4e6169e6c877c23…  事件数=2
+  回滚到：0010-pre-2026-11-06T09-44-50-238Z.json
 
 === 9) 审计日志（最近 5 条）===
-  2026-11-06T09:38:12.772Z  event.create  f79e5bc0-01f6-4e25-bac8-a82c8122a4a7
-  2026-11-06T09:38:12.790Z  event.create  ccc7a3dc-7af0-4d62-aade-3ab7c680b4be
-  2026-11-06T09:38:12.812Z  event.create  86f70630-1e55-4211-b029-7866480fb7ce
-  2026-11-06T09:38:12.828Z  event.delete  f79e5bc0-01f6-4e25-bac8-a82c8122a4a7
+  2026-11-06T09:44:50.170Z  event.create  eb9215e0-956c-43bf-a473-8d1f35a4b0fb
+  2026-11-06T09:44:50.185Z  event.create  00c585ed-101b-4b2a-a057-e4af98483668
+  2026-11-06T09:44:50.202Z  event.create  2f6adf57-115d-4ee6-9181-329607b1fdf3
+  2026-11-06T09:44:50.218Z  event.delete  eb9215e0-956c-43bf-a473-8d1f35a4b0fb
 
 === 10) Task 门面与 Event 隔离 ===
   tasks=1  events=2
