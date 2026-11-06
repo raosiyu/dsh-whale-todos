@@ -150,3 +150,29 @@ test('全天事件移动：endDate 随 startDate 平移', () => withService((svc
   assert.equal(moved.event.startDate, '2026-11-17')
   assert.equal(moved.event.endDate, '2026-11-20', '3 天时长保持不变')
 }))
+
+test('改标题不得复活已排除的实例：update 必须携带 excludeDates（W19 回归）', () => withService((svc) => {
+  // 场景：用户把周会第 2 次单独挪走，于是原系列多了个 EXDATE。
+  // 之后他只是改个标题——如果 mergePatch 不带 excludeDates，
+  // 那次被挪走的实例会「复活」，同一时刻出现两个日程。
+  const created = svc.execute('event.create', {
+    event: {
+      title: '周会', allDay: true, startDate: '2026-11-10',
+      recurrence: { freq: 'WEEKLY', interval: 1, count: 3 },
+      excludeDates: ['2026-11-17'],
+    },
+  }, { actor: 'ui' }).event
+
+  const before = expandIn(svc, '2026-11-10', '2026-11-30')
+  assert.deepEqual(before.map((o) => o.startDate), ['2026-11-10', '2026-11-24'],
+    '初始：3 次里第 2 次被排除')
+
+  // 只改标题，一个字都不碰重复规则与排除日期
+  const updated = svc.execute('event.update', { id: created.id, patch: { title: '周会（改名）' } }, { actor: 'ui' })
+  assert.equal(updated.event.title, '周会（改名）')
+  assert.deepEqual(updated.event.excludeDates, ['2026-11-17'], '改标题必须原样携带 excludeDates')
+
+  const after = expandIn(svc, '2026-11-10', '2026-11-30')
+  assert.deepEqual(after.map((o) => o.startDate), ['2026-11-10', '2026-11-24'],
+    '改标题后仍只有 2 次——被排除的实例不得复活')
+}))

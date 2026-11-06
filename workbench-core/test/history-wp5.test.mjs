@@ -193,3 +193,27 @@ test('回滚清空撤销栈：半截数据不会复活', () => withService(async
     '回滚后没有可撤销的历史：历史已被整体替换')
   assert.equal(svc.execute('history.status', {}, {}).undoDepth, 0)
 }))
+
+test('回滚清空撤销栈：目标是「自带撤销栈」的备份（W25 回归）', () => withService(async (svc) => {
+  // 第一次提交：pre 备份是空状态（没有撤销栈），拿它当目标抓不住不清栈的缺陷。
+  svc.execute('event.create', { event: { title: 'A', allDay: true, startDate: '2026-11-10' } }, { actor: 'ui' })
+  // 第二次提交：此刻 state 已经带 undo=[A]，于是它的 pre 备份**本身含撤销栈**。
+  svc.execute('event.create', { event: { title: 'B', allDay: true, startDate: '2026-11-11' } }, { actor: 'ui' })
+  assert.equal(svc.execute('history.status', {}, {}).undoDepth, 2, '两次提交各留一条撤销记录')
+
+  const backups = svc.execute('store.listBackups', {}, {})
+    .filter((b) => String(b).includes('-pre-'))
+    .map((b) => (typeof b === 'string' ? b : b.name))
+  assert.equal(backups.length, 2, '两次提交各有 pre 备份')
+  const name = backups[1]   // 第二份 pre = 「A 之后、B 之前」，自带 undo=[A]
+
+  const token = await svc.requestApproval('store.rollback', { target: name })
+  svc.execute('store.rollback', { name }, { actor: 'ui', approvalToken: token.token })
+
+  // 关键断言：目标备份里本来有 undo，回滚后必须被清空。
+  // 不清空 → 用户按撤销会把 rollback 之前的半截数据装回来。
+  const status = svc.execute('history.status', {}, {})
+  assert.equal(status.canUndo, false, '回滚后不得残留撤销记录（备份自带的也要清）')
+  assert.equal(status.undoDepth, 0)
+  assert.equal(status.canRedo, false, '回滚后同样不得残留重做记录')
+}))
