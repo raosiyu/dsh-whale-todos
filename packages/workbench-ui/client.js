@@ -322,6 +322,7 @@ window.__ModuleLoader__.load({
       const [loading, setLoading] = useState(false)
       const [error, setError] = useState(null)
       const [notice, setNotice] = useState('')
+      const [conflictCount, setConflictCount] = useState(0)
       const [search, setSearch] = useState('')
       const [cursor, setCursor] = useState(() => new Date())
       const [selected, setSelected] = useState(null)
@@ -346,14 +347,36 @@ window.__ModuleLoader__.load({
         setLoading(true)
         setError(null)
         try {
-          const [ev, tk] = await Promise.all([
+          const now = Date.now()
+          const windowStart = new Date(now).setHours(0, 0, 0, 0)
+          const windowEnd = windowStart + 7 * 24 * 3600 * 1000
+          // 全部来自真实 Host Service（event.list / task.list / event.conflicts /
+          // event.expand），无任何本地假数据。
+          const [ev, tk, cf, ex] = await Promise.all([
             request({ op: 'event.list', payload: { includeDeleted: false } }),
             request({ op: 'task.list', payload: {} }),
+            request({ op: 'event.conflicts', payload: { windowStart, windowEnd } }),
+            request({ op: 'event.expand', payload: { windowStart, windowEnd } }),
           ])
           if (ev.ok !== true) throw new Error(ev.error?.message ?? 'event.list failed')
           if (tk.ok !== true) throw new Error(tk.error?.message ?? 'task.list failed')
-          setEvents(Array.isArray(ev.value) ? ev.value : [])
+          const conflictIds = new Set(
+            (cf.ok === true && Array.isArray(cf.value) ? cf.value : [])
+              .flatMap((c) => [c.a?.eventId, c.b?.eventId, c.a?.id, c.b?.id, c.eventIdA, c.eventIdB])
+              .filter((x) => typeof x === 'string'),
+          )
+          const recurrenceCount = new Map()
+          for (const inst of (ex.ok === true && Array.isArray(ex.value) ? ex.value : [])) {
+            const id = inst.eventId ?? inst.sourceId ?? inst.id
+            if (typeof id === 'string') recurrenceCount.set(id, (recurrenceCount.get(id) ?? 0) + 1)
+          }
+          setEvents((Array.isArray(ev.value) ? ev.value : []).map((e) => ({
+            ...e,
+            ...(conflictIds.has(e.id) ? { conflict: true } : {}),
+            ...(recurrenceCount.has(e.id) ? { recurrenceOccurrences: recurrenceCount.get(e.id) } : {}),
+          })))
           setTasks(Array.isArray(tk.value) ? tk.value : [])
+          setConflictCount(conflictIds.size)
           setNotice('Loaded from Host Service')
         } catch (e) {
           setError(String(e?.message ?? e))
@@ -513,6 +536,10 @@ window.__ModuleLoader__.load({
           h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ New')),
         h(StatusBar, { loading, error, onRetry: load }),
         notice ? h('div', { className: 'wb-status', role: 'status' }, notice) : null,
+        conflictCount > 0
+          ? h('div', { className: 'wb-status wb-status-error', role: 'status' },
+              `${conflictCount} event(s) have scheduling conflicts in the next 7 days`)
+          : null,
 
         h('div', { className: 'wb-body' },
           h('div', { className: 'wb-main wb-scroll' },
@@ -586,8 +613,16 @@ window.__ModuleLoader__.load({
                       selected.start ? h('dd', null, selected.start) : null,
                       selected.description ? h('dt', { className: 'wb-tertiary' }, 'Description') : null,
                       selected.description ? h('dd', null, selected.description) : null,
+                      selected.recurrence ? h('dt', { className: 'wb-tertiary' }, 'Repeats') : null,
+                      selected.recurrence ? h('dd', null, `${selected.recurrence.freq ?? 'custom'}${selected.recurrenceOccurrences ? ` · ${selected.recurrenceOccurrences} occurrence(s) in next 7 days` : ''}`) : null,
+                      selected.conflict === true ? h('dt', { className: 'wb-tertiary' }, 'Conflict') : null,
+                      selected.conflict === true ? h('dd', { className: 'wb-status-error' }, 'Overlaps another event') : null,
                       selected.subtasks ? h('dt', { className: 'wb-tertiary' }, 'Subtasks') : null,
-                      selected.subtasks ? h('dd', null, JSON.stringify(selected.subtasks)) : null),
+                      selected.subtasks ? h('dd', null, h('ul', null,
+                        (Array.isArray(selected.subtasks) ? selected.subtasks : []).map((st, i) =>
+                          h('li', { key: i }, typeof st === 'string' ? st : (st.title ?? JSON.stringify(st)))))) : null,
+                      h('dt', { className: 'wb-tertiary' }, 'AI session'),
+                      h('dd', null, 'Shared with the current Agent session (same Host Service)')),
                     h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px' } },
                       h('button', {
                         className: 'wb-btn', type: 'button',

@@ -254,3 +254,77 @@ test('WP4：AI 工具与 UI 共用同一 Host Service（双向一致性）', asy
     assert.equal(uiList.value[0].title, '来自 Agent')
   })
 })
+
+test('WP4：冲突提示与重复事件展开来自真实 Host Service（非本地假数据）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+
+    // 真实业务规则：event.create 本身会拒绝时间冲突（conflict），
+    // 所以冲突的真实来源是「编辑已有事件」或导入。这里先建两条不重叠的，
+    // 再用 event.update 把 B 挪到与 A 重叠（update 不阻止冲突，只提示）。
+    const a = await call(host, 's1', {
+      op: 'event.create',
+      payload: { title: 'A', allDay: false, start: '2026-11-10T09:00:00', end: '2026-11-10T11:00:00', timeZone: 'UTC' },
+    })
+    const b = await call(host, 's1', {
+      op: 'event.create',
+      payload: { title: 'B', allDay: false, start: '2026-11-10T13:00:00', end: '2026-11-10T14:00:00', timeZone: 'UTC' },
+    })
+    assert.equal(a.ok, true)
+    assert.equal(b.ok, true)
+    const moved = await call(host, 's1', {
+      op: 'event.update',
+      payload: { id: b.value.event.id, patch: { start: '2026-11-10T10:00:00', end: '2026-11-10T12:00:00' } },
+    })
+    assert.equal(moved.ok, true, JSON.stringify(moved))
+
+    const windowStart = Date.UTC(2026, 10, 10)
+    const windowEnd = windowStart + 24 * 3600 * 1000
+
+    const cf = await call(host, 's1', { op: 'event.conflicts', payload: { windowStart, windowEnd } })
+    assert.equal(cf.ok, true, JSON.stringify(cf))
+    assert.ok(Array.isArray(cf.value), 'conflicts 应返回数组')
+    assert.equal(cf.value.length, 1, '两条重叠事件应有 1 个冲突')
+    assert.equal(typeof cf.value[0].a.eventId, 'string', '冲突项含 eventId（UI 据此打标）')
+    assert.equal(typeof cf.value[0].b.eventId, 'string')
+
+    const ex = await call(host, 's1', { op: 'event.expand', payload: { windowStart, windowEnd } })
+    assert.equal(ex.ok, true, JSON.stringify(ex))
+    assert.ok(Array.isArray(ex.value))
+    assert.equal(ex.value.length, 2, '展开后应有 2 个实例')
+
+    const slots = await call(host, 's1', {
+      op: 'event.freeSlots', payload: { windowStart, windowEnd, minSlotMs: 60000 },
+    })
+    assert.equal(slots.ok, true, JSON.stringify(slots))
+    // 真实契约：findFreeSlots 返回 { free, busy }（不是数组）
+    assert.ok(Array.isArray(slots.value?.free), 'freeSlots 应含 free 数组')
+    assert.ok(Array.isArray(slots.value?.busy), 'freeSlots 应含 busy 数组')
+  })
+})
+
+test('WP4：子任务与 AI 会话关联数据可经 Host Service 往返', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+
+    // 带子任务 + 来源会话标记的真实 Task
+    const task = {
+      id: 't-sub', title: '准备评审', priority: 'high', done: false,
+      subtasks: ['订会议室', '发议程'],
+      sourceSessionId: 'session-origin',
+    }
+    const up = await call(host, 's1', { op: 'task.upsert', payload: { task } })
+    assert.equal(up.ok, true)
+
+    const list = await call(host, 's1', { op: 'task.list', payload: {} })
+    assert.equal(list.ok, true)
+    const saved = list.value.find((t) => t.id === 't-sub')
+    assert.ok(saved !== undefined)
+    assert.deepEqual(saved.subtasks, ['订会议室', '发议程'])
+    assert.equal(saved.sourceSessionId, 'session-origin')
+  })
+})
