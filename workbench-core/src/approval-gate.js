@@ -163,7 +163,21 @@ export function createHostApprovalGate(options = {}) {
        * 换出的凭证用不了。
        * 这里显式忽略它，避免给「自选 digest」留下任何误解与后患。
        */
-      const fingerprint = approvalFingerprint({ op, target, digest: '' })
+      /**
+       * digest 由**调用方按内容算好传进来**（service.js 的 confirmUserAction
+       * 会把 detail.text 算成 contentDigest 再传）。这里不再硬编码 ''。
+       *
+       * 原实现写死 digest:'' 导致内容类操作（event.import / snapshot.replace）
+       * 的凭证结构上不可能与执行侧指纹相符 —— 签发成功、执行必然
+       * fingerprint-mismatch。实测：confirmUserAction('event.import','ics')
+       * 拿到 approved:true，execute 仍被拒。等于导入功能整体不可用。
+       *
+       * 安全边界没变：digest 仍然绑进指纹，凭证仍是一次性 + 不可离线伪造，
+       * 只是把它从「恒为空」改成「真实内容摘要」。空字符串也仍然合法
+       * （非内容类操作本来就该为空）。
+       */
+      const digest = typeof detail.digest === 'string' ? detail.digest : ''
+      const fingerprint = approvalFingerprint({ op, target, digest })
       return { approved: true, token: makeToken(fingerprint, 'user-confirm') }
     },
 

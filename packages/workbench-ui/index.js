@@ -142,7 +142,19 @@ export function apply(ctx, config = {}) {
         const approval = service.forSession(sessionId).confirmUserAction(
           payload.approvalOp ?? 'event.delete',
           target,
-          { digest: payload.digest, summary: payload.summary ?? `Confirm ${target}` },
+          {
+            /**
+             * 内容类操作（event.import / snapshot.replace）必须把**原文**带给 Host。
+             *
+             * Host 侧的 confirmUserAction 用 contentDigest(text) 算摘要并绑进指纹，
+             * 执行侧也用同一个算法。这里原先只转发 { digest, summary }，
+             * payload.text 被丢掉 → Host 算出空摘要 → 签发的凭证与执行侧
+             * 指纹恒不匹配 → 导入功能整体不可用（审查 B1 的另一半）。
+             */
+            ...(typeof payload.text === 'string' ? { text: payload.text } : {}),
+            digest: payload.digest,
+            summary: payload.summary ?? `Confirm ${target}`,
+          },
         )
         return encodeResult({ ok: approval.approved === true, value: approval, op })
       }

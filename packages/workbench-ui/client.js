@@ -65,8 +65,42 @@ window.__ModuleLoader__.load({
       "retry": "Retry",
       "loading": "Loading…",
       "ready": "Ready",
-      "error": "Error"
-},
+      "error": "Error",
+      "import": "Import",
+      "undo": "Undo",
+      "redo": "Redo",
+      "archive": "Archive",
+      "restore": "Restore",
+      "grouped": "Grouped",
+      "reminder": "Reminder",
+      "moveScope": "Choose move scope",
+      "moveSingle": "Only this occurrence",
+      "moveSeries": "Entire series",
+      "confirmImport": "Confirm import",
+      "importing": "Importing…",
+      "previewCreate": "New",
+      "previewDuplicate": "Duplicate",
+      "previewConflict": "Conflict",
+      "previewUnsupported": "Unsupported",
+      "previewRemoved": "Will be removed",
+      "moved": "Moved to",
+      "orderSaved": "Order saved",
+      "undoDone": "Undid last step",
+      "redoDone": "Redone",
+      "importDone": "Import complete",
+      "archived": "Archived",
+      "restored": "Restored",
+      "loadFailed": "Load failed",
+      "noTasks": "No tasks in this view",
+      "moveSingleHint": "Only this occurrence",
+      "moveSeriesHint": "Shift the whole series",
+      "previewCreateHint": "Will be written to the store",
+      "previewDuplicateHint": "Same id/uid already exists; will skip",
+      "previewConflictHint": "Overlaps an existing event",
+      "previewUnsupportedHint": "Cannot be imported; see reasons below",
+      "previewRemovedHint": "A replace-style import deletes these existing rows",
+      "dueAtInvalid": "Due must be a valid ISO instant (for example 2026-11-10T09:00:00Z), or left empty.",
+      },
       zh: {
       "meta": {
             "title": "鲸鱼待办",
@@ -92,8 +126,42 @@ window.__ModuleLoader__.load({
       "retry": "重试",
       "loading": "加载中…",
       "ready": "就绪",
-      "error": "错误"
-},
+      "error": "错误",
+      "import": "导入",
+      "undo": "撤销",
+      "redo": "重做",
+      "archive": "归档",
+      "restore": "恢复",
+      "grouped": "分组",
+      "reminder": "提醒",
+      "moveScope": "选择移动范围",
+      "moveSingle": "只改这一次",
+      "moveSeries": "改整个系列",
+      "confirmImport": "确认导入",
+      "importing": "导入中…",
+      "previewCreate": "新增",
+      "previewDuplicate": "重复",
+      "previewConflict": "冲突",
+      "previewUnsupported": "不支持",
+      "previewRemoved": "会被移除",
+      "moved": "已移动到",
+      "orderSaved": "顺序已保存",
+      "undoDone": "已撤销上一步",
+      "redoDone": "已重做",
+      "importDone": "导入完成",
+      "archived": "已归档",
+      "restored": "已恢复",
+      "loadFailed": "加载失败",
+      "noTasks": "当前视图没有待办",
+      "moveSingleHint": "其余实例不动",
+      "moveSeriesHint": "所有实例一起平移",
+      "previewCreateHint": "会写进库里的条目",
+      "previewDuplicateHint": "库里已有同 id/同 uid，将跳过",
+      "previewConflictHint": "与既有事件时间重叠",
+      "previewUnsupportedHint": "导不进来，原因见下",
+      "previewRemovedHint": "覆盖式导入会删掉这些既有条目",
+      "dueAtInvalid": "到期时间必须是合法的 ISO 时刻（例如 2026-11-10T09:00:00Z），或者留空。",
+      },
     }
 
     // --------------------------------------------------------------- 样式
@@ -184,6 +252,9 @@ window.__ModuleLoader__.load({
 .wb-drag-source{opacity:.4}
 .wb-drop-target{outline:2px dashed var(--dsw-alias-state-business-primary);outline-offset:-2px;
   background:var(--dsw-alias-interactive-bg-hover)}
+/* 仅供读屏的播报节点：视觉上不可见，但不 aria-hidden（否则读屏也拿不到）。 */
+.wb-sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;border:0}
 .wb-drag-preview{position:fixed;pointer-events:none;z-index:2000;padding:4px 8px;border-radius:4px;
   font-size:12px;background:var(--dsw-alias-interactive-bg-hover);
   border:1px solid var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}
@@ -250,6 +321,142 @@ function isSoftDeleted(t) {
   return t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')
 }
 
+/**
+ * 主列表过滤（纯函数，导出给测试直接断言）。
+ *
+ * 三层都必须挡：软删、归档、搜索与分桶不匹配。
+ * 归档那层原先只在渲染层漏了 —— reorderTasks / nudgeTask 都挡了 archived，
+ * 于是同一条待办会同时出现在主列表和归档区（双渲染）。抽成纯函数后，
+ * 变异把这一层改成 `if (false)` 会被行为断言直接抓住。
+ */
+function filterTasksForView(tasks, { search = '', taskFilter, now } = {}) {
+  const q = String(search ?? '').trim().toLowerCase()
+  return (tasks ?? []).filter((t) => {
+    if (isSoftDeleted(t)) return false
+    // 归档 = 收起来，不是删掉；但主列表也不该再显示它
+    if (t?.archived === true) return false
+    if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false
+    return taskBucket(t, now ?? new Date()) === taskFilter
+  })
+}
+
+/**
+ * ---- 请求体构造器（纯函数，导出给测试直接断言）----
+ *
+ * 这些逻辑原来内联在组件闭包里，于是**只能靠正则扫源码来验证**。
+ * 后果很实在：审查 B1/B3/B4/B5 四个阻塞项全部躺在正则断言的绿区里 ——
+ * 导入凭证塞错层、拖拽丢源日、排序用错基、计数本地重算，一条都没红。
+ * 抽成纯函数后，测试可以直接调用它、断言真实 payload 形状，
+ * 变异一改就必然红。
+ */
+
+/** 导入确认：签发请求体（内容类 op 的 target 恒为 undefined，摘要由 text 推导）。 */
+function buildImportApprovalRequest(kind, text) {
+  return {
+    op: 'confirmUserAction',
+    payload: {
+      approvalOp: kind === 'ics' ? 'event.import' : 'snapshot.replace',
+      target: undefined,
+      text,
+      summary: 'Import ' + kind + ' data',
+    },
+  }
+}
+
+/** 导入执行：approvalToken 必须在**顶层**（bridge 只从顶层读）。 */
+function buildImportExecuteRequest(kind, text, token) {
+  return {
+    op: kind === 'ics' ? 'event.import' : 'snapshot.replace',
+    payload: { text },
+    approvalToken: token,
+  }
+}
+
+/**
+ * 改期请求体。
+ * - 非重复事件：mode 恒为 'series'（服务端没有「单次」概念）。
+ * - 重复事件：'single' 必须带**源日** occurrenceDate，'series' 不带。
+ * 把落点当源日会被服务端静默接受，然后排除落点那天 —— 源日仍在、目标被吞。
+ */
+function buildEventMoveRequest(target, dateKey, modeChoice) {
+  const recurring = target?.recurring === true
+  const mode = recurring ? (modeChoice ?? 'series') : 'series'
+  const body = { id: target?.id, mode, target: { startDate: dateKey } }
+  if (recurring && mode === 'single') body.occurrenceDate = target?.occurrenceDate ?? null
+  return body
+}
+
+/**
+ * 排序请求体。`ids` 是**用户看到的顺序**（按 order 排），不是存储顺序。
+ * 调用方负责先按 byOrder 排好再传进来。
+ */
+function buildReorderRequest(rows, project) {
+  return { op: 'task.reorder', payload: { ids: rows.map((r) => r.id), project } }
+}
+
+/** 归档/恢复请求体。恢复是同一个 op 带 archived:false，**没有** task.unarchive。 */
+function buildArchiveRequest(id, archived) {
+  return { op: 'task.archive', payload: { id, archived } }
+}
+
+/** ICS 预览计数：一律用服务端 counts，不本地重算，不硬写 unsupported。 */
+/**
+ * `dueAt` 必须校验，不能原样提交。
+ *
+ * 实测后果：输入框留空或写「排序验证」都会被写进 Host，
+ * 随后提醒编译对该任务报「算不出提醒时刻（数据有问题，不会响）」——
+ * 一条永远不会响的待办，比没有待办更危险。
+ *
+ * 规则：
+ * - 空串 → **不写这个字段**（不是写空串），让 Host 保持「无到期时间」
+ * - 非空但不是合法 ISO 时刻 → 拦下并提示，不落盘
+ *
+ * 放在函数声明区（而非组件内）的原因：`__test` 在模块求值期就要引用它，
+ * 定义在组件里会踩 TDZ（Cannot access 'parseDueAt' before initialization）。
+ */
+function parseDueAt(raw) {
+  const text = String(raw ?? '').trim()
+  if (text === '') return { ok: true, value: undefined }
+  const ms = Date.parse(text)
+  if (Number.isNaN(ms)) return { ok: false, value: undefined }
+  return { ok: true, value: text }
+}
+
+function buildIcsCounts(serverCounts) {
+  const c = serverCounts ?? {}
+  /**
+   * `degraded` 不能丢，`removed` 不能硬写 0。
+   *
+   * - degraded：服务端在时区信息不足时会降级解析，这类条目**不是**干净的
+   *   「新增」。原来整条丢弃，degraded:1 会显示成「新增」，用户以为导进来了。
+   * - removed：ICS 导入是合并语义、本来就不删东西，所以 removed 取服务端
+   *   真实值（缺省 0）即可；硬写 0 会和 snapshot.preview 的
+   *   removedEvents/removedTasks 自相矛盾。
+   */
+  return {
+    create: Number(c.create ?? 0),
+    duplicate: Number(c.duplicate ?? c.skip ?? 0),
+    conflict: Number(c.conflict ?? 0),
+    unsupported: Number(c.unsupported ?? 0),
+    degraded: Number(c.degraded ?? 0),
+    removed: Number(c.removed ?? 0),
+  }
+}
+
+/**
+ * 组内排序比较器。**唯一实现**。
+ *
+ * 渲染（groupedTasks）与排序计算（reorderTasks / nudgeTask）必须用同一个
+ * 比较器：渲染按 order 排，而 reorderTasks 原先用未排序的 tasks.filter
+ * 算索引 —— 两个基不一致，第二次排序起就拼出错误的 ids。实测：显示
+ * c,a,b 时把 b 拖到最前，期望 b,c,a，实际发 a,c,b，落库 a,c,b。
+ */
+function byOrder(a, b) {
+  const ao = Number.isFinite(a?.order) ? a.order : Number.MAX_SAFE_INTEGER
+  const bo = Number.isFinite(b?.order) ? b.order : Number.MAX_SAFE_INTEGER
+  return ao - bo
+}
+
 function taskBucket(t, now) {
       // 已软删的待办不进任何桶（复审 MAJOR：删除后仍出现在列表里）
       if (isSoftDeleted(t)) return 'deleted'
@@ -313,9 +520,15 @@ function taskBucket(t, now) {
      */
     const __test = {
       callHost,
+      // 请求体构造器：让测试断言真实 payload 形状，而不是扫源码正则
+      buildImportApprovalRequest, buildImportExecuteRequest, buildEventMoveRequest,
+      buildReorderRequest, buildArchiveRequest, buildIcsCounts,
       // 纯函数：软删判定与分桶。行为测试要能直接调，不能只靠正则看源码。
       isSoftDeleted,
       taskBucket,
+      filterTasksForView,
+      // 到期时间解析：坏值必须拦在本地，不能落盘让提醒层降级
+      parseDueAt,
       // 三个弹窗组件：渲染期异常的探针目标（第三轮 BLOCKER-1 就是它们）
       EventForm,
       TaskForm,
@@ -411,7 +624,7 @@ function taskBucket(t, now) {
               type: 'button',
               draggable: true,
               className: `wb-tertiary${drag !== null && drag.id === e.id ? ' wb-drag-source' : ''}`,
-              'aria-label': `${e.title || '事件'}，拖动可改期`,
+              'aria-label': `${e.title || '事件'}，可打开详情；改期请用 ←/→ 键或拖动`,
               title: '拖动到别的日期可改期',
               onClick: (ev) => { ev.stopPropagation(); onSelectEvent(e) },
               onDragStart: (ev) => {
@@ -419,12 +632,30 @@ function taskBucket(t, now) {
                 ev.dataTransfer.effectAllowed = 'move'
                 // 必须设 data：某些浏览器不给 dataTransfer 就不认这次拖拽
                 ev.dataTransfer.setData('text/plain', e.id)
-                setDrag({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true, recurring: e.recurrence != null })
+                /**
+                 * **必须带上被拖那个实例的真实源日期。**
+                 *
+                 * 服务端 event.move 的 occurrenceDate 语义是「源实例日期」
+                 * （service.js:327 `instances.find(occ => occ.startDate === occurrenceDate)`），
+                 * 不是落点日期。原来这里不带，展开成 undefined 后被
+                 * JSON.stringify 丢掉键 → 「只改这一次」必然 validation 失败。
+                 * 更糟的是若把落点当源日传：DAILY 系列会返回成功，但
+                 * excludeDates 记的是落点那天 —— 实测源日仍在、目标那天被吞掉，
+                 * 静默写坏数据。MonthView 拿到的是系列母体，源日就是母体自身日期。
+                 */
+                setDrag({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true,
+                  recurring: e.recurrence != null,
+                  occurrenceDate: (() => { const d = eventDay(e); return d === null ? null : isoDate(d) })() })
               },
               onDragEnd: () => { setDrag(null); setDropHint(null) },
+              /**
+               * 月视图事件条既是点击目标又是拖拽把手，点击区必须 >= 44px。
+               * 原来 padding:0 + 12px 行高，实际只有十几像素高，触控很难点中。
+               */
               style: { fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap', border: 0, background: 'transparent', textAlign: 'left',
-                color: 'inherit', padding: 0, cursor: 'grab', maxWidth: '100%' },
+                color: 'inherit', padding: '12px 8px', cursor: 'grab', maxWidth: '100%',
+                minHeight: '44px', display: 'flex', alignItems: 'center' },
             }, e.allDay ? 'All day · ' : `${fmtTime(e.start)} · `, e.title)))
         }))
     }
@@ -444,7 +675,10 @@ function taskBucket(t, now) {
           onDragStart: (ev) => {
             ev.dataTransfer.effectAllowed = 'move'
             ev.dataTransfer.setData('text/plain', e.id)
-            set({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true, recurring: e.recurrence != null })
+            // 源日必须随拖拽一起走：漏了就会回退成落点，静默写坏重复事件（M-2）
+            set({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true,
+              recurring: e.recurrence != null,
+              occurrenceDate: (() => { const d = eventDay(e); return d === null ? null : isoDate(d) })() })
           },
           onDragEnd: () => set(null),
         },
@@ -470,7 +704,29 @@ function taskBucket(t, now) {
      * 为什么不替用户默认选一个：改「这一次」会写 EXDATE + 新建独立事件，
      * 改「整个系列」会平移全部实例——数据后果完全不同，猜错就是错改用户的日历。
      */
-    function MoveScopeDialog({ title, dateKey, onChoose, onCancel }) {
+    /**
+     * 对话框的 Escape 关闭。
+     *
+     * 三个弹窗都声明了 `aria-modal:'true'`，但都没有 Escape、也没有焦点陷阱 ——
+     * 对读屏来说这是**错误声明**，比不写更误导：它宣告「这是模态」，
+     * 键盘用户却 Tab 得出去、Esc 关不掉，只能一路 Tab 找到取消按钮。
+     * 焦点陷阱需要完整实现，Escape 这一条先补上（成本最低、收益最直接）。
+     */
+    function useEscapeClose(onCancel) {
+      useEffect(() => {
+        const onKey = (ev) => {
+          if (ev.key !== 'Escape') return
+          ev.preventDefault()
+          ev.stopPropagation()
+          onCancel?.()
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+      }, [onCancel])
+    }
+
+    function MoveScopeDialog({ title, dateKey, onChoose, onCancel, t = defaultT }) {
+      useEscapeClose(onCancel)
       return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true',
         'aria-label': '选择移动范围' },
         h('div', { className: 'wb-overlay-panel' },
@@ -478,11 +734,11 @@ function taskBucket(t, now) {
           h('p', { className: 'wb-muted' }, `「${title ?? '(无标题)'}」是重复事件。移到 ${dateKey}：`),
           h('div', { style: { display: 'grid', gap: '8px', marginTop: '16px' } },
             h('button', { className: 'wb-btn', type: 'button',
-              'aria-label': '只改这一次', onClick: () => onChoose('single') },
-              '只改这一次', h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, '  其余实例不动')),
+              'aria-label': t('moveSingle'), onClick: () => onChoose('single') },
+              t('moveSingle'), h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, '  ' + t('moveSingleHint'))),
             h('button', { className: 'wb-btn', type: 'button',
-              'aria-label': '改整个系列', onClick: () => onChoose('series') },
-              '改整个系列', h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, '  所有实例一起平移')),
+              'aria-label': t('moveSeries'), onClick: () => onChoose('series') },
+              t('moveSeries'), h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, '  ' + t('moveSeriesHint'))),
             h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, '取消'))))
     }
 
@@ -494,18 +750,21 @@ function taskBucket(t, now) {
      * 不支持的要知道「哪些东西导不进来」——合并成一句「导入成功」就是骗人。
      */
     function ImportPreview({ preview, onConfirm, onCancel, approving, t = defaultT }) {
+      useEscapeClose(onCancel)
       if (preview === null || preview === undefined) return null
       const c = preview.counts ?? {}
       const row = (label, n, hint, cls) => h('tr', { key: label },
         h('td', cls ? { className: cls } : null, label),
         h('td', null, String(n ?? 0)),
-        h('td', { className: 'wb-tertiary', style: { fontSize: '12px' } }, hint))
+        // hint 列是「这条会不会写进库里」的决策依据，不是装饰性元信息。
+        // 12px 在这个位置上属于可读性风险，按正文 16px 处理。
+        h('td', { className: 'wb-tertiary' }, hint))
       const body = [
-        row('新增', c.create, '会写进库里的条目', 'wb-preview-create'),
-        row('重复', c.duplicate, '库里已有同 id/同 uid，将跳过'),
-        row('冲突', c.conflict, '与既有事件时间重叠', 'wb-preview-warn'),
-        row('不支持', c.unsupported, '导不进来，原因见下', 'wb-preview-warn'),
-        row('会被移除', c.removed, '覆盖式导入会删掉这些既有条目'),
+        row(t('previewCreate'), c.create, t('previewCreateHint'), 'wb-preview-create'),
+        row(t('previewDuplicate'), c.duplicate, t('previewDuplicateHint')),
+        row(t('previewConflict'), c.conflict, t('previewConflictHint'), 'wb-preview-warn'),
+        row(t('previewUnsupported'), c.unsupported, t('previewUnsupportedHint'), 'wb-preview-warn'),
+        row(t('previewRemoved'), c.removed, t('previewRemovedHint')),
       ]
       const unsupportedList = Array.isArray(preview.unsupported) ? preview.unsupported : []
       const warningList = Array.isArray(preview.warnings) ? preview.warnings : []
@@ -583,24 +842,35 @@ function taskBucket(t, now) {
       const [title, setTitle] = useState(initial?.title ?? '')
       const [dueAt, setDueAt] = useState(initial?.dueAt ?? '')
       const [priority, setPriority] = useState(initial?.priority ?? 'normal')
+      const [formError, setFormError] = useState(null)
       const submit = (ev) => {
         ev.preventDefault()
         if (title.trim() === '') return
-        // **最终 Review BLOCKER 修复**：整行替换会丢 subtasks/sourceSessionId
-        // 等字段，故展开 initial 全量字段再覆盖表单值。
-        onSave({
+        const parsed = parseDueAt(dueAt)
+        if (!parsed.ok) {
+          // 拦在本地：坏值一旦落盘，提醒层只能降级成「不会响」
+          setFormError(t('dueAtInvalid'))
+          return
+        }
+        setFormError(null)
+        const next = {
           ...(initial ?? {}),
           id: initial?.id ?? `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          title: title.trim(), dueAt, priority,
+          title: title.trim(), priority,
           done: initial?.done === true,
           status: initial?.status ?? 'planned',
-        })
+        }
+        // 空串用 delete 而不是赋 ''：'' 不是「无到期时间」，是坏数据
+        if (parsed.value === undefined) delete next.dueAt
+        else next.dueAt = parsed.value
+        onSave(next)
       }
       return h('form', { className: 'wb-form', onSubmit: submit },
         h('label', null, 'Title',
           h('input', { className: 'wb-input', value: title, onChange: (e) => setTitle(e.target.value), required: true, autoFocus: true })),
         h('label', null, 'Due (ISO instant)',
           h('input', { className: 'wb-input', value: dueAt, onChange: (e) => setDueAt(e.target.value), placeholder: '2026-11-10T09:00:00Z' })),
+        formError === null ? null : h('div', { className: 'wb-preview-warn', role: 'alert' }, formError),
         h('label', null, 'Priority',
           h('select', { className: 'wb-input', value: priority, onChange: (e) => setPriority(e.target.value) },
             h('option', { value: 'low' }, 'Low'),
@@ -612,6 +882,7 @@ function taskBucket(t, now) {
     }
 
     function ConfirmDelete({ label, onConfirm, onCancel, approving, t = defaultT }) {
+      useEscapeClose(onCancel)
       return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Confirm delete' },
         h('div', { className: 'wb-overlay-panel' },
           h('h2', null, t('delete'), '?'),
@@ -681,6 +952,9 @@ function taskBucket(t, now) {
        */
       const [drag, setDrag] = useState(null)
       const [dropHint, setDropHint] = useState(null)
+      // 拖拽浮层的真实指针位置。position:fixed 不给 top/left 就永远贴在角落，
+      // 不会跟随指针 —— 那就不是「跟随提示」，是个挡视线的浮层。
+      const [dragAt, setDragAt] = useState(null)
       /** 单次重复事件移动时，问「只改这一次 / 改整个系列」 */
       const [moveDialog, setMoveDialog] = useState(null)
       /** 撤销/重做可用性，由 history.status 提供 */
@@ -705,13 +979,22 @@ function taskBucket(t, now) {
         return callHost(ctx, sessionId, req)
       }, [ctx, sessionId])
 
-      const load = useCallback(async () => {
+      /**
+       * `keepFeedback`：加载后**不要**覆盖已有的 error/notice。
+       *
+       * 原来 load 开头无条件 `setError(null)`、结尾无条件
+       * `setNotice('Loaded from Host Service')` —— 于是所有「失败后 reload」
+       * 的路径（拖拽改期、排序、恢复归档）都会把真实失败原因冲掉，
+       * 所有「成功后 reload」的路径都会把「已移动到 X」冲成
+       * 「Loaded from Host Service」。用户永远看不到自己那步的结果。
+       */
+      const load = useCallback(async (keepFeedback = false) => {
         if (typeof sessionId !== 'string' || sessionId === '') {
           setError('No active session; open the workbench from a conversation')
           return
         }
         setLoading(true)
-        setError(null)
+        if (keepFeedback !== true) setError(null)
         try {
           const now = Date.now()
           const windowStart = new Date(now).setHours(0, 0, 0, 0)
@@ -777,7 +1060,7 @@ function taskBucket(t, now) {
               }
             : { canUndo: false, canRedo: false, undoDepth: 0, redoDepth: 0 })
           setConflictCount(conflictIds.size)
-          setNotice('Loaded from Host Service')
+          if (keepFeedback !== true) setNotice('Loaded from Host Service')
         } catch (e) {
           setError(String(e?.message ?? e))
         } finally {
@@ -793,6 +1076,16 @@ function taskBucket(t, now) {
        * 注册一次，永远调到当前那个函数。
        */
       const undoRef = useRef(null)
+      /**
+       * 拖拽期间跟踪指针。HTML5 drag 的 drag 事件里 clientX/clientY 恒为 0，
+       * 必须用 mousemove。只在 drag 进行时挂监听，避免常态开销。
+       */
+      useEffect(() => {
+        if (drag === null) { setDragAt(null); return }
+        const onMove = (ev) => setDragAt({ x: ev.clientX, y: ev.clientY })
+        window.addEventListener('mousemove', onMove)
+        return () => window.removeEventListener('mousemove', onMove)
+      }, [drag])
       const redoRef = useRef(null)
       const importInputRef = useRef(null)
       const nudgeRef = useRef(null)
@@ -801,8 +1094,26 @@ function taskBucket(t, now) {
       useEffect(() => {
         const onKey = (ev) => {
           const mod = ev.ctrlKey || ev.metaKey
-          if (!mod) return
           const k = ev.key.toLowerCase()
+          /**
+           * 裸 ←/→ = 事件改期。**必须放在 mod 守卫之前**。
+           *
+           * 原实现把箭头分支写在 `if (!mod) return` 之后，于是裸箭头永远
+           * 到不了这段代码 —— 实测纯 ArrowRight 触发 0 次，必须按住
+           * Ctrl/Cmd 才有反应，而界面上没有任何地方提示这个组合键。
+           * 这条路径本身就是用来替代拖拽的，不可达等于没做。
+           */
+          if (!mod && (k === 'arrowleft' || k === 'arrowright')) {
+            const el = ev.target
+            const typing = el !== null && el !== undefined
+              && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable === true)
+            if (typing) return
+            if (nudgeRef.current === null) return
+            ev.preventDefault()
+            nudgeRef.current(k === 'arrowright' ? 1 : -1)
+            return
+          }
+          if (!mod) return
           if (k === 'k') {
             ev.preventDefault()
             searchRef.current?.focus()
@@ -819,13 +1130,6 @@ function taskBucket(t, now) {
             else undoRef.current?.()
             return
           }
-          // 事件改期的键盘替代：选中事件后 ←/→ 前后挪一天。
-          // 拖拽只有鼠标能用，不给键盘路径就等于把一部分用户挡在门外。
-          if (k === 'arrowleft' || k === 'arrowright') {
-            if (nudgeRef.current === null) return
-            ev.preventDefault()
-            nudgeRef.current(k === 'arrowright' ? 1 : -1)
-          }
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
@@ -836,15 +1140,10 @@ function taskBucket(t, now) {
         return events.filter((e) => q === '' || String(e.title ?? '').toLowerCase().includes(q))
       }, [events, search])
 
-      const filteredTasks = useMemo(() => {
-        const q = search.trim().toLowerCase()
-        const now = new Date()
-        return tasks.filter((t) => {
-          if (isSoftDeleted(t)) return false
-          if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false
-          return taskBucket(t, now) === taskFilter
-        })
-      }, [tasks, search, taskFilter])
+      const filteredTasks = useMemo(
+        () => filterTasksForView(tasks, { search, taskFilter, now: new Date() }),
+        [tasks, search, taskFilter],
+      )
 
       /**
        * 分组。排序只认组内，跨组不动——跨组意味着改 project，
@@ -862,11 +1161,7 @@ function taskBucket(t, now) {
         }
         const rows = []
         for (const [project, list] of groups) {
-          const ordered = [...list].sort((a, b) => {
-            const ao = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER
-            const bo = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER
-            return ao - bo
-          })
+          const ordered = [...list].sort(byOrder)
           rows.push({ project, rows: ordered })
         }
         // 有分组的排前面，未分组垫底
@@ -890,13 +1185,10 @@ function taskBucket(t, now) {
 
       /** 键盘替代操作：把某条在组内上/下挪一位，走和拖拽同一条 reorder 路径。 */
       const nudgeTask = async (groupId, id, delta) => {
+        // 与渲染、reorderTasks 共用同一个比较器，避免索引基漂移
         const rows = tasks
           .filter((t) => (t.project ?? null) === groupId && t.archived !== true)
-          .sort((a, b) => {
-            const ao = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER
-            const bo = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER
-            return ao - bo
-          })
+          .sort(byOrder)
         const i = rows.findIndex((t) => t.id === id)
         const j = i + delta
         if (i < 0 || j < 0 || j >= rows.length) return
@@ -944,27 +1236,42 @@ function taskBucket(t, now) {
         const recurring = source.recurrence !== null && source.recurrence !== undefined
         // 重复事件第一次拖：先问范围，不擅自决定
         if (recurring && modeChoice === undefined) {
-          setMoveDialog({ id: target.id, title: source.title, dateKey, allDay: source.allDay === true })
+          /**
+           * 把**源日**一并存进弹窗状态。onChoose 里必须用它，不能用 dateKey
+           * （dateKey 是落点）。源日优先取调用方传入的 occurrenceDate（拖拽时
+           * 记的是被拖实例的真实日期），否则退回母体自身日期。
+           */
+          const srcDay = target.occurrenceDate
+            ?? (() => { const d = eventDay(source); return d === null ? null : isoDate(d) })()
+          setMoveDialog({ id: target.id, title: source.title, dateKey, allDay: source.allDay === true,
+            occurrenceDate: srcDay })
           return
         }
         const mode = recurring ? (modeChoice ?? 'series') : 'series'
         setSaving(true)
         try {
-          const body = source.allDay === true
-            ? { id: target.id, mode, target: { startDate: dateKey }, ...(recurring && mode === 'single' ? { occurrenceDate: target.occurrenceDate } : {}) }
-            : {
-                id: target.id, mode,
-                target: { start: `${dateKey}T${fmtTime(source.start) || '09:00'}` },
-                ...(recurring && mode === 'single' ? { occurrenceDate: target.occurrenceDate } : {}),
-              }
+          /**
+           * 走构造器，不内联拼 body。
+           *
+           * 内联版本里 `mode` 是本地算的，`occurrenceDate` 也是本地拼的 ——
+           * 和构造器两份真相，改一处不改另一处就漂。B3 的修复一度只存在于
+           * 构造器里（没人调用），等于没修。
+           */
+          const body = buildEventMoveRequest(
+            { id: target.id, recurring, occurrenceDate: target.occurrenceDate, allDay: source.allDay === true, start: source.start },
+            dateKey,
+            modeChoice,
+          )
+          // 非全天事件要把时分带上（构造器只负责日期与范围语义）
+          if (source.allDay !== true) body.target = { start: `${dateKey}T${fmtTime(source.start) || '09:00'}` }
           const r = await request({ op: 'event.move', payload: body })
           if (r.ok !== true) throw new Error(r.error?.message ?? 'event.move failed')
           setNotice(`已移动到 ${dateKey}${mode === 'single' ? '（仅这一次）' : ''}`)
-          await load()
+          await load(true)
         } catch (e) {
           // 失败不动界面：events 仍是 load 出来的旧值，等于「恢复原位」
           setError(String(e?.message ?? e))
-          await load()
+          await load(true)
         } finally {
           setSaving(false)
         }
@@ -1004,7 +1311,13 @@ function taskBucket(t, now) {
        */
       const reorderTasks = async (groupId, fromId, toId) => {
         if (fromId === toId) return
-        const groupRows = tasks.filter((t) => (t.project ?? null) === groupId && t.archived !== true)
+        /**
+         * 必须**先按 order 排序**再算索引 —— 用户看到的顺序是 order 序，
+         * 而 tasks 数组是存储序。两个基不一致时拼出的 ids 不是用户意图。
+         */
+        const groupRows = tasks
+          .filter((t) => (t.project ?? null) === groupId && t.archived !== true)
+          .sort(byOrder)
         const from = groupRows.findIndex((t) => t.id === fromId)
         const to = groupRows.findIndex((t) => t.id === toId)
         if (from < 0 || to < 0) return
@@ -1014,14 +1327,11 @@ function taskBucket(t, now) {
         setError(null)
         setSaving(true)
         try {
-          const r = await request({
-            op: 'task.reorder',
-            payload: { ids: next.map((t) => t.id), project: groupId },
-          })
+          const r = await request(buildReorderRequest(next, groupId))
           if (r.ok !== true) throw new Error(r.error?.message ?? 'task.reorder failed')
-          setNotice('顺序已保存')
-          await load()
-        } catch (e) { setError(String(e?.message ?? e)); await load() }
+          setNotice(t('orderSaved'))
+          await load(true)
+        } catch (e) { setError(String(e?.message ?? e)); await load(true) }
         finally { setSaving(false) }
       }
 
@@ -1030,10 +1340,16 @@ function taskBucket(t, now) {
         setError(null)
         setSaving(true)
         try {
-          const r = await request({ op: archived ? 'task.archive' : 'task.unarchive', payload: { id } })
+          /**
+           * 恢复**不能**调 'task.unarchive' —— 那不是 handler，只是
+           * task.archive 内部 audit 的 action 标签（service.js:902/909）。
+           * 实测 svc.execute('task.unarchive') → unsupported: 不支持的操作。
+           * 正确契约是同一个 op 带 archived:false。
+           */
+          const r = await request(buildArchiveRequest(id, archived))
           if (r.ok !== true) throw new Error(r.error?.message ?? 'archive failed')
-          setNotice(archived ? '已归档' : '已恢复')
-          await load()
+          setNotice(archived ? t('archived') : t('restored'))
+          await load(true)
         } catch (e) { setError(String(e?.message ?? e)) }
         finally { setSaving(false) }
       }
@@ -1044,8 +1360,8 @@ function taskBucket(t, now) {
         try {
           const r = await request({ op: 'history.undo', payload: {} })
           if (r.ok !== true) throw new Error(r.error?.message ?? 'undo failed')
-          setNotice('已撤销上一步')
-          await load()
+          setNotice(t('undoDone'))
+          await load(true)
         } catch (e) { setError(String(e?.message ?? e)) }
       }
       const redo = async () => {
@@ -1053,8 +1369,8 @@ function taskBucket(t, now) {
         try {
           const r = await request({ op: 'history.redo', payload: {} })
           if (r.ok !== true) throw new Error(r.error?.message ?? 'redo failed')
-          setNotice('已重做')
-          await load()
+          setNotice(t('redoDone'))
+          await load(true)
         } catch (e) { setError(String(e?.message ?? e)) }
       }
 
@@ -1080,13 +1396,18 @@ function taskBucket(t, now) {
           const v = r.value ?? {}
           // 统一成面板要的形状：ICS 预览给的是 plan 数组，JSON 预览给的是计数
           if (kind === 'ics') {
-            const plan = Array.isArray(v.plan) ? v.plan : []
-            const create = plan.filter((x) => x.action === 'create').length
-            const duplicate = plan.filter((x) => x.action === 'skip-duplicate-uid').length
-            const conflict = plan.filter((x) => x.action === 'conflict').length
+            /**
+             * 计数一律用服务端给的 `counts`，**不本地重算**。
+             *
+             * 原来自己 plan.filter 算 create/duplicate/conflict，还把
+             * unsupported 硬写成 0 —— 实测服务端返回
+             * {create:2, unsupported:1}，面板却显示「不支持 0 条」，
+             * 而下面列表里明明有 1 条 VTODO。自相矛盾，且丢掉了 degraded/skip。
+             * 重复/冲突的判定权在服务端，客户端重算就是第二份真相源。
+             */
             setImportPanel({
               kind, text,
-              counts: { create, duplicate, conflict, unsupported: 0, removed: 0 },
+              counts: buildIcsCounts(v.counts),
               unsupported: Array.isArray(v.unsupported) ? v.unsupported : [],
               warnings: Array.isArray(v.warnings) ? v.warnings : [],
             })
@@ -1116,21 +1437,34 @@ function taskBucket(t, now) {
           const op = panel.kind === 'ics' ? 'event.import' : 'snapshot.replace'
           // digest 必须和 Host 侧算的一致：Host 用 contentDigest(text)，
           // 这里传原文，由 Host 自己算，避免两边算法不一致导致 fingerprint-mismatch
-          const approval = await request({
-            op: 'confirmUserAction',
-            payload: { approvalOp: op, target: panel.kind, summary: 'Import ' + panel.kind + ' data' },
-          })
+          /**
+           * 必须把**原文**带上，Host 才能按内容算摘要。
+           *
+           * 原实现只传 target: panel.kind（'ics'/'json'），而 Host 校验时
+           * 不传 target、digest 由 contentDigest(text) 算 —— 两侧指纹对不上，
+           * 凭证签发成功但执行必然 fingerprint-mismatch。实测：点「确认导入」
+           * 只会看到审批失败，导入功能整体不可用。
+           *
+           * 内容类操作的 target 恒为 undefined（与 service 侧写死的契约一致），
+           * 摘要一律由 text 推导。
+           */
+          const approval = await request(buildImportApprovalRequest(panel.kind, panel.text))
           if (approval.ok !== true) throw new Error(approval.error?.message ?? 'Host approval was not granted')
           const token = approval.value?.token
           if (typeof token !== 'string' || token === '') throw new Error('Host approval was not granted')
-          const r = await request({
-            op,
-            payload: { text: panel.text, approvalToken: token },
-          })
+          /**
+           * approvalToken 必须在**顶层**，不能塞进 payload。
+           *
+           * bridge 只从顶层解构（index.js:130 `const { op, payload, scope,
+           * approvalToken } = parsed.req`），放进 payload 等于没带 ——
+           * 执行侧报 missing-token。对照：deleteWithApproval 就是放顶层，
+           * 所以删除能用、导入不能用。
+           */
+          const r = await request(buildImportExecuteRequest(panel.kind, panel.text, token))
           if (r.ok !== true) throw new Error(r.error?.message ?? (op + ' failed'))
           setImportPanel(null)
-          setNotice('导入完成')
-          await load()
+          setNotice(t('importDone'))
+          await load(true)
         } catch (e) {
           setError(String(e?.message ?? e))
         } finally {
@@ -1150,7 +1484,7 @@ function taskBucket(t, now) {
           if (r.ok !== true) throw new Error(r.error?.message ?? `${op} failed`)
           setEditing(null)
           setNotice(op === 'event.create' ? 'Event created in Host' : 'Event updated in Host')
-          await load()
+          await load(true)
         } catch (e) {
           setError(String(e?.message ?? e))
         } finally {
@@ -1166,7 +1500,7 @@ function taskBucket(t, now) {
           if (r.ok !== true) throw new Error(r.error?.message ?? 'task.upsert failed')
           setEditing(null)
           setNotice('Task saved in Host')
-          await load()
+          await load(true)
         } catch (e) {
           setError(String(e?.message ?? e))
         } finally {
@@ -1180,7 +1514,7 @@ function taskBucket(t, now) {
           const r = await request({ op: 'task.upsert', payload: { task: { ...t, done: t.done !== true } } })
           if (r.ok !== true) throw new Error(r.error?.message ?? 'task.upsert failed')
           setNotice(t.done === true ? 'Task reopened' : 'Task completed')
-          await load()
+          await load(true)
         } catch (e) { setError(String(e?.message ?? e)) }
       }
 
@@ -1236,7 +1570,7 @@ function taskBucket(t, now) {
           setConfirming(null)
           setSelected(null)
           setNotice('Deleted after Host approval')
-          await load()
+          await load(true)
         } catch (e) {
           setError(String(e?.message ?? e))
         } finally {
@@ -1261,7 +1595,9 @@ function taskBucket(t, now) {
             placeholder: 'Search (Ctrl/Cmd+K)', 'aria-label': t('search'),
             value: search, onChange: (e) => setSearch(e.target.value),
           }),
-          h('button', { className: 'wb-btn', type: 'button', onClick: load, 'aria-label': t('refresh') }, t('refresh')),
+          // 直接把 load 当 onClick 会把 click 事件当成 keepFeedback 传进去（truthy），
+          // 于是「刷新」永远不清旧提示。必须显式包一层。
+          h('button', { className: 'wb-btn', type: 'button', onClick: () => load(), 'aria-label': t('refresh') }, t('refresh')),
           // 导入入口：选文件 → 预览 → 确认 → 走 Host 审批执行
           h('button', {
             className: 'wb-btn', type: 'button', 'aria-label': '导入数据',
@@ -1282,7 +1618,9 @@ function taskBucket(t, now) {
           }),
           h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ ', t('new'))),
         h(StatusBar, { loading, error, onRetry: load }),
-        notice ? h('div', { className: 'wb-status', role: 'status' }, notice) : null,
+        // role=status 默认就是 polite，但显式写 aria-live 才能保证读屏真的播报
+        // （部分实现只在节点已存在时才生效，动态插入需要这层兜底）
+        notice ? h('div', { className: 'wb-status', role: 'status', 'aria-live': 'polite' }, notice) : null,
         /**
          * 提醒条：显示「接下来 7 天要提醒什么」。
          *
@@ -1314,7 +1652,9 @@ function taskBucket(t, now) {
               : null)
         })(),
         conflictCount > 0
-          ? h('div', { className: 'wb-status wb-status-error', role: 'status' },
+          // 冲突是需要立刻知道的问题。role=status 是 polite 播报，会被延迟或合并；
+          // 同文件其他错误信息（:330）用的就是 alert，这里必须一致。
+          ? h('div', { className: 'wb-status wb-status-error', role: 'alert' },
               `${conflictCount} event(s) have scheduling conflicts in the next 7 days`)
           : null,
 
@@ -1345,19 +1685,21 @@ function taskBucket(t, now) {
                     ? h(MonthView, {
                         events: filteredEvents, cursor,
                         onSelectDay: (d) => { setCursor(d); setView('day') },
-                        onSelectEvent: setSelected,
+                        // 选中必须带 kind：键盘改期靠 sel.kind==='event' 判分支，
+                        // 直接透传裸事件会让 ←/→ 永远走不到 nudgeEventDay。
+                        onSelectEvent: (e) => setSelected({ kind: 'event', ...e }),
                         drag, setDrag, dropHint, setDropHint,
                         onDropEvent: (target, dateKey) => moveEventToDate(target, dateKey),
                       })
                     : h(AgendaList, {
                         events: view === 'week' ? weekEvents : view === 'day' ? dayEvents : todayEvents,
-                        onSelect: setSelected,
+                        onSelect: (e) => setSelected({ kind: 'event', ...e }),
                         emptyText: view === 'agenda' ? 'No events in the next 7 days' : 'No events in this range',
                         drag, setDrag,
                       }),
                   h('div', { className: 'wb-section', style: { marginTop: '24px' } },
                     h('h2', null, t('today'), ' & next 7 days'),
-                    h(AgendaList, { events: todayEvents, onSelect: setSelected, emptyText: 'Nothing scheduled' })))
+                    h(AgendaList, { events: todayEvents, onSelect: (e) => setSelected({ kind: 'event', ...e }), emptyText: 'Nothing scheduled' })))
               : h('div', null,
                   h('div', { className: 'wb-section' },
                     h(ViewTabs, {
@@ -1385,7 +1727,7 @@ function taskBucket(t, now) {
                   // 拖拽排序只在**组内**进行——跨组拖动要改 project，那是另一个语义，
                   // 不在本次授权范围内，所以明确不做（而不是默默允许然后字段错乱）。
                   groupedTasks.length === 0
-                    ? h('div', { className: 'wb-empty' }, 'No tasks in this view')
+                    ? h('div', { className: 'wb-empty' }, t('noTasks'))
                     : h('div', null,
                         groupedTasks.map((g) => h('div', { key: g.project ?? '__none__' },
                           h('div', { className: 'wb-group-head' },
@@ -1515,8 +1857,27 @@ function taskBucket(t, now) {
               onChoose: (mode) => {
                 const pending = moveDialog
                 setMoveDialog(null)
+                /**
+                 * occurrenceDate 必须是**源日**（被拖的那个实例），
+                 * 不能拿 pending.dateKey 冒充 —— 那是落点。
+                 *
+                 * 实测把落点当源日：DAILY 系列返回成功，但 excludeDates 记的
+                 * 是落点那天，源日照旧存在 → 用户以为拖走了，实际目标那天被吞掉。
+                 * 源日由拖拽开始时记进 drag 状态，一路传到 moveDialog。
+                 */
+                /**
+                 * **不许**用 `pending.dateKey`（落点）兜底源日。
+                 * 兜底成落点 = 服务端把落点记进 EXDATE（M-2 已实证静默写坏：
+                 * 源日还在、目标日被吞，一层都不报错）。源日缺失就当场报错，
+                 * 让用户看见，而不是写坏数据。
+                 */
+                if (pending.occurrenceDate === null || pending.occurrenceDate === undefined) {
+                  setMoveDialog(null)
+                  setError('Missing source date for this occurrence; reload and retry')
+                  return
+                }
                 moveEventToDate(
-                  { kind: 'event', id: pending.id, occurrenceDate: pending.dateKey },
+                  { kind: 'event', id: pending.id, occurrenceDate: pending.occurrenceDate },
                   pending.dateKey,
                   mode,
                 )
@@ -1537,9 +1898,23 @@ function taskBucket(t, now) {
 
         // 拖拽跟随提示：让用户知道「正在拖什么、会落到哪」
         drag !== null
-          ? h('div', { className: 'wb-drag-preview', 'aria-hidden': 'true' },
+          ? h('div', {
+              className: 'wb-drag-preview',
+              // 装饰层对读屏隐藏；真正的播报交给下方 role=status 的节点
+              'aria-hidden': 'true',
+              style: dragAt === null ? null : { left: `${dragAt.x + 12}px`, top: `${dragAt.y + 12}px` },
+            },
               '移动：' + (drag.title || '(无标题)'),
               dropHint !== null && dropHint.kind === 'event' ? ' → ' + dropHint.dateKey : '')
+          : null,
+        /**
+         * 拖拽的读屏播报。视觉浮层是 aria-hidden 的装饰，键盘/读屏用户
+         * 拿不到任何拖拽反馈 —— 这个节点补上那一路。
+         */
+        drag !== null
+          ? h('div', { className: 'wb-sr-only', role: 'status', 'aria-live': 'polite' },
+              '正在拖动 ' + (drag.title || '(无标题)')
+              + (dropHint !== null && dropHint.kind === 'event' ? '，将落到 ' + dropHint.dateKey : ''))
           : null)
     }
 

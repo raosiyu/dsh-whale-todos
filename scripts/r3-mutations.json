@@ -339,8 +339,8 @@
     "id": "W13",
     "name": "WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）",
     "file": "workbench-core/src/approval-gate.js",
-    "from": "      const fingerprint = approvalFingerprint({ op, target, digest: '' })\n      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }",
-    "to": "      const fingerprint = approvalFingerprint({ op, target, digest: detail.digest })\n      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }"
+    "from": "      const digest = typeof detail.digest === 'string' ? detail.digest : ''",
+    "to": "      const digest = ''"
   },
   {
     "id": "W14",
@@ -458,21 +458,21 @@
     "id": "W30",
     "name": "WP5-UI：导入执行绕过宿主审批（confirmImport 拿不到凭证也继续）",
     "file": "packages/workbench-ui/client.js",
-    "from": "            op: 'confirmUserAction',",
-    "to": "            op: 'confirmUserActionX',"
+    "from": "          const approval = await request(buildImportApprovalRequest(panel.kind, panel.text))",
+    "to": "          const approval = await request({ op: 'confirmUserAction', payload: { approvalOp: op, target: undefined, summary: 'Import ' + panel.kind + ' data' } })"
   },
   {
     "id": "W31",
     "name": "WP5-UI：排序只传被移动的一条（并发写入互相覆盖）",
     "file": "packages/workbench-ui/client.js",
-    "from": "ids: next.map((t) => t.id),",
-    "to": "ids: [moved.id],"
+    "from": "          const r = await request(buildReorderRequest(next, groupId))",
+    "to": "          const r = await request(buildReorderRequest([moved], groupId))"
   },
   {
     "id": "W32",
     "name": "WP5-UI：归档走 task.upsert 写软删（归档变删除，用户找不回来）",
     "file": "packages/workbench-ui/client.js",
-    "from": "          const r = await request({ op: archived ? 'task.archive' : 'task.unarchive', payload: { id } })",
+    "from": "          const r = await request(buildArchiveRequest(id, archived))",
     "to": "          const r = await request({ op: 'task.upsert', payload: { task: { id, deleted: true } } })"
   },
   {
@@ -486,7 +486,109 @@
     "id": "W34",
     "name": "WP5-UI：拖拽失败后不 reload（界面停在假的新位置）",
     "file": "packages/workbench-ui/client.js",
-    "from": "          setError(String(e?.message ?? e))\n          await load()",
-    "to": "          setError(String(e?.message ?? e))"
+    "from": "          // 失败不动界面：events 仍是 load 出来的旧值，等于「恢复原位」\n          setError(String(e?.message ?? e))\n          await load(true)",
+    "to": "          // 失败不动界面：events 仍是 load 出来的旧值，等于「恢复原位」\n          setError(String(e?.message ?? e))"
+  },
+  {
+    "name": "WP5-UI：恢复归档退回不存在的 task.unarchive（B2）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          const r = await request(buildArchiveRequest(id, archived))",
+    "to": "          const r = await request({ op: archived ? 'task.archive' : 'task.unarchive', payload: { id } })"
+  },
+  {
+    "name": "WP5-UI：主列表不再排除已归档待办（B2 双渲染）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    if (t?.archived === true) return false",
+    "to": "    if (false) return false"
+  },
+  {
+    "name": "WP5-UI：approvalToken 塞回 payload（B1 桥接丢凭证）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    payload: { text },\n    approvalToken: token,",
+    "to": "    payload: { text, approvalToken: token },"
+  },
+  {
+    "name": "WP5-UI：导入签发不带原文（B1 指纹对不上）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          const approval = await request(buildImportApprovalRequest(panel.kind, panel.text))",
+    "to": "          const approval = await request(buildImportApprovalRequest(panel.kind, ''))"
+  },
+  {
+    "name": "WP5-UI：拖拽不带源日（B3 改期必失败）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                setDrag({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true,\n                  recurring: e.recurrence != null,\n                  occurrenceDate: (() => { const d = eventDay(e); return d === null ? null : isoDate(d) })() })",
+    "to": "                setDrag({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true,\n                  recurring: e.recurrence != null })"
+  },
+  {
+    "name": "WP5-UI：弹窗拿落点冒充源日（B3 静默写坏数据）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                  { kind: 'event', id: pending.id, occurrenceDate: pending.occurrenceDate },",
+    "to": "                  { kind: 'event', id: pending.id, occurrenceDate: pending.dateKey },"
+  },
+  {
+    "name": "WP5-UI：排序索引基退回未排序数组（B4 写错顺序）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "        const groupRows = tasks\n          .filter((t) => (t.project ?? null) === groupId && t.archived !== true)\n          .sort(byOrder)",
+    "to": "        const groupRows = tasks\n          .filter((t) => (t.project ?? null) === groupId && t.archived !== true)"
+  },
+  {
+    "name": "WP5-UI：ICS 计数本地重算且 unsupported 硬写 0（B5）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    unsupported: Number(c.unsupported ?? 0),",
+    "to": "    unsupported: 0,"
+  },
+  {
+    "name": "core：series 移动不给脏母体补时区（null 永久留在盘上）",
+    "file": "workbench-core/src/service.js",
+    "from": "        if (current.allDay === true && (current.timeZone === undefined || current.timeZone === null)) {\n          patch.timeZone = defaultTimeZone\n        }",
+    "to": "        // 变异：不补"
+  },
+  {
+    "name": "core：内容类签发不绑 digest（B1 指纹恒不匹配）",
+    "file": "workbench-core/src/service.js",
+    "from": "      const contentOp = op === 'event.import' || op === 'snapshot.replace'\n      const digest = contentOp && typeof detail?.text === 'string' ? contentDigest(detail.text) : undefined",
+    "to": "      const digest = undefined"
+  },
+  {
+    "id": "W35",
+    "name": "WP5-UI：选中事件不带 kind（键盘改期变死代码）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                        onSelectEvent: (e) => setSelected({ kind: 'event', ...e }),",
+    "to": "                        onSelectEvent: setSelected,"
+  },
+  {
+    "id": "W36",
+    "name": "WP5-UI：buildIcsCounts 丢弃 degraded（降级条目被当成新增）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    degraded: Number(c.degraded ?? 0),",
+    "to": "    degraded: 0,"
+  },
+  {
+    "id": "W37",
+    "name": "WP5-UI：buildIcsCounts 硬写 removed=0（与 snapshot.preview 矛盾）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    removed: Number(c.removed ?? 0),",
+    "to": "    removed: 0,"
+  },
+  {
+    "id": "W38",
+    "name": "WP5-UI：导入预览行名退回硬编码中文（英文用户看到中文）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "        row(t('previewCreate'), c.create, t('previewCreateHint'), 'wb-preview-create'),",
+    "to": "        row('新增', c.create, '会写进库里的条目', 'wb-preview-create'),"
+  },
+  {
+    "id": "W39",
+    "name": "WP5-UI：TaskForm 跳过 dueAt 校验（坏值落盘让提醒永不响）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "  const ms = Date.parse(text)\n  if (Number.isNaN(ms)) return { ok: false, value: undefined }",
+    "to": "  const ms = Date.parse(text)"
+  },
+  {
+    "id": "W40",
+    "name": "WP5-UI：空 dueAt 写成空串而不是省略字段",
+    "file": "packages/workbench-ui/client.js",
+    "from": "  if (text === '') return { ok: true, value: undefined }",
+    "to": "  if (text === '') return { ok: true, value: '' }"
   }
 ]

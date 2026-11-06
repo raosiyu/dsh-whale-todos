@@ -299,7 +299,7 @@ export function createWorkbenchToolDefinitions(deps = {}) {
     // ---- 导入导出（WP5）----
     simpleTool({
       name: 'workbench_import_preview',
-      description: 'Preview an import without writing anything: reports added / duplicate / conflicting / unsupported items. Always call this before workbench_import_apply.',
+      description: 'Preview an import without writing anything: reports added / duplicate / conflicting / unsupported items. There is no apply tool: the actual import runs only through the Workbench UI, which obtains a Host-issued approval token. Show this preview to the user and tell them to confirm in the panel.',
       parameters: {
         format: { type: 'string', required: true, description: 'ics or json.' },
         text: { type: 'string', required: true, description: 'Raw file content.' },

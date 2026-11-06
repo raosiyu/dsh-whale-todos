@@ -94,10 +94,22 @@ export function createWorkbenchService(options) {
   const defaultTimeZone = options.defaultTimeZone ?? 'UTC'
 
   /** 全天事件补齐默认时区；定时事件不动（它必须显式带 timeZone）。 */
+  /**
+   * 全天事件补默认时区。
+   *
+   * 判据必须是「**没有有效时区**」，不是「timeZone === undefined」。
+   * 全天事件的 timeZone 在存储层可以是 `null`（表示「没设」），
+   * move 的 mode:'single' 分支会把 `current.timeZone` 原样带进 candidate，
+   * 于是 null 绕过这里直达 validateEventInput → `event.timeZone 必须是字符串`。
+   * 实测后果：**全天事件被「只改这一次」改过一次之后，母体就再也改不动了**
+   * （第二次 move 必然 validation 失败），因为第一次 move 把 excludeDates
+   * 写进去了，而 timeZone 仍是 null。
+   */
   const withDefaultZone = (input) => {
     if (input !== null && typeof input === 'object' && !Array.isArray(input)
-        && input.allDay === true && input.timeZone === undefined) {
-      return { ...input, timeZone: defaultTimeZone }
+        && input.allDay === true
+        && (input.timeZone === undefined || input.timeZone === null)) {
+      return { ...input, timeZone: input.timeZone ?? defaultTimeZone }
     }
     return input
   }
@@ -303,6 +315,16 @@ export function createWorkbenchService(options) {
             patch.timeZone = target.timeZone
           }
         }
+        /**
+         * 脏母体顺手补时区（与 single 分支同一原则）。
+         *
+         * 历史数据里全天事件可能是 timeZone:null；series 只改 startDate，
+         * null 会一直留在盘上。withDefaultZone 补的是 candidate（校验用），
+         * 补不到存储 —— 所以这里显式写回。
+         */
+        if (current.allDay === true && (current.timeZone === undefined || current.timeZone === null)) {
+          patch.timeZone = defaultTimeZone
+        }
         // 先算候选（合并后）再落盘：冲突时**不写**，前端据此恢复原位
         const candidate = { ...current, ...patch }
         const preview = conflictsOf(candidate)
@@ -353,6 +375,28 @@ export function createWorkbenchService(options) {
         baseEvent.end = instantToWall(wallToInstant(baseEvent.start, baseEvent.timeZone).ms + durationMs, baseEvent.timeZone)
       }
 
+      /**
+       * **落点冒充源日的兜底拒绝（M-2）。**
+       *
+       * 调用方若把「落点日期」当成 occurrenceDate 传进来，落点那天可能
+       * 恰好也是这个系列的真实实例 —— 上面 hit 校验因此放行。之后
+       * EXDATE 记的是落点日，新事件又建在落点日：源日照旧存在，
+       * 目标那天被吞掉，**一层都不报错**，是静默数据损坏。
+       *
+       * 判据：源实例日 == 落点日 且 时间没变 → 这是一次纯破坏性空移动，
+       * 除了吞掉一天没有任何效果。直接拒绝，让调用方修正源日。
+       */
+      const sameDayAsTarget = occurrenceDate === (baseEvent.allDay ? baseEvent.startDate : String(baseEvent.start).slice(0, 10))
+      const sameTime = current.allDay
+        ? true
+        : String(hit.startMs) === String(wallToInstant(baseEvent.start, baseEvent.timeZone).ms)
+      if (sameDayAsTarget && sameTime) {
+        throw validationError(
+          'occurrenceDate 与落点是同一天且时间未变：这会把该实例吞掉而不产生新位置，已拒绝（请传被拖动实例的真实源日）',
+          { id, occurrenceDate, target },
+        )
+      }
+
       const candidate = {
         title: current.title,
         description: current.description,
@@ -386,6 +430,18 @@ export function createWorkbenchService(options) {
       try {
         const excluded = events.update(id, {
           excludeDates: [...new Set([...(current.excludeDates ?? []), occurrenceDate])].sort(),
+          /**
+           * 母体必须**顺手补上默认时区**。
+           *
+           * 全天事件的 timeZone 在存储层是 null；这里若只写 excludeDates，
+           * null 会一直留在母体里。withDefaultZone 只补 candidate（新实例），
+           * 补不到母体 —— 于是每读一次都要靠调用方兜底，任何一处忘了兜
+           * 就是 `event.timeZone 必须是字符串`。实测：create 存 "UTC"，
+           * 第一次 single 之后母体变 null 并永久留在盘上。
+           */
+          ...(current.allDay === true && (current.timeZone === undefined || current.timeZone === null)
+            ? { timeZone: defaultTimeZone }
+            : {}),
         }, { actor: meta?.actor })
         const created = events.create(validated, { actor: meta?.actor })
         store.collapseUndo(undoDepthBefore, 'event.move:single', beforeState)
@@ -512,7 +568,14 @@ export function createWorkbenchService(options) {
 
     'event.import': (payload, meta) => {
       const text = requireString(payload, 'text')
-      requireConfirmation('event.import', meta, { digest: contentDigest(text) })
+      /**
+       * 内容类操作只绑**内容摘要**，不绑调用方自选的 target。
+       *
+       * 原实现这里不传 target（即 undefined），而 UI 签发时传了 'ics'，
+       * 两侧指纹的 target 不同 → 凭证用不了。现在把契约写死：
+       * 内容类操作的 target 恒为 undefined，签发端也必须传 undefined。
+       */
+      requireConfirmation('event.import', meta, { digest: contentDigest(text), target: undefined })
       const parsed = parseIcs(text, { defaultTimeZone: payload.defaultTimeZone })
       if (parsed.errors.length > 0) {
         throw validationError('ICS 存在无法解析的条目，已中止导入', { errors: parsed.errors })
@@ -630,7 +693,7 @@ export function createWorkbenchService(options) {
 
     'snapshot.replace': (payload, meta) => {
       const text = requireString(payload, 'text')
-      requireConfirmation('snapshot.replace', meta, { digest: contentDigest(text) })
+      requireConfirmation('snapshot.replace', meta, { digest: contentDigest(text), target: undefined })
       const parsed = parseJsonSnapshot(text)
       const backup = store.backup('before-snapshot-replace')
       const undoDepthBefore = (store.read().undo ?? []).length
@@ -953,7 +1016,29 @@ export function createWorkbenchService(options) {
       if (!DANGEROUS_OPS.includes(op)) {
         throw validationError(`操作不在可确认清单内：${op}`, { op })
       }
-      return gate.issueForUserConfirm(op, target, detail)
+      /**
+       * 内容类操作（导入 / 快照替换）必须按**实际内容**算摘要再签发。
+       *
+       * 原实现把 detail 原样透传给 gate，而 gate 硬编码 digest:'' —— 于是
+       * 签发端指纹的 digest 为空、执行端是 contentDigest(text)，必然不匹配。
+       * 实测：confirmUserAction('event.import') 返回 approved:true，
+       * execute('event.import') 仍被拒 fingerprint-mismatch。
+       *
+       * 这里与 requestApproval 用同一套推导（detail.text → contentDigest），
+       * 两条签发路径对同一个 op 必须算出同一个指纹，否则就是「凭证看着发了、
+       * 实际用不了」。
+       */
+      /**
+       * 只有**内容类**操作才把 digest 绑进指纹。
+       *
+       * 实体类操作（event.delete / task.archive …）绑的是 target，
+       * digest 恒为空 —— 调用方自选的 digest 必须被忽略，否则同一实体
+       * 换个 digest 就能签出第二张不一样的凭证，等于把绑定关系打散。
+       * WP4 已有测试锁死这条语义，不能因为修导入而放宽。
+       */
+      const contentOp = op === 'event.import' || op === 'snapshot.replace'
+      const digest = contentOp && typeof detail?.text === 'string' ? contentDigest(detail.text) : undefined
+      return gate.issueForUserConfirm(op, target, { ...detail, digest })
     },
     defaultTimeZone,
     /**

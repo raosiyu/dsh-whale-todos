@@ -6,7 +6,7 @@ DSH 的日历 + 待办面板插件：侧边栏叫**鲸鱼待办**。
 所有写操作走同一个 Host Service 入口与真实审批，**界面与 Agent 共用同一套数据**——
 在界面里改的东西，Agent 立刻读得到；Agent 改的东西，界面刷新即可见。
 
-**当前状态：WP0–WP4 完成，WP5 进行中。** 面板已在隔离 DSH 环境里真实渲染、
+**当前状态：WP0–WP5 完成。** 面板已在隔离 DSH 环境里真实渲染、
 真实读写 Host 数据（不是原型截图）。
 
 | 工作包 | 状态 | 产出 |
@@ -16,14 +16,14 @@ DSH 的日历 + 待办面板插件：侧边栏叫**鲸鱼待办**。
 | WP2 | ✅ | 宿主审批门、统一业务入口、按会话隔离存储 |
 | WP3 | ✅ | 提醒底座（schedule-adapter / 恢复语义 / host-map）、16 个 Agent 工具 |
 | WP4 | ✅ | 面板 UI、设计规范、独立审查通过（0 blocker） |
-| WP5 | 🚧 | 拖拽、排序、导入导出、撤销重做、提醒接入界面 |
+| WP5 | ✅ | 拖拽改期、排序、归档恢复、导入预览+审批、撤销重做、键盘替代（独立审查已复核） |
 
 ## 快速验证
 
 ```bash
 bash scripts/wp1-setup.sh                          # 可复现构建环境（含原生 binding 自愈）
-cd workbench-core && node --test test/*.test.mjs   # 核心域：326 / 326 pass
-node scripts/r3-mutate.mjs evidence/wp5/01-mutation.log   # 变异测试：65 / 65 CAUGHT
+cd workbench-core && node --test test/*.test.mjs   # 核心域：362 / 362 pass
+node scripts/r3-mutate.mjs evidence/wp5/01-mutation.log   # 变异测试：86 / 86 CAUGHT，0 真空 0 跳过
 cd workbench-core && node demo/demo.mjs            # 功能演示
 ```
 

@@ -222,7 +222,18 @@ function mergePatch(current, patch) {
   if (merged.allDay) {
     delete merged.start
     delete merged.end
-    delete merged.timeZone
+    /**
+     * **timeZone 必须保留**（不能跟着 start/end 一起删）。
+     *
+     * 全天事件的 timeZone 决定「startDate 是哪一天」在哪个时区成立，
+     * normalizeEventInput 明确保留它（event.js:169）。这里原来无条件
+     * `delete merged.timeZone`，导致：
+     * - event.update 写 `timeZone:'UTC'` 读回是 null（实测）
+     * - mode:'single' 移动后母体 timeZone 变 null 且永久留在盘上
+     * - 之后任何走 validateEventInput 的路径都可能报
+     *   `event.timeZone 必须是字符串`
+     * 只清 start/end（墙钟），时区不参与「时间表达切换」。
+     */
   } else {
     delete merged.startDate
     delete merged.endDate
