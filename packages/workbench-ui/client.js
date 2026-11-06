@@ -75,7 +75,7 @@ window.__ModuleLoader__.load({
   font:inherit;font-size:16px;color:var(--dsw-alias-label-primary);cursor:pointer;
   min-height:44px;display:flex;align-items:center;gap:8px}
 .wb-row-main:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
-.wb-badge{font-size:12px;padding:2px 8px;border-radius:4px;
+.wb-badge{font-size:12px;padding:4px 8px;border-radius:4px;
   background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-label);
   white-space:nowrap}
 .wb-badge-ok{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}
@@ -101,7 +101,7 @@ window.__ModuleLoader__.load({
   border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:24px;
   min-width:320px;max-width:min(560px,90vw);max-height:80vh;overflow:auto}
 .wb-overlay-panel h2{font-size:20px;margin:0 0 16px 0}
-.wb-kbd{font:inherit;font-size:12px;padding:2px 6px;border:1px solid var(--dsw-alias-border-l1);
+.wb-kbd{font:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--dsw-alias-border-l1);
   border-radius:4px;color:var(--dsw-alias-label-tertiary)}
 @media (max-width:800px){.wb-side{width:100%;max-width:none;border-left:0;
   border-top:1px solid var(--dsw-alias-border-l1)}.wb-body{flex-direction:column}}
