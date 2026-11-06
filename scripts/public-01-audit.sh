@@ -69,6 +69,18 @@ N=$(git ls-files upstream/ | grep -cE "node_modules/|/lib/|\.pnpm-store/|dist/" 
 if [ "$N" = "0" ]; then chk "上游无构建产物" 0 "0 个 node_modules/lib/dist"
 else chk "上游无构建产物" 1 "$N 个可疑文件"; fi
 
+# 7. 全历史真实用户名（隐私项，非凭据）
+say ""
+say "-- 7. 全历史本机用户名（隐私，非凭据）--"
+H=$(git log --all -p 2>/dev/null | grep -oE "/Users/[A-Za-z0-9._-]+" \
+  | grep -vE "/Users/<|/Users/Me" | sort -u | head -3)
+if [ -z "$H" ]; then chk "全历史用户名" 0 "0 处"
+else
+  CNT=$(git log --all -p 2>/dev/null | grep -c "/Users/sylas")
+  say "WARN  全历史用户名  HEAD 已干净，但历史仍含 $CNT 处（$(printf '%s' "$H" | tr '\n' ' ')）"
+  say "      改写历史需 force push —— 授权明令禁止，故仅记录，等待人工决定"
+fi
+
 say ""
 say "=== 结论 ==="
 if [ "$fail" -eq 0 ]; then say "PUBLIC-01: PASS —— 允许公开推送"; exit 0
