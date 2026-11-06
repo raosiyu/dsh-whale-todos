@@ -76,7 +76,7 @@ Client 视觉验证 **UNVERIFIED**（原因见 §5）；按授权 **STOP，不�
 | 8 | 删除经过可信审批 | bridge 测试：无 token → `confirmation-required`；`requestApproval` 无 answerer → fail-closed；WP3 真 `ApprovalService` 端到端 2/2 |
 | 9 | 错误明确、不静默 | bridge 测试：未知 op → `unsupported`；StatusBar `role=alert` + Retry |
 
-**测试覆盖真实 Client→Host→Storage 路径**：`test/workbench-ui-bridge.test.mjs` 用
+**测试覆盖真实 Client→Host→Storage 路径**：`test/workbench-ui-bridge.test.mjs`（17 项）用
 `dsh-commands` 的真实 `parseCommand` / `invocation` 形状构造请求，跑**真实**
 `apply()` + 真实文件存储，断言落盘与读回；**不是只测模拟接口**。
 （浏览器网络层 `ctx.remote.commands.execute` 本身无浏览器控制，未端到端跑，见 §5。）
@@ -104,7 +104,7 @@ Client 视觉验证 **UNVERIFIED**（原因见 §5）；按授权 **STOP，不�
 | 项 | 结果 |
 | --- | --- |
 | **真实 DSH 隔离环境加载** | ✅ `DSH_HOME=/tmp/dsh-iso-Jv2UeM`（rescue profile），`dsh plugin add` 以 link 安装（53ms，无构建脚本）；`--patch` 覆盖 `rootDir` 到隔离目录；有界 boot 12s：**修复后零错误、零 "did not activate"、Web 服务起在独立端口 127.0.0.1:50981**。证据 `evidence/wp4/01-03` |
-| **UI ↔ Host 双向一致性** | ✅ 8/8 bridge 测试（含冲突/展开/子任务）+ 真落盘/重启恢复 |
+| **UI ↔ Host 双向一致性** | ✅ 17/17 bridge 测试（含真 Remote 信封、main inject 形状、软删过滤与审批）+ 真落盘/重启恢复 |
 | 日历与待办功能 | ✅ 上表逐项 + 静态规范 9/9 |
 | **深浅色截图** | ❌ **未取得（UNVERIFIED）** |
 | **窗口缩放与交互实际检查** | ❌ **未取得（UNVERIFIED）** |
@@ -149,11 +149,23 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
 | `event.conflicts` 窗口 | 设计 | UI 用「今天起 7 天」固定窗口，未做成用户可选（授权未要求） |
 | 子任务创建 | 设计 | 授权只要求「子任务展示」；Host `task.upsert` 存任意字段，UI 展示但不提供子任务编辑（不属本包范围） |
 
-## 八、独立 Review
+## 八、独立 Review（三轮）
 
-按授权「最终冻结 Commit 后开展独立 Review，禁止在审查过程中修改被审版本」：
-冻结副本生成后派独立 Agent（代码 + 视觉静态），审查期间不改被审版本。
-结论文件：`evidence/wp4/final-review/`。
+| 轮次 | 基准 | 结论 | 处理 |
+| --- | --- | --- | --- |
+| 1 | `1a2c7ef` | 🔴 REQUEST CHANGES（5 blocker） | 全部修复 → `836ce52` |
+| 2 | `836ce52` | 🔴 REQUEST CHANGES（1 MAJOR + 4 MINOR） | 全部修复 → `24ba56b` |
+| 3 | `24ba56b` | 见 `evidence/wp4/final-review/` | — |
+
+第 1 轮 5 个 blocker：真 Remote 信封解码、main root-scope inject 零参、
+不存在的 `task.delete`、approval.request 丢 `this`、TaskForm 编辑丢字段。
+第 2 轮 MAJOR：软删待办仍显示且绕过审批（已修：服务层过滤 + 仅软删需审批 +
+审批指纹 op 对齐 + UI 过滤）；4 个 MINOR：测试改用真实现（抽出
+`host-call.mjs` 供浏览器与测试共用）、变异覆盖 WP4 UI 文件（新增 W1–W7，
+其中 4 个立刻暴露了此前无测试的行为）、报告数字更新、locale 未接（保留为 nit）。
+
+完整响应见 `evidence/wp4/06-review-response.md`，复审结论见
+`evidence/wp4/final-review/`。审查期间被审版本未改（冻结纪律）。
 
 ---
 
