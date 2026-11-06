@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "title": "Workbench",
+    "description": "A calendar and todo workbench backed by the Host Service."
+  },
+  "panel": "Workbench",
+  "calendar": "Calendar",
+  "todos": "Todos",
+  "month": "Month",
+  "week": "Week",
+  "day": "Day",
+  "agenda": "Agenda",
+  "today": "Today",
+  "planned": "Planned",
+  "inProgress": "In progress",
+  "done": "Done",
+  "new": "New",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "refresh": "Refresh",
+  "search": "Search",
+  "retry": "Retry",
+  "loading": "Loading…",
+  "ready": "Ready",
+  "error": "Error"
+}

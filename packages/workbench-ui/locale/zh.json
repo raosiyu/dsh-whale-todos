@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "title": "工作台",
+    "description": "由 Host Service 提供数据的日历与待办工作台。"
+  },
+  "panel": "工作台",
+  "calendar": "日历",
+  "todos": "待办",
+  "month": "月",
+  "week": "周",
+  "day": "日",
+  "agenda": "议程",
+  "today": "今日",
+  "planned": "计划中",
+  "inProgress": "进行中",
+  "done": "已完成",
+  "new": "新建",
+  "save": "保存",
+  "cancel": "取消",
+  "delete": "删除",
+  "refresh": "刷新",
+  "search": "搜索",
+  "retry": "重试",
+  "loading": "加载中…",
+  "ready": "就绪",
+  "error": "错误"
+}

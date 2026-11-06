@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Workbench calendar">
+  <rect x="5" y="9" width="38" height="34" rx="5" fill="none" stroke="currentColor" stroke-width="2.4"/>
+  <path d="M5 18h38" fill="none" stroke="currentColor" stroke-width="2.4"/>
+  <path d="M14 5v8M34 5v8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="11" y="24" width="11" height="11" rx="2" fill="currentColor" opacity="0.85"/>
+  <path d="M27 27h10M27 33h7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+</svg>
