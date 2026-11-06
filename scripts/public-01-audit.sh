@@ -76,7 +76,11 @@ H=$(git log --all -p 2>/dev/null | grep -oE "/Users/[A-Za-z0-9._-]+" \
   | grep -vE "/Users/<|/Users/Me" | sort -u | head -3)
 if [ -z "$H" ]; then chk "全历史用户名" 0 "0 处"
 else
-  CNT=$(git log --all -p 2>/dev/null | grep -c "/Users/sylas")
+  # 用户名从仓库实际路径推导，**不写死**——写死就等于把用户名又存进仓库一次。
+  # 取 /Users/ 之后的第一段，那才是用户名（上一级目录是 Developer，不是它）。
+  TOP=$(git rev-parse --show-toplevel)
+  ME=$(printf '%s' "$TOP" | sed -n 's|^/Users/\([^/]*\)/.*|\1|p' | head -1)
+  CNT=$(git log --all -p 2>/dev/null | grep -c "/Users/$ME" || true)
   say "WARN  全历史用户名  HEAD 已干净，但历史仍含 $CNT 处（$(printf '%s' "$H" | tr '\n' ' ')）"
   say "      改写历史需 force push —— 授权明令禁止，故仅记录，等待人工决定"
 fi
