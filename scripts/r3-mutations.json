@@ -254,9 +254,9 @@
   {
     "id": "W1",
     "name": "WP4：callHost 退回扁平解码（真信封下静默空列表）",
-    "file": "packages/workbench-ui/host-call.mjs",
-    "from": "  const command = envelope !== null && typeof envelope === 'object' ? envelope.result : undefined",
-    "to": "  const command = undefined"
+    "file": "packages/workbench-ui/client.js",
+    "from": "      const envelope = result.value\n      const command = envelope !== null && typeof envelope === 'object' ? envelope.result : undefined\n      const text = command !== null && typeof command === 'object' && typeof command.text === 'string'\n        ? command.text\n        : (typeof envelope === 'string' ? envelope : undefined)",
+    "to": "      const text = result.value !== undefined ? result.value : result.text"
   },
   {
     "id": "W2",
@@ -299,5 +299,12 @@
     "file": "packages/workbench-ui/client.js",
     "from": "          ...(initial ?? {}),\n          id: initial?.id ?? `t-${Date.now()}",
     "to": "          id: initial?.id ?? `t-${Date.now()}"
+  },
+  {
+    "id": "W8",
+    "name": "WP4：UI 文案退回硬编码英文（中文用户看不到翻译）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "            inject: () => ({ ctx, t: ctx.locale.bind(NS) }),",
+    "to": "            inject: () => ({ ctx }),"
   }
 ]

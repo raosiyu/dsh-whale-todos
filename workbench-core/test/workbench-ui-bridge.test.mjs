@@ -100,9 +100,38 @@ function makeHost(rootDir, options = {}) {
  * 解码时测试仍 12/12 全绿 —— 真 bug 复活而无人报警。现在直接 import 真实现，
  * 让 client.js 的解码回归**必然**让本测试变红。
  */
-// 直接 import 共享模块（浏览器与 Node 同一份实现）
-const { callHost: realCallHost } = await import('../../packages/workbench-ui/host-call.mjs')
-assert.ok(typeof realCallHost === 'function', 'host-call.mjs 必须导出 callHost')
+/**
+ * 从 client.js **提取**真实 callHost（不是复刻，也不是 import 浏览器模块）。
+ *
+ * 背景（复审 N1 + 第三轮自查）：
+ *  - 复刻实现会让「把 client.js 退回旧解码」时测试仍全绿 → 真 bug 复活无人报警。
+ *  - 但浏览器模块加载器只解析**模块表里的包名**（dsh-client-modules/README.md:50），
+ *    相对 require 会因 missing supplier 挂掉整个 Client，所以 callHost 必须内联。
+ *  - 于是：从 client.js 源码里提取这段函数来测——仍是**同一份实现**。
+ */
+function extractCallHost(source) {
+  const start = source.indexOf('async function callHost(ctx, sessionId, req) {')
+  assert.ok(start >= 0, 'client.js 必须定义 callHost')
+  // 找到该函数的配对右花括号
+  let depth = 0
+  let i = source.indexOf('{', start)
+  for (let j = i; j < source.length; j += 1) {
+    if (source[j] === '{') depth += 1
+    else if (source[j] === '}') {
+      depth -= 1
+      if (depth === 0) {
+        const body = source.slice(start, j + 1)
+        // eslint-disable-next-line no-new-func
+        return new Function('return (' + body + ')')()
+      }
+    }
+  }
+  throw new Error('无法提取 callHost')
+}
+
+const clientSource = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
+const realCallHost = extractCallHost(clientSource)
+assert.ok(typeof realCallHost === 'function', '必须能从 client.js 提取到真 callHost')
 
 /** 用真 callHost 解码一个真 Remote 信封 */
 async function decode(result) {
@@ -392,8 +421,9 @@ test('WP4：main 是 root-scope keyed slot，inject 零参时 UI 不依赖注入
   // 断言 client.js 已改为从 ctx.sessions 取，且 inject 依赖已声明
   const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
   assert.match(client, /ctx\.sessions\?\.list\?\.getSnapshot/, '必须从真 sessions store 取会话')
-  assert.match(client, /inject: \['slots', 'remote', 'sessions'\]/, '必须声明 sessions 依赖')
-  assert.doesNotMatch(client, /inject: \(sessionId\) => \(\{ sessionId, ctx \}\)/, '不得再依赖 inject 首参')
+  assert.match(client, /inject: \['slots', 'remote', 'sessions', 'locale'\]/, '必须声明 sessions 与 locale 依赖')
+  assert.doesNotMatch(client, /inject: \(sessionId\) =>/, '不得再依赖 inject 首参')
+  assert.match(client, /inject: \(\) => \(\{ ctx, t: ctx\.locale\.bind\(NS\) \}\)/, 'inject 应提供 ctx 与 locale 绑定的 t')
 })
 
 test('WP4：待办删除不再调用不存在的 task.delete；审批保留 receiver', () => {
@@ -413,7 +443,7 @@ test('WP4：TaskForm 编辑保留 subtasks / sourceSessionId（不丢字段）',
 
 
 test('WP4：真 callHost 对真 Remote 信封与业务错误码都正确（变异可被抓）', async () => {
-  const { callHost: real } = await import('../../packages/workbench-ui/host-call.mjs')
+  const real = extractCallHost(readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8'))
 
   // 成功信封 → 解出业务数组
   const okRes = await real(

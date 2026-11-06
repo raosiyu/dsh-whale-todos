@@ -20,13 +20,71 @@ window.__ModuleLoader__.load({
   id: '@local/dsh-workbench-ui',
   factory(require) {
     const React = require('react')
-    // 共享的 Client→Host 调用实现（与测试同一份）
-    const { callHost } = require('./host-call.mjs')
     const h = React.createElement
     const { useState, useEffect, useCallback, useMemo, useRef } = React
 
     const PANEL_ID = 'workbench'
     const NS = '@local/dsh-workbench-ui'
+
+    // UI 文案走真 Client locale 服务（ctx.locale.register/bind）。
+    // 真契约：dsh-client-ui-approval/lib/client.js:316 `ctx.locale.register(NS, { zh, en })`，
+    // 取值 `ctx.locale.bind(NS)`('key')。
+    const LOCALE = {
+      en: {
+      "meta": {
+            "title": "Workbench",
+            "description": "A calendar and todo workbench backed by the Host Service."
+      },
+      "panel": "Workbench",
+      "calendar": "Calendar",
+      "todos": "Todos",
+      "month": "Month",
+      "week": "Week",
+      "day": "Day",
+      "agenda": "Agenda",
+      "today": "Today",
+      "planned": "Planned",
+      "inProgress": "In progress",
+      "done": "Done",
+      "new": "New",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "refresh": "Refresh",
+      "search": "Search",
+      "retry": "Retry",
+      "loading": "Loading…",
+      "ready": "Ready",
+      "error": "Error"
+},
+      zh: {
+      "meta": {
+            "title": "工作台",
+            "description": "由 Host Service 提供数据的日历与待办工作台。"
+      },
+      "panel": "工作台",
+      "calendar": "日历",
+      "todos": "待办",
+      "month": "月",
+      "week": "周",
+      "day": "日",
+      "agenda": "议程",
+      "today": "今日",
+      "planned": "计划中",
+      "inProgress": "进行中",
+      "done": "已完成",
+      "new": "新建",
+      "save": "保存",
+      "cancel": "取消",
+      "delete": "删除",
+      "refresh": "刷新",
+      "search": "搜索",
+      "retry": "重试",
+      "loading": "加载中…",
+      "ready": "就绪",
+      "error": "错误"
+},
+    }
 
     // --------------------------------------------------------------- 样式
     // 只引用真实存在的 --dsw-alias-* 令牌（见 docs/wp4/00-contract.md）。
@@ -146,8 +204,44 @@ window.__ModuleLoader__.load({
      * 唯一 Client→Host 通道：真 commands.execute。
      * 返回 {ok, value, error}；失败**不静默**，抛给调用方显示。
      */
-    // 调用逻辑在共享模块 host-call.mjs（浏览器与 Node 共用同一份实现；
-    // 见该文件注释：此前测试用复刻实现，真 bug 复活时测试仍全绿）。
+    /**
+     * Client → Host 调用（**内联**）。
+     *
+     * 为什么内联而不 import 同包文件：浏览器模块加载器把 require 解析到
+     * **冻结的模块表**（dsh-client-modules/README.md:50「every dynamic bundle
+     * resolves its externals against exactly that baseline」），相对路径
+     * `./host-call.mjs` 没有对应供应者 → 注册时直接抛错 → 整个 Client 半边挂掉。
+     * 真实插件只用包名 require（react / react-dom / @deepseek-ai/...）。
+     *
+     * 测试不复制这份逻辑，而是从本文件**提取**出来测（见
+     * workbench-core/test/workbench-ui-bridge.test.mjs 的 extractCallHost），
+     * 所以仍然只有一份实现。
+     */
+    async function callHost(ctx, sessionId, req) {
+      const line = `/workbench ${JSON.stringify(req)}`
+      const result = await ctx.remote.commands.execute(sessionId, line, [])
+      if (result === undefined || result === null) {
+        return { ok: false, error: { code: 'no_result', message: 'command returned no result' } }
+      }
+      if (result.ok === false) {
+        return { ok: false, error: result.error ?? { code: 'command_failed', message: 'command failed' } }
+      }
+      const envelope = result.value
+      const command = envelope !== null && typeof envelope === 'object' ? envelope.result : undefined
+      const text = command !== null && typeof command === 'object' && typeof command.text === 'string'
+        ? command.text
+        : (typeof envelope === 'string' ? envelope : undefined)
+      if (typeof text === 'string' && text !== '') {
+        try {
+          const decoded = JSON.parse(text)
+          if (decoded !== null && typeof decoded === 'object') return decoded
+        } catch { /* 非 JSON 文本按原样返回 */ }
+      }
+      if (command?.kind === 'error') {
+        return { ok: false, error: { code: 'command_error', message: text ?? 'command failed' } }
+      }
+      return { ok: true, value: text }
+    }
 
     // 供测试直接 import 本模块验证真实解码（复审 N1：
     // 测试用复刻的 decode() 会让真 bug 复活而测试全绿）。
@@ -261,7 +355,7 @@ window.__ModuleLoader__.load({
           h('input', { className: 'wb-input', value: description, onChange: (e) => setDescription(e.target.value) })),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { className: 'wb-btn wb-btn-primary', type: 'submit', disabled: saving }, saving ? 'Saving…' : 'Save'),
-          h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, 'Cancel')))
+          h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel'))))
     }
 
     function TaskForm({ initial, onSave, onCancel, saving }) {
@@ -293,21 +387,23 @@ window.__ModuleLoader__.load({
             h('option', { value: 'high' }, 'High'))),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { className: 'wb-btn wb-btn-primary', type: 'submit', disabled: saving }, saving ? 'Saving…' : 'Save'),
-          h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, 'Cancel')))
+          h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel'))))
     }
 
     function ConfirmDelete({ label, onConfirm, onCancel, approving }) {
       return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Confirm delete' },
         h('div', { className: 'wb-overlay-panel' },
-          h('h2', null, 'Delete?'),
+          h('h2', null, t('delete'), '?'),
           h('p', null, `This requires Host approval before deleting “${label}”.`),
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
             h('button', { className: 'wb-btn wb-btn-danger', type: 'button', disabled: approving, onClick: onConfirm }, approving ? 'Requesting approval…' : 'Request approval & delete'),
-            h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, 'Cancel'))))
+            h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel')))))
     }
 
     // --------------------------------------------------------------- 主页面
     function WorkbenchPage(props) {
+      // UI 文案走 locale 服务
+      const t = props.t ?? ((k) => LOCALE.en[k] ?? k)
       // **最终 Review BLOCKER 修复**：`main` 是 root-scope keyed slot，
       // `ctx.slots.inject('main', ...)` 的 inject 在真 renderer 里是**零参**
       // （dsh-client-ui-renderer:435-441，binding=void 0 时不 push 参数），
@@ -379,14 +475,19 @@ window.__ModuleLoader__.load({
           const windowEnd = windowStart + 7 * 24 * 3600 * 1000
           // 全部来自真实 Host Service（event.list / task.list / event.conflicts /
           // event.expand），无任何本地假数据。
+          // 各命令**独立降级**：任一失败不应让整页变空白（其余数据仍可用）。
           const [ev, tk, cf, ex] = await Promise.all([
             request({ op: 'event.list', payload: { includeDeleted: false } }),
             request({ op: 'task.list', payload: {} }),
             request({ op: 'event.conflicts', payload: { windowStart, windowEnd } }),
             request({ op: 'event.expand', payload: { windowStart, windowEnd } }),
           ])
-          if (ev.ok !== true) throw new Error(ev.error?.message ?? 'event.list failed')
-          if (tk.ok !== true) throw new Error(tk.error?.message ?? 'task.list failed')
+          // 主数据（事件/待办）失败才算整体失败；冲突与展开失败只降级为「无」
+          if (ev.ok !== true && tk.ok !== true) {
+            throw new Error(ev.error?.message ?? tk.error?.message ?? '加载失败')
+          }
+          if (ev.ok !== true) setError(`日程加载失败：${ev.error?.message ?? ''}`)
+          if (tk.ok !== true) setError(`待办加载失败：${tk.error?.message ?? ''}`)
           const conflictIds = new Set(
             (cf.ok === true && Array.isArray(cf.value) ? cf.value : [])
               .flatMap((c) => [c.a?.eventId, c.b?.eventId, c.a?.id, c.b?.id, c.eventIdA, c.eventIdB])
@@ -566,20 +667,20 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'wb-root wb-scroll' },
         h('style', null, CSS),
         h('div', { className: 'wb-top' },
-          h('h1', { className: 'wb-title' }, 'Workbench'),
+          h('h1', { className: 'wb-title' }, t('panel')),
           h(ViewTabs, {
             value: tab,
             onChange: (v) => { setTab(v); setSelected(null); setEditing(null) },
-            options: [{ id: 'calendar', label: 'Calendar' }, { id: 'tasks', label: 'Todos' }],
+            options: [{ id: 'calendar', label: t('calendar') }, { id: 'tasks', label: t('todos') }],
           }),
           h('div', { className: 'wb-spacer' }),
           h('input', {
             ref: searchRef, className: 'wb-input wb-search', type: 'search',
-            placeholder: 'Search (Ctrl/Cmd+K)', 'aria-label': 'Search',
+            placeholder: 'Search (Ctrl/Cmd+K)', 'aria-label': t('search'),
             value: search, onChange: (e) => setSearch(e.target.value),
           }),
-          h('button', { className: 'wb-btn', type: 'button', onClick: load, 'aria-label': 'Refresh' }, 'Refresh'),
-          h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ New')),
+          h('button', { className: 'wb-btn', type: 'button', onClick: load, 'aria-label': t('refresh') }, t('refresh')),
+          h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ ', t('new'))),
         h(StatusBar, { loading, error, onRetry: load }),
         notice ? h('div', { className: 'wb-status', role: 'status' }, notice) : null,
         conflictCount > 0
@@ -603,7 +704,7 @@ window.__ModuleLoader__.load({
                     h(ViewTabs, {
                       value: view,
                       onChange: setView,
-                      options: [{ id: 'month', label: 'Month' }, { id: 'week', label: 'Week' }, { id: 'day', label: 'Day' }, { id: 'agenda', label: 'Agenda' }],
+                      options: [{ id: 'month', label: t('month') }, { id: 'week', label: t('week') }, { id: 'day', label: t('day') }, { id: 'agenda', label: t('agenda') }],
                     }),
                     h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' } },
                       h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor((c) => view === 'month' ? new Date(c.getFullYear(), c.getMonth() - 1, 1) : addDays(c, view === 'week' ? -7 : -1)), 'aria-label': 'Previous' }, '‹'),
@@ -618,7 +719,7 @@ window.__ModuleLoader__.load({
                         emptyText: view === 'agenda' ? 'No events in the next 7 days' : 'No events in this range',
                       }),
                   h('div', { className: 'wb-section', style: { marginTop: '24px' } },
-                    h('h2', null, 'Today & next 7 days'),
+                    h('h2', null, t('today'), ' & next 7 days'),
                     h(AgendaList, { events: todayEvents, onSelect: setSelected, emptyText: 'Nothing scheduled' })))
               : h('div', null,
                   h('div', { className: 'wb-section' },
@@ -626,8 +727,8 @@ window.__ModuleLoader__.load({
                       value: taskFilter,
                       onChange: setTaskFilter,
                       options: [
-                        { id: 'today', label: 'Today' }, { id: 'planned', label: 'Planned' },
-                        { id: 'doing', label: 'In progress' }, { id: 'done', label: 'Done' },
+                        { id: 'today', label: t('today') }, { id: 'planned', label: t('planned') },
+                        { id: 'doing', label: t('inProgress') }, { id: 'done', label: t('done') },
                       ],
                     })),
                   filteredTasks.length === 0
@@ -691,10 +792,12 @@ window.__ModuleLoader__.load({
 
     // --------------------------------------------------------------- 注册
     return {
-      inject: ['slots', 'remote', 'sessions'],
+      inject: ['slots', 'remote', 'sessions', 'locale'],
       /** 仅供测试取用真实实现（见 __test 注释）。 */
       __test,
       apply(ctx) {
+        // 注册 UI 文案（真 locale 服务）：locale.register(NS, { zh, en })
+        ctx.effect(() => ctx.locale.register(NS, LOCALE), 'workbench-ui: locale')
         // factory 内不产生副作用；注册都在 apply 里，ctx.effect 负责清理
         ctx.effect(() => {
           const d1 = ctx.slots.inject('main', () => ctx.slots.register({
@@ -702,7 +805,7 @@ window.__ModuleLoader__.load({
             key: PANEL_ID,
             id: PANEL_ID,
             locale: NS,
-            inject: () => ({ ctx }),
+            inject: () => ({ ctx, t: ctx.locale.bind(NS) }),
           }, WorkbenchPage))
           const d2 = ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
             name: 'sidebar.panellist',

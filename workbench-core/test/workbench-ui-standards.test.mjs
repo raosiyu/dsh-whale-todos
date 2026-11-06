@@ -139,3 +139,19 @@ test('WP4：数据只来自 Host Service（无本地假数据）', () => {
   assert.match(client, /setEvents\(/, '事件来自 setState(load)')
   assert.match(client, /setTasks\(/, '任务来自 setState(load)')
 })
+
+test('WP4：UI 文案走真 Client locale 服务（不再是硬编码英文）', () => {
+  const client = read('client.js')
+  // 真契约：ctx.locale.register(NS, { zh, en })；取值 ctx.locale.bind(NS)('key')
+  // 证据：dsh-client-ui-approval/lib/client.js:316
+  assert.match(client, /ctx\.locale\.register\(NS, LOCALE\)/, '必须注册 locale 字典')
+  assert.match(client, /ctx\.locale\.bind\(NS\)/, '必须用 bind 取文案')
+  assert.match(client, /inject: \['slots', 'remote', 'sessions', 'locale'\]/, '必须声明 locale 依赖')
+  // 主要面板文案必须走 t()
+  assert.match(client, /t\('panel'\)/, '面板标题必须走 locale')
+  assert.match(client, /t\('calendar'\)/, '日历标签必须走 locale')
+  assert.match(client, /t\('todos'\)/, '待办标签必须走 locale')
+  // 不应再有硬编码的英文面板名
+  const code = client.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/[^\n]*/g, '$1')
+  assert.doesNotMatch(code, /'Workbench'\s*\)/, '面板名不得硬编码')
+})

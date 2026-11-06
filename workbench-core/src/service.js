@@ -41,6 +41,12 @@ export const DANGEROUS_OPS = Object.freeze([
    * 能覆盖既有任务。原清单漏了它们，导致 `deny` 模式下仍可改数据。
    */
   'event.restore',
+  /**
+   * `task.upsert` 覆盖既有任务属于危险写，但**新建与完成**是授权要求的正常路径，
+   * 一律要求审批会阻断「快速创建/完成待办」。
+   * 因此审批按**语义**触发：仅**软删**（deleted/deletedAt）时校验凭证；
+   * 覆盖与新建不阻断 —— 软删是唯一破坏性操作。
+   */
   'task.upsert',
 ])
 
