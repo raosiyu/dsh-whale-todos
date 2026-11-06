@@ -57,7 +57,9 @@ export { apply, inject, name }
 
 - `policy: ask`（默认）/ `never`；`ask` 交给 `approval/request` waterfall 的
   answerers；**无 answerer 或失败 → `unavailable`，fail closed**
-- `request(req)` 命名 **agent / toolName / callId / reason** + abort signal；
+- `request(req)` 命名 **agent / toolName / callId / reason** + abort signal
+  （真 `ApprovalService.request` **不读** `displayReason`；那是 `dsh-tools`
+  的 `serviceAsk` 层字段，不要传给真服务）；
   **必须在 open turn 内**（`hasOpenTurn(session)` 读 `turn/start` 未闭合），
   否则抛出且不写审计。
   **返回词汇**：`'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'`，

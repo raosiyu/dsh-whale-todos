@@ -1,5 +1,5 @@
 === P1 真实 storageDomain：持久化 / 重启 / 提醒恢复 ===
-存储根目录: /var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/p1-realstore-zJWuLu
+存储根目录: /var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/p1-realstore-RYepyU
   ✅ 真实 Storage hub + JSON 后端 + domain facility 组装成功
   ✅ 真实 scheduleDomain 打开成功（storageDomain → JSON 后端）
   ✅ 真实 domain 写入一条 tasks  schedule-p1

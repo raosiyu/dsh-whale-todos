@@ -83,7 +83,7 @@ Agent┘        └─→ forSession(sessionId, scope).execute(op, payload, meta
 cd /Users/sylas/Developer/dsh-workbench/workbench-core
 node --test test/host-service.test.mjs
 node --test test/host-tools.test.mjs        # 含 2 项真 defineTool 验证
-node --test test/*.test.mjs                  # 233/233
+node --test test/*.test.mjs                  # 240/240
 cd .. && node scripts/r3-mutate.mjs /tmp/mut.log   # 36/36
 node /tmp/real-defineTool.mjs                # 真 defineTool 接受 8 个定义
 ```

@@ -91,7 +91,6 @@ export function createWorkbenchHostService(options = {}) {
             toolName: req.op,
             callId: req.callId,
             reason: req.summary,
-            displayReason: req.summary,
             signal: req.signal,
           })
         } catch {
