@@ -23,6 +23,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { conflictError, confirmationRequired, notFoundError, unsupportedError, validationError } from './errors.js'
 import { checkEventConflicts, findConflicts, findFreeSlots } from './conflict.js'
 import { WALL_PATTERN, addDaysToDate, dateToUtcMs, daysBetween, instantToWall, wallToInstant } from './time.js'
+import { isoInstant } from './validate.js'
 import { AUDIT_ACTIONS, createEventRepo } from './event-repo.js'
 import { expandEvent, expandEvents } from './recurrence.js'
 import { buildIcs, exportJson, parseIcs, parseJsonSnapshot } from './ics.js'
@@ -376,23 +377,29 @@ export function createWorkbenchService(options) {
       }
 
       /**
-       * **落点冒充源日的兜底拒绝（M-2）。**
+       * **落点冒充源日的拒绝（M-2 / 复审 B-1）。**
        *
        * 调用方若把「落点日期」当成 occurrenceDate 传进来，落点那天可能
        * 恰好也是这个系列的真实实例 —— 上面 hit 校验因此放行。之后
        * EXDATE 记的是落点日，新事件又建在落点日：源日照旧存在，
        * 目标那天被吞掉，**一层都不报错**，是静默数据损坏。
        *
-       * 判据：源实例日 == 落点日 且 时间没变 → 这是一次纯破坏性空移动，
-       * 除了吞掉一天没有任何效果。直接拒绝，让调用方修正源日。
+       * **判据必须是「occurrenceDate 不得等于落点日」，不能带 any 附加条件。**
+       * 上一版写成 `同一天 && 时刻未变`，于是「冒用落点日 + 顺手改时刻」
+       * 完美绕过：源日 11-01 的实例仍在，母体 EXDATE 记成 11-03，
+       * 11-03 那天被吞掉换成新时刻 —— 实测确实能写进去，审查据此判 BLOCKER。
+       *
+       * 为什么一律拒绝是对的：`event.move` 的语义是**改日期**。
+       * 同一天只改时刻属于 `event.update`，不该走 move。
+       * 而「源日 == 落点日」这个输入本身无法区分两种意图
+       * （合法的同日改时刻 vs 把落点日误当源日），
+       * 既然无法区分，就不能猜 —— 猜错一次就是静默数据损坏。
        */
-      const sameDayAsTarget = occurrenceDate === (baseEvent.allDay ? baseEvent.startDate : String(baseEvent.start).slice(0, 10))
-      const sameTime = current.allDay
-        ? true
-        : String(hit.startMs) === String(wallToInstant(baseEvent.start, baseEvent.timeZone).ms)
-      if (sameDayAsTarget && sameTime) {
+      const targetDate = baseEvent.allDay ? baseEvent.startDate : String(baseEvent.start).slice(0, 10)
+      if (occurrenceDate === targetDate) {
         throw validationError(
-          'occurrenceDate 与落点是同一天且时间未变：这会把该实例吞掉而不产生新位置，已拒绝（请传被拖动实例的真实源日）',
+          'occurrenceDate 不得等于落点日期：move 的语义是改日期，同日改时刻请用 event.update；'
+            + '若你本意是移动另一天的实例，请传该实例的真实源日',
           { id, occurrenceDate, target },
         )
       }
@@ -819,6 +826,33 @@ export function createWorkbenchService(options) {
       }
       if (typeof task.id !== 'string' || task.id === '') {
         throw validationError('task.id 必须是非空字符串')
+      }
+      /**
+       * **到期时间必须在服务端校验**，不能只靠界面拦。
+       *
+       * 界面层已加 `parseDueAt`（WP5 修复），但 AI 工具路径 `workbench_task_upsert`
+       * 同样写这个字段，且它声明 `dueAt` 是 "ISO instant" —— 不校验就等于
+       * 声明与实现不一致，坏值照样落盘，提醒层只能降级成「不会响」。
+       * 两条路径必须同一套校验，否则就是两套真相源。
+       *
+       * 语义与界面一致：**空值表达为「无到期时间」**（`undefined`/`null`/`''` 都清空），
+       * 非空则必须过 `isoInstant`（要求带时区，比 UI 更严格是对的）。
+       */
+      if (task.dueAt !== undefined) {
+        // 纯空白也算「没填」：`'   '` 与 `''` 语义相同，不是坏数据
+        const blank = task.dueAt === null
+          || (typeof task.dueAt === 'string' && task.dueAt.trim() === '')
+        if (blank) {
+          delete task.dueAt
+        } else {
+          /**
+           * **校验但不改写**：`isoInstant` 会把 `...T09:00:00Z` 规范化成
+           * `...T09:00:00.000Z`。校验的职责是拒收坏值，不是重写合法值——
+           * 改写会让同一时刻出现多种字符串形式，下游比较与去重都要跟着遭殃。
+           * 所以只借它做合法性判断，落盘仍用调用方给的原文。
+           */
+          isoInstant(task.dueAt, 'task.dueAt')
+        }
       }
       const existingTask = store.collection('tasks').find((row) => row.id === task.id)
       /**

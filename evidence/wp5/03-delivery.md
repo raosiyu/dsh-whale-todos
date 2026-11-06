@@ -1,7 +1,7 @@
 # WP5 交付记录
 
 修订时间：2026-11-07
-基线：`07255ee`（WP4 收口）→ HEAD `01ff919` + 本轮工作树变更
+基线：`07255ee`（WP4 收口）→ HEAD `d88f751` + 本轮工作树变更
 验证实例：隔离 DSH（`DSH_HOME=/tmp/dsh-iso-Jv2UeM`，端口 63224，`--profile rescue`）
 
 > 本文件曾过早声称交付（写于 2026-11-06，当时独立审查尚未返回）。
@@ -39,10 +39,25 @@
 | B-2 | BLOCKER | `buildArchiveRequest` 同为死代码 | 已修：`setArchived` 改调构造器 |
 | M-1 | MAJOR | `pending.occurrenceDate ?? pending.dateKey` 变异存活 | 已修：显式守卫，缺源日直接报错不出请求 |
 | M-2 | MAJOR | 服务端静默接受「落点冒充源日」 | 已修：`sameDayAsTarget && sameTime` 守卫 |
-| M-3 | MAJOR | 新增 locale 键全为**死键**，`MoveScopeDialog`/`ImportPreview` 仍硬编码中文 | 已修：全部接 `t()`，`LOCALE` 48→56 键/语言 |
+| M-3 | MAJOR | 新增 locale 键全为**死键**，`MoveScopeDialog`/`ImportPreview` 仍硬编码中文 | 已修：全部接 `t()`，`LOCALE` 48→**136** 键/语言，死键 0（白名单 `meta` 除外） |
 | M-4 | MAJOR | `workbench_import_preview` 描述指向不存在的 `workbench_import_apply` | 已修：改为说明「预览只读，真正导入只在 UI 内由用户确认」 |
 | m-1 | MINOR | `buildIcsCounts` 丢弃 `degraded`、硬写 `removed: 0` | 已修：两者都取服务端真实值 |
 | m-3 | MINOR | `AgendaList.onDragStart` 不带 `occurrenceDate` | 已修 |
+
+### 第二轮独立审查项处置
+
+第二轮结论：**REQUEST CHANGES（1 BLOCKER + 1 MAJOR + 3 MINOR）**。
+
+| 编号 | 级别 | 问题 | 处置 | 证据 |
+| --- | --- | --- | --- | --- |
+| B-1 | BLOCKER | 旧守卫 `sameDayAsTarget && sameTime` 允许「落点冒充源日 + 顺手改时刻」，服务端接受后静默损坏：`excludeDates` 记到落点日，源日实例还在，落点 09:00 被 10:00 顶掉 | 已修：`occurrenceDate === targetDate` 无条件拒绝 | 新测试 `复审 B-1…` 通过；变异 **W43 CAUGHT** |
+| M-1 | MAJOR | `MoveScopeDialog`/`ImportPreview`/`StatusBar` 未接 `t`，回落英文后内部中文混排；**真机进一步暴露** `今日 & next 7 days` 等 22 处硬编码 | 已修：`LOCALE` 100→106 键/语言，死键 0，全部渲染点传 `t`，提示/提醒条/aria 全部本地化 | 测试 34/35/36；渲染路径中文硬编码扫描 **0 处** |
+| m-1 | MINOR | `parseDueAt` 缺时区后缀校验，`'1'`/`'2026'` 等被 `Date.parse` 放行，落盘后被服务端拒 | 已修：加 `/(Z|[+-]\d{2}:?\d{2})$/` | 变异 **W48** |
+| m-2 | MINOR | `buildIcsCounts` 用 `duplicate ?? c.skip` 兜底，把「跳过」显示成「重复」 | 已修：`skip` 独立字段，独立行 | 测试 362 + 变异 **W47** |
+| m-3 | MINOR | `ImportPreview` 缺 `degraded` 行，降级解析条目混进「新增」 | 已修：独立 `degraded` 行 + 提示 | 测试 362 |
+
+**真机发现比审查更深一层**：M-1 修完弹窗后页面仍中英混排。审查只看了两个弹窗，
+真机把范围扩到整个渲染路径——这正是「字符串存在 ≠ 行为正确」的又一次复现。
 
 ### 审查之外，本轮还挖出两个真 bug
 
@@ -62,8 +77,8 @@
 
 ```
 cd workbench-core && node --test test/*.test.mjs
-# tests 362
-# pass  362
+# tests 368
+# pass  368
 # fail  0
 ```
 
@@ -71,19 +86,50 @@ WP5 专项：
 
 ```
 node --test workbench-core/test/workbench-ui-wp5.test.mjs
-# pass 36
+# pass 40
 # fail 0
 ```
 
 ### 变异测试
 
 ```
-node scripts/r3-mutate.mjs /tmp/mut-wp5-round18.log
-CAUGHT: 86    VACUUM: 0    SKIP: 0
+node scripts/r3-mutate.mjs /tmp/mut-wp5-round28.log
+CAUGHT: 102   VACUUM: 0    SKIP: 0
 ```
 
-**86 个变异全部被捕获，0 真空、0 跳过。** 这是「保护点真的有测试约束」的硬证据，
+**102 个变异全部被捕获，0 真空、0 跳过。** 这是「保护点真的有测试约束」的硬证据，
 不是测试数量本身。日志：`evidence/wp5/01-mutation.log`。
+
+### 真空补测（第二轮审查之外的自我发现）
+
+第一轮跑完变异后出现 **VACUUM: 3** —— 三个变异「改了代码、测试仍全绿」。
+这不是测试数量问题，是保护点没被真正压住：
+
+| 变异 | 真空原因 | 补测 |
+| --- | --- | --- |
+| W39 TaskForm 跳过 dueAt 校验 | 只测了 `parseDueAt` 纯函数，「函数正确」被当成「界面正确」；`submit` 里整段守卫删掉仍全绿 | 新测试压 `submit`：必须判 `!parsed.ok`、必须 `setFormError`、`return` 必须在 `onSave` 之前 |
+| W47 `duplicate ?? c.skip` | 用 `duplicate: 0` 断言时，`0 ?? x` 不兜底（`??` 只吃 null/undefined）→ **等价变异**，行为不变 | 新断言用 **`duplicate` 字段缺失** 的输入，兜底实现会把 skip 顶成重复 |
+| W48 `parseDueAt` 退回宽松 `Date.parse` | 三个坏值都被 `Date.parse` 判成 NaN，没覆盖「`Date.parse` 认为合法但无时区后缀」这一真风险 | 新断言 `'1'`/`'12'`/`'2026'`/`'2026/11/10'`/`'2026-11-10T09:00:00'` 等必须被拒 |
+
+三条补测逐条做了「注入变异 → 确认红 → 还原」的闭环验证，
+且 W39 由**正确的测试**（TaskForm 校验）捕获，不是被死键测试顺带抓到。
+
+### 真机发现的真空（第三批，368 全绿时仍然全绿）
+
+上一批补完、`368/368` 全绿、`98/98` 全捕获之后，**真机还是白屏了**。
+根因不在业务逻辑，在「没有任何测试真的渲染组件」——`makeReact()` 的 `useState`
+返回 no-op setter、`useEffect` 是空函数，组件树根本跑不起来。于是这类缺陷只能靠
+**源码结构扫描**补：
+
+| 真机缺陷 | 真空原因 | 新守卫 | 新变异 |
+| --- | --- | --- | --- |
+| 「待办」视图白屏，console `TypeError: t is not a function` | 行变量 `(t) =>` 遮蔽了本地化函数 `t`；没有渲染测试，`t('archive')` 调不动也无人发现 | 扫「`t` 被当回调形参」的回调区间，且区间内真的出现 `t('…')` 才判红 | **W53** 待办行 / **W54** 归档行 |
+| 点「归档」报 `id 或 ids 必须提供` | 行变量改名 `row` 后残留 `setArchived(t.id, true)`、`...t`（`t.id` 恒 undefined），请求带着 undefined 打到 Host | 扫「行渲染区间内 `t.xxx` 属性访问 / `...t` 展开」 | **W55** 归档 id / **W56** 详情展开 |
+
+两条守卫都做了「注入 → 确认红 → 还原」验证；W55 第一次注入时**没红**，
+查明是我按行号改到了偏移后的错误行（真实位置 1998 而非常数的 1991），
+按真实锚点重注入后**准确红在 `not ok 42`**。这条弯路本身也是证据：
+按行号打补丁在长文件里必错，锚点必须每次现查。
 
 ### UI 契约脚本
 

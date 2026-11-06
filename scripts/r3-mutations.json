@@ -458,7 +458,7 @@
     "id": "W30",
     "name": "WP5-UI：导入执行绕过宿主审批（confirmImport 拿不到凭证也继续）",
     "file": "packages/workbench-ui/client.js",
-    "from": "          const approval = await request(buildImportApprovalRequest(panel.kind, panel.text))",
+    "from": "          const approval = await request(buildImportApprovalRequest(\n            panel.kind,\n            panel.text,\n            t('importSummary').replace('{kind}', panel.kind.toUpperCase()),\n          ))",
     "to": "          const approval = await request({ op: 'confirmUserAction', payload: { approvalOp: op, target: undefined, summary: 'Import ' + panel.kind + ' data' } })"
   },
   {
@@ -510,8 +510,8 @@
   {
     "name": "WP5-UI：导入签发不带原文（B1 指纹对不上）",
     "file": "packages/workbench-ui/client.js",
-    "from": "          const approval = await request(buildImportApprovalRequest(panel.kind, panel.text))",
-    "to": "          const approval = await request(buildImportApprovalRequest(panel.kind, ''))"
+    "from": "          const approval = await request(buildImportApprovalRequest(\n            panel.kind,\n            panel.text,\n            t('importSummary').replace('{kind}', panel.kind.toUpperCase()),\n          ))",
+    "to": "          const approval = await request(buildImportApprovalRequest(\n            panel.kind,\n            '',\n            t('importSummary').replace('{kind}', panel.kind.toUpperCase()),\n          ))"
   },
   {
     "name": "WP5-UI：拖拽不带源日（B3 改期必失败）",
@@ -581,8 +581,8 @@
     "id": "W39",
     "name": "WP5-UI：TaskForm 跳过 dueAt 校验（坏值落盘让提醒永不响）",
     "file": "packages/workbench-ui/client.js",
-    "from": "  const ms = Date.parse(text)\n  if (Number.isNaN(ms)) return { ok: false, value: undefined }",
-    "to": "  const ms = Date.parse(text)"
+    "from": "        const parsed = parseDueAt(dueAt)\n        if (!parsed.ok) {\n          // 拦在本地：坏值一旦落盘，提醒层只能降级成「不会响」\n          setFormError(t('dueAtInvalid'))\n          return\n        }",
+    "to": "        const parsed = parseDueAt(dueAt)"
   },
   {
     "id": "W40",
@@ -590,5 +590,117 @@
     "file": "packages/workbench-ui/client.js",
     "from": "  if (text === '') return { ok: true, value: undefined }",
     "to": "  if (text === '') return { ok: true, value: '' }"
+  },
+  {
+    "id": "W41",
+    "name": "core：服务端跳过 dueAt 校验（AI 路径可写坏值）",
+    "file": "workbench-core/src/service.js",
+    "from": "          isoInstant(task.dueAt, 'task.dueAt')",
+    "to": "          void task.dueAt"
+  },
+  {
+    "id": "W42",
+    "name": "core：服务端把空白 dueAt 当坏值（正常新建报假警）",
+    "file": "workbench-core/src/service.js",
+    "from": "          || (typeof task.dueAt === 'string' && task.dueAt.trim() === '')",
+    "to": "          || (typeof task.dueAt === 'string' && task.dueAt === '')"
+  },
+  {
+    "id": "W43",
+    "name": "core：M-2 判据退回「同日且时刻未变」（冒用落点+改时刻可绕过）",
+    "file": "workbench-core/src/service.js",
+    "from": "      if (occurrenceDate === targetDate) {",
+    "to": "      const _sameTime = current.allDay ? true : String(hit.startMs) === String(wallToInstant(baseEvent.start, baseEvent.timeZone).ms)\n      if (occurrenceDate === targetDate && _sameTime) {"
+  },
+  {
+    "id": "W44",
+    "name": "ui：MoveScopeDialog 渲染不传 t（回落英文，中英混排）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "              onCancel: () => setMoveDialog(null),\n              // 不传 t 会回落到 defaultT（= LOCALE.en），组件内的中文就混排出来\n              t,",
+    "to": "              onCancel: () => setMoveDialog(null),"
+  },
+  {
+    "id": "W45",
+    "name": "ui：ImportPreview 渲染不传 t（回落英文，中英混排）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "              onCancel: () => setImportPanel(null),\n              t,",
+    "to": "              onCancel: () => setImportPanel(null),"
+  },
+  {
+    "id": "W46",
+    "name": "ui：弹窗里恢复硬编码中文（英文用户看到中文）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "            h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel')))))\n    }",
+    "to": "            h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, '取消')))))\n    }"
+  },
+  {
+    "id": "W47",
+    "name": "ui：buildIcsCounts 用 skip 兜底 duplicate（「重复0/跳过1」显示成重复0）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    duplicate: Number(c.duplicate ?? 0),\n    skip: Number(c.skip ?? 0),",
+    "to": "    duplicate: Number(c.duplicate ?? c.skip ?? 0),\n    skip: Number(c.skip ?? 0),"
+  },
+  {
+    "id": "W48",
+    "name": "ui：parseDueAt 退回宽松 Date.parse（放行 '1'、'2026' 等）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "  if (!/(Z|[+-]\\d{2}:?\\d{2})$/.test(text)) return { ok: false, value: undefined }",
+    "to": "  void /(Z|[+-]\\d{2}:?\\d{2})$/"
+  },
+  {
+    "name": "W49",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    const weekdayLabels = (t) => [\n      t('weekdayMon'), t('weekdayTue'), t('weekdayWed'), t('weekdayThu'),\n      t('weekdayFri'), t('weekdaySat'), t('weekdaySun'),\n    ]",
+    "to": "    const weekdayLabels = (t) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']",
+    "desc": "ui：星期表头退回硬编码英文（中文界面出现 Mon Tue Wed）"
+  },
+  {
+    "name": "W50",
+    "file": "packages/workbench-ui/client.js",
+    "from": "      'aria-label': t('openLabel').replace('{title}', e.title || t('untitledEvent')),",
+    "to": "      'aria-label': 'Open ' + (e.title || 'event'),",
+    "desc": "ui：事件 aria-label 退回硬编码英文（读屏用户听到 Open ...）"
+  },
+  {
+    "name": "W51",
+    "file": "packages/workbench-ui/client.js",
+    "from": "      return h('div', { className: 'wb-tabs', role: 'tablist', 'aria-label': t('view') },",
+    "to": "      return h('div', { className: 'wb-tabs', role: 'tablist', 'aria-label': 'View' },",
+    "desc": "ui：视图 tablist aria-label 退回硬编码英文"
+  },
+  {
+    "name": "W52",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                ? h('div', { className: 'wb-empty' }, t('selectToSeeDetails'))",
+    "to": "                ? h('div', { className: 'wb-empty' }, 'Select an event or task to see details')",
+    "desc": "ui：详情空态退回硬编码英文"
+  },
+  {
+    "name": "W53",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                          g.rows.map((row) => h('div', {",
+    "to": "                          g.rows.map((t) => h('div', {",
+    "desc": "ui：待办行变量退回 t（真机 TypeError 白屏回归）"
+  },
+  {
+    "name": "W54",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                          ? h('div', null, archivedTasks.map((row) => h('div', { key: row.id, className: 'wb-row' },",
+    "to": "                          ? h('div', null, archivedTasks.map((t) => h('div', { key: t.id, className: 'wb-row' },",
+    "desc": "ui：归档行变量退回 t（同作用域 t() 失效）"
+  },
+  {
+    "name": "W55",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                              title: t('archiveHint'), onClick: () => setArchived(row.id, true),",
+    "to": "                              title: t('archiveHint'), onClick: () => setArchived(t.id, true),",
+    "desc": "ui：归档按钮拿 t.id（t 是本地化函数 → id 为 undefined，报 id 或 ids 必须提供）"
+  },
+  {
+    "name": "W56",
+    "file": "packages/workbench-ui/client.js",
+    "from": "onClick: () => setSelected({ kind: 'task', ...row }) }, '…'),",
+    "to": "onClick: () => setSelected({ kind: 'task', ...t }) }, '…'),",
+    "desc": "ui：详情按钮展开 t（函数对象），选中项为空"
   }
 ]

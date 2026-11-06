@@ -87,7 +87,26 @@ test('WP5-UI：导入先预览再确认，执行走真 Host 审批', () => {
    */
   const importFn = code.slice(code.indexOf('const confirmImport ='), code.indexOf('const saveEvent ='))
   assert.ok(importFn.length > 0, 'confirmImport 必须存在')
-  assert.match(importFn, /request\(buildImportApprovalRequest\(panel\.kind, panel\.text\)\)/, '签发必须走构造器，不得内联')
+  /**
+   * 放宽到「允许多行实参」：构造器现在多传一个本地化 summary（会显示在审批弹窗里），
+   * 参数写成了多行。断言的核心是**必须走构造器**，不是参数必须在同一行。
+   * 用 `[\s\S]*?` 而不是 `.*`，因为多行实参里含换行。
+   */
+  /**
+   * 断言必须**卡在签发调用自己的实参里**。
+   *
+   * 原来写成 `buildImportApprovalRequest\([\s\S]*?panel\.text`，`[\s\S]*?` 会一路
+   * 吃到后面 `buildImportExecuteRequest(panel.kind, panel.text, token)` 的 `panel.text`，
+   * 于是签发那行即使传空串（指纹必然对不上、导入整体不可用）测试照样绿 ——
+   * 变异「导入签发不带原文」因此真空存活。
+   * 这里用 `\)` 把范围截断在签发调用的右括号之前。
+   */
+  const issueCall = importFn.slice(
+    importFn.indexOf('buildImportApprovalRequest('),
+    importFn.indexOf('buildImportExecuteRequest('),
+  )
+  assert.ok(issueCall.length > 0, '签发调用必须存在')
+  assert.match(issueCall, /panel\.text/, '签发必须传原文，传空串会让 Host 算不出 digest')
   assert.match(importFn, /request\(buildImportExecuteRequest\(panel\.kind, panel\.text, token\)\)/, '执行必须走构造器')
   // 反向：内联拼装不许复活
   assert.doesNotMatch(importFn, /op:\s*'confirmUserAction'/, '签发不得再内联 op 字面量')
@@ -377,6 +396,71 @@ test('WP5-UI：重复事件改期必须用源日，不能拿落点当源日（B3
   )
 })
 
+test('复审 B-1：冒用落点日 + 顺手改时刻，服务端也必须拒绝（M-2 盲区）', async () => {
+  /**
+   * 上一版判据是 `同日 && 时刻未变`，于是这个组合完美绕过：
+   * 真实源日 11-01，调用方把落点 11-03 当 occurrenceDate，同时把时刻改成 10:00。
+   * 实测落盘结果：母体 excludeDates=["2026-11-03"]（记的是落点，不是源日），
+   * 源日 11-01 的实例**仍然存在**，11-03 09:00 被吞并换成 10:00。
+   * 即「源日残留 + 落点被覆盖」的静默数据损坏。
+   *
+   * 可达性：`workbench_event_move` 对 AI 暴露，occurrenceDate 模型可自由传。
+   * 所以这条不是理论风险，是模型一次调用就能触发的数据损坏。
+   */
+  const { mkdtempSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { createWorkbenchService } = await import('../src/index.js')
+  const dir = mkdtempSync(join(tmpdir(), 'b1-blindspot-'))
+  const svc = createWorkbenchService({ dataDir: dir, approvalMode: 'host', allowIsolatedApproval: true })
+
+  // **非全天**事件：这是旧测试完全没覆盖的分支
+  const c = await svc.execute('event.create', {
+    event: {
+      title: 'B1盲区会', allDay: false, start: '2026-11-01T09:00',
+      timeZone: 'Asia/Shanghai', recurrence: { freq: 'DAILY', count: 5 },
+    },
+  })
+  const id = c.id ?? c.event?.id
+
+  // 冒用落点 11-03 当源日，且把时刻改成 10:00 —— 旧判据因为「时刻变了」放行
+  let rejected = false
+  try {
+    await svc.execute('event.move', {
+      id, mode: 'single',
+      target: { start: '2026-11-03T10:00' },
+      occurrenceDate: '2026-11-03',
+    })
+  } catch (e) {
+    rejected = true
+    assert.match(String(e?.message ?? e), /落点|源日|同一天|不得等于/, '拒绝理由必须说清')
+  }
+  assert.ok(rejected, '冒用落点日必须被拒，哪怕顺手改了时刻')
+
+  // 被拒后必须**一个字节都没写**：母体不变、无 EXDATE、不新增事件
+  const g = await svc.execute('event.get', { id })
+  assert.equal(g.start, '2026-11-01T09:00', '被拒后母体起点不得变动')
+  assert.ok(
+    !(Array.isArray(g.excludeDates) && g.excludeDates.includes('2026-11-03')),
+    '被拒后不得留下指向落点的 EXDATE',
+  )
+  const list = await svc.execute('event.list', {})
+  const rows = Array.isArray(list) ? list : (list.events ?? [])
+  assert.equal(rows.length, 1, '被拒后不得新增事件（源日实例仍在，落点不得被吞）')
+
+  // 正确形态：传真实源日 11-01，落点 11-03 → 应成功
+  await svc.execute('event.move', {
+    id, mode: 'single',
+    target: { start: '2026-11-03T10:00' },
+    occurrenceDate: '2026-11-01',
+  })
+  const g2 = await svc.execute('event.get', { id })
+  assert.ok(
+    Array.isArray(g2.excludeDates) && g2.excludeDates.includes('2026-11-01'),
+    '正确形态：应排除真实源日 2026-11-01',
+  )
+})
+
 test('WP5-UI：moveDialog 不许拿落点兜底源日（M-1 调用点护栏）', () => {
   /**
    * 复审 M-1 实测：把 `pending.occurrenceDate ?? pending.dateKey` 改成
@@ -398,12 +482,14 @@ test('WP5-UI：两个拖拽源都必须带源日（MonthView + AgendaList）', (
    * 复审 m-3：漏源日会回退成 eventDay(source)，为 null 时再落回落点
    * → 直通 M-2 损坏路径。**两个拖拽源都要锁**，只锁一个就是真空变异。
    */
-  const agenda = code.slice(code.indexOf("title: '拖动到月视图的日期格可改期'"), code.indexOf('onDragEnd: () => set(null)'))
+  // 锚点跟着本地化走：文案已改成 t('dragToMonthGrid')，用旧中文字面量会切出空串，
+  // 测试变成真空通过（测不到任何东西还报绿）。
+  const agenda = code.slice(code.indexOf("title: t('dragToMonthGrid')"), code.indexOf('onDragEnd: () => set(null)'))
   assert.ok(agenda.length > 0, 'AgendaList 拖拽源必须存在')
   assert.match(agenda, /occurrenceDate:/, 'AgendaList 拖拽必须带 occurrenceDate')
 
   // MonthView：从 onDragStart 到 onDragEnd
-  const month = code.slice(code.indexOf("title: '拖动到别的日期可改期'"), code.indexOf('onDragEnd: () => { setDrag(null)'))
+  const month = code.slice(code.indexOf("title: t('dragToReschedule')"), code.indexOf('onDragEnd: () => { setDrag(null)'))
   assert.ok(month.length > 0, 'MonthView 拖拽源必须存在')
   assert.match(month, /occurrenceDate:/, 'MonthView 拖拽必须带 occurrenceDate')
 })
@@ -467,6 +553,46 @@ test('WP5-UI：TaskForm 到期时间必须校验，坏值不得落盘', () => {
     assert.equal(r.ok, false, `坏值必须被拒：${bad}`)
     assert.equal(r.value, undefined, '被拒时不得给出可用值')
   }
+
+  /**
+   * **变异 W48 的真空补测**：上面三个坏值都被 `Date.parse` 判成 NaN，
+   * 所以「只靠 Date.parse 就放行」的变异能全绿通过 —— 保护点没被真正压住。
+   *
+   * 真正的风险是「Date.parse 认为合法、但没有时区后缀」的输入：
+   * `'1'`→2001-01-01、`'12'`→2001-12-01、`'2026'`→2026-01-01、
+   * `'2026/11/10'`、`'2026-11-10T09:00:00'`（无 Z/偏移）全部返回合法毫秒数。
+   * 这些值送到服务端会被 `isoInstant` 拒收 → 用户看到「点保存后莫名失败」。
+   * 判据必须与服务端同一套：**没有显式时区后缀就是坏值**。
+   */
+  for (const loose of ['1', '12', '2026', '2026/11/10', '2026-11-10', '2026-11-10T09:00:00', '2026-11-10 09:00']) {
+    const r = parseDueAt(loose)
+    assert.equal(r.ok, false, `Date.parse 宽松放行但无时区后缀，必须拒：${loose}`)
+    assert.equal(r.value, undefined, `被拒时不得给出可用值：${loose}`)
+  }
+
+  /**
+   * **变异 W39 的真空补测**：`parseDueAt` 本身正确还不够 ——
+   * `TaskForm.submit` 必须**真的**把 `!parsed.ok` 拦下来并 return。
+   * 之前只测纯函数，把 submit 里的守卫整段删掉仍然全绿（W39 真空存活），
+   * 说明「函数正确」被当成了「界面正确」。
+   *
+   * 这里直接压 submit 的守卫结构：校验失败必须 setFormError + return，
+   * 且 return 必须在 onSave 之前，否则坏值照样落盘。
+   */
+  // 必须限定在 TaskForm 内部：EventForm 也有一个 `const submit`，
+  // 从文件开头 indexOf 会切到 EventForm 的 submit，断言全部落空。
+  const taskFormStart = code.indexOf('function TaskForm(')
+  assert.ok(taskFormStart > 0, 'TaskForm 必须存在')
+  const taskFormBody = code.slice(taskFormStart, code.indexOf('function ', taskFormStart + 1))
+  const submitBlock = taskFormBody.slice(taskFormBody.indexOf('const submit = (ev) =>'), taskFormBody.indexOf("return h('form'"))
+  assert.ok(submitBlock.length > 0, 'TaskForm submit 必须存在')
+  assert.match(submitBlock, /parseDueAt\(dueAt\)/, 'submit 必须调用 parseDueAt')
+  assert.match(submitBlock, /if \(!parsed\.ok\)/, 'submit 必须判 ok')
+  assert.match(submitBlock, /setFormError\(t\('dueAtInvalid'\)\)/, '校验失败必须给出错误提示')
+  const guardIdx = submitBlock.indexOf('if (!parsed.ok)')
+  const returnIdx = submitBlock.indexOf('return', guardIdx)
+  const saveIdx = submitBlock.indexOf('onSave(next)')
+  assert.ok(returnIdx > guardIdx && returnIdx < saveIdx, '守卫必须 return 在 onSave 之前，否则坏值仍会落盘')
 })
 
 test('core：create 显式传 timeZone=null 必须补默认时区（withDefaultZone null 分支）', async () => {
@@ -669,6 +795,65 @@ test('WP5-UI：归档/恢复都走 task.archive 带 archived（B2）', () => {
   assert.equal(restore.payload.archived, false)
 })
 
+test('复审 M-1：locale 键不得有死键（存在 ≠ 被使用）', () => {
+  /**
+   * 上一轮把 7 个键加进 LOCALE 就宣称「M-3 闭环」，实际渲染路径一个都没调 ——
+   * 键「存在」不等于「被使用」。审查实测：18 个键从未被 t() 引用，
+   * 其中 moveScope / confirmImport / importing / moved 正是 WP5 新增能力标签。
+   *
+   * `meta` 是面板注册信息（title/description），由宿主读取，不走 t()，白名单放行。
+   */
+  const { LOCALE } = loadClient().__test
+  const used = new Set([...code.matchAll(/t\('([A-Za-z0-9_]+)'\)/g)].map((m) => m[1]))
+  const ALLOWED = new Set(['meta'])
+  const dead = Object.keys(LOCALE.en).filter((k) => !used.has(k) && !ALLOWED.has(k))
+  assert.deepEqual(dead, [], '不得存在未被引用的 locale 键：' + dead.join(','))
+  // 两种语言键集必须一致，否则某语言会回落成 key 名
+  assert.deepEqual(Object.keys(LOCALE.en).sort(), Object.keys(LOCALE.zh).sort(), 'en/zh 键集必须一致')
+})
+
+test('复审 M-1：两个弹窗渲染时必须传 t（否则回落英文、内部中文混排）', () => {
+  /**
+   * 组件签名有 `t = defaultT` 默认值，看起来「支持 i18n」，
+   * 但渲染处不传 t 就回落到 `LOCALE.en`；若组件内部还有硬编码中文，
+   * 界面就是中英混杂。审查实测到的正是这个。
+   *
+   * 断言必须锁**渲染调用点**传了 t，而不是锁组件签名有默认值。
+   */
+  const assertPassesT = (comp, block) => {
+    // `t` 必须是独立标识符：`t,` / `t:` / `t }`，不能是 `title` 之类子串
+    assert.match(block, /(^|[{,\s])t\s*[,:}]/, `${comp} 渲染处必须传 t`)
+  }
+
+  for (const comp of ['MoveScopeDialog', 'ImportPreview']) {
+    const idx = code.indexOf('h(' + comp + ', {')
+    assert.ok(idx > 0, `${comp} 必须有渲染调用点`)
+    // 两个弹窗调用的收尾是 `})` 后跟 `\n          : null`，截到收尾**之后**
+    const block = code.slice(idx, code.indexOf('\n          : null', idx) + 20)
+    assertPassesT(comp, block)
+  }
+
+  // StatusBar 是单行 props：`{ loading, error, onRetry: load, t }`
+  const sb = code.slice(code.indexOf('h(StatusBar, {'), code.indexOf('h(StatusBar, {') + 120)
+  assertPassesT('StatusBar', sb)
+})
+
+test('复审 M-1：弹窗内部不得残留硬编码中文（英文用户会看到中文）', () => {
+  // 抽出两个弹窗的函数体，检查其中是否还有中文字面量（注释不算）
+  const slice = (name) => {
+    const start = code.indexOf('function ' + name)
+    const end = code.indexOf('function ', start + 1)
+    return code.slice(start, end > 0 ? end : code.length)
+  }
+  for (const name of ['MoveScopeDialog', 'ImportPreview']) {
+    const body = slice(name)
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('*') && !l.trim().startsWith('//'))
+      .join('\n')
+    assert.doesNotMatch(body, /'[^'\n]*[\u4e00-\u9fa5][^'\n]*'/, `${name} 内不得有中文硬编码`)
+  }
+})
+
 test('WP5-UI：ICS 计数一律取服务端值，不本地重算（B5）', () => {
   const { buildIcsCounts } = loadClient().__test
   // 服务端真实返回含 degraded/skip；unsupported 非 0 时必须原样透出
@@ -684,8 +869,26 @@ test('WP5-UI：ICS 计数一律取服务端值，不本地重算（B5）', () =>
   assert.equal(counts.removed, 0)
   const withRemoved = buildIcsCounts({ create: 1, removed: 3 })
   assert.equal(withRemoved.removed, 3, 'removed 必须取服务端值，不得硬写 0')
+  // skip 必须与 duplicate 分开：写成 duplicate ?? skip 会把「重复 0 / 跳过 1」
+  // 显示成「重复 0」，用户以为没有重复，实际有 1 条被跳过（m-2）
+  const skipOnly = buildIcsCounts({ create: 1, duplicate: 0, skip: 1 })
+  assert.equal(skipOnly.duplicate, 0, 'duplicate 不得被 skip 兜底')
+  assert.equal(skipOnly.skip, 1, 'skip 必须独立透出')
+  /**
+   * **变异 W47 的真空补测**：上面两条用 `duplicate: 0`，而 `0 ?? x` 不兜底
+   * （?? 只吃 null/undefined），所以 `duplicate ?? c.skip` 这个变异行为完全不变 ——
+   * 等价变异，测不到。真正能区分的是 **duplicate 字段缺失**：
+   * 服务端漏报 duplicate 时，正确实现必须给 0，兜底实现会把 skip 当成重复。
+   */
+  const missingDup = buildIcsCounts({ create: 1, skip: 2 })
+  assert.equal(missingDup.duplicate, 0, 'duplicate 缺失时必须是 0，不得拿 skip 顶替')
+  assert.equal(missingDup.skip, 2, 'skip 必须独立透出')
+
+  const bothSkip = buildIcsCounts({ create: 0, duplicate: 2, skip: 3 })
+  assert.equal(bothSkip.duplicate, 2, '两者都有时各自保留')
+  assert.equal(bothSkip.skip, 3)
   // 缺失字段要回落 0，不能 NaN
-  assert.deepEqual(buildIcsCounts(undefined), { create: 0, duplicate: 0, conflict: 0, unsupported: 0, degraded: 0, removed: 0 })
+  assert.deepEqual(buildIcsCounts(undefined), { create: 0, duplicate: 0, skip: 0, conflict: 0, unsupported: 0, degraded: 0, removed: 0 })
 })
 
 test('WP5-UI：主列表不得显示已归档待办（B2 双渲染，行为断言）', () => {
@@ -723,4 +926,72 @@ test('WP5-UI：改期失败必须 reload 回真实值，不得停在假位置（
   assert.match(catchBlock, /setError\(/, '失败必须报错')
   // 失败后必须重新 load，把界面拉回 Host 的真实状态（否则停在假的新日期）
   assert.match(catchBlock, /await load\(/, '改期失败必须 reload 恢复原位')
+})
+
+test('复审 M-1：渲染路径不得遮蔽本地化函数 t（真机崩溃的直接回归）', () => {
+  /**
+   * 真机上「待办」视图整块白屏，console 报 `TypeError: t is not a function`。
+   * 根因：`groupedTasks.map(... g.rows.map((t) => ...))` 用 `t` 当待办行变量，
+   * 在同一作用域里把本地化函数 `t` 覆盖成了行对象，`t('archive')` 于是调不动。
+   *
+   * 368 个测试当时全绿 —— 因为没有任何测试真的**渲染**组件，
+   * 只测纯函数和字符串。这条用源码扫描补上这个盲区。
+   *
+   * 判据必须是「该回调**体内**真的调用了 t('...')」：纯函数里
+   * `tasks.filter((t) => t.id === id)` 这种完全合法，不能误报。
+   */
+  const lines = client.split('\n')
+  const offenders = []
+  for (let i = 0; i < lines.length; i += 1) {
+    const open = /(\.map|\.filter|\.find|findIndex|\.some|\.forEach)\(\s*\(\s*t\s*[,)]/.exec(lines[i])
+    if (open === null) continue
+    // 从这一行起按括号配平，圈出整个回调区间
+    let depth = 0
+    let end = i
+    for (let j = i; j < lines.length; j += 1) {
+      for (const ch of lines[j]) {
+        if (ch === '(') depth += 1
+        else if (ch === ')') depth -= 1
+      }
+      if (depth === 0 && j > i) { end = j; break }
+      if (depth === 0 && j === i) { end = j; break }
+    }
+    const body = lines.slice(i, end + 1).join('\n')
+    if (/\bt\('([A-Za-z0-9_]+)'\)/.test(body)) {
+      offenders.push(`${i + 1}: ${lines[i].trim().slice(0, 80)}`)
+    }
+  }
+  assert.deepEqual(offenders, [], `不得用 t 作为行变量遮蔽本地化函数：\n${offenders.join('\n')}`)
+})
+
+test('复审 M-1：待办行渲染不得把 t 当行对象用（真机「id 或 ids 必须提供」回归）', () => {
+  /**
+   * 真机点「归档」直接报 `错误: id 或 ids 必须提供`。
+   * 根因：行变量已改名 row，但按钮里还留着 `setArchived(t.id, true)` ——
+   * `t` 是本地化**函数**，`t.id` 恒为 undefined，请求带着 undefined 发到 Host。
+   * 同类残留还有 `...t` 展开选中项（点详情拿到空对象）。
+   *
+   * 这条直接扫「行渲染区间里以 t. 开头的属性访问」，比渲染测试便宜且精确。
+   */
+  const lines = client.split('\n')
+  const offenders = []
+  const mapStart = lines.findIndex((l) => l.includes("g.rows.map((row) => h('div', {"))
+  assert.ok(mapStart > 0, '待办行 map 必须存在且形参为 row')
+  let depth = 0
+  let mapEnd = mapStart
+  for (let j = mapStart; j < lines.length; j += 1) {
+    for (const ch of lines[j]) {
+      if (ch === '(') depth += 1
+      else if (ch === ')') depth -= 1
+    }
+    if (depth === 0 && j > mapStart) { mapEnd = j; break }
+  }
+  for (let j = mapStart; j <= mapEnd; j += 1) {
+    // `t('...')` 是合法调用；`t.id` / `...t` / `t.title` 才是把函数当对象
+    if (/\bt\.(id|title|done|dueAt|project|priority|status|subtasks|archived|order)\b/.test(lines[j])) {
+      offenders.push(`${j + 1}: ${lines[j].trim().slice(0, 90)}`)
+    }
+    if (/\.\.\.t\b/.test(lines[j])) offenders.push(`${j + 1}: ${lines[j].trim().slice(0, 90)}`)
+  }
+  assert.deepEqual(offenders, [], `待办行不得用 t.xxx（t 是本地化函数）：\n${offenders.join('\n')}`)
 })

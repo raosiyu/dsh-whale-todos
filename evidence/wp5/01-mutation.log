@@ -1,95 +1,109 @@
 === 变异验证（删保护代码，测试应失败）===
-变异定义：86 项（scripts/r3-mutations.json）
+变异定义：100 项（scripts/r3-mutations.json）
 
-CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 360 fail 2
-CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 361 fail 1
-CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 331 fail 31
-CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 360 fail 2
-CAUGHT M5 恢复层不传 scope  → pass 360 fail 2
-CAUGHT M6 已投递判定失效（无视 history）  → pass 359 fail 3
-CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 355 fail 7
-CAUGHT M8 审批门放行（不校验 token）  → pass 335 fail 27
-CAUGHT M9 service 重新暴露 store 写方法  → pass 359 fail 3
-CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 359 fail 3
-CAUGHT M11 hostMap 不持久化（只写内存）  → pass 355 fail 7
-CAUGHT M12 hostMap 允许 hostId 重复  → pass 361 fail 1
-CAUGHT M13 损坏映射静默重建为空  → pass 361 fail 1
-CAUGHT M14 compileReminder 不再滤过期  → pass 360 fail 2
-CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 353 fail 9
-CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 361 fail 1
-CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 361 fail 1
-CAUGHT X11 UNKNOWN 纳入 future  → pass 355 fail 7
-CAUGHT X12 删除失败不计入 failed  → pass 361 fail 1
-CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 358 fail 4
-CAUGHT X14 hostMap 保留上限失效  → pass 356 fail 6
-CAUGHT X15 N-05 deny 模式不拦  → pass 361 fail 1
-CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 361 fail 1
-CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 361 fail 1
-CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 360 fail 2
-CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 358 fail 4
-CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 359 fail 3
-CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 358 fail 4
-CAUGHT X22 裁剪不生效（条目数无上限）  → pass 356 fail 6
-CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 361 fail 1
-CAUGHT X24 catalog 不用身份索引（认不出宿主行 → 重复创建）  → pass 351 fail 11
-CAUGHT X25 N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）  → pass 358 fail 4
-CAUGHT X26 去掉同 key 创建锁（并发重复投递回归）  → pass 361 fail 1
-CAUGHT X27 不识别宿主 status 形状（unknown 被判未投递 → 二次投递）  → pass 361 fail 1
-CAUGHT X28 B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）  → pass 360 fail 2
-CAUGHT X29 B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）  → pass 361 fail 1
-CAUGHT W1 WP4：callHost 退回扁平解码（真信封下静默空列表）  → pass 352 fail 10
-CAUGHT W2 WP4：approval.request 丢 receiver（真审批永不签发 token）  → pass 361 fail 1
-CAUGHT W3 WP4：初始 sessionId 不从 sessions store 取（UI 拿不到会话）  → pass 361 fail 1
-CAUGHT W4 WP4/WP5：软删判定恒假（已删待办回到列表，删除对用户无效）  → pass 359 fail 3
-CAUGHT W5 WP4：service task.list 不过滤已删除（删除后仍可见）  → pass 359 fail 3
-CAUGHT W6 WP4：软删待办不需审批（删除绕过审批门）  → pass 359 fail 3
-CAUGHT W7 WP4：TaskForm 编辑丢字段（subtasks/sourceSessionId 消失）  → pass 361 fail 1
-CAUGHT W8 WP4：UI 文案退回硬编码英文（中文用户看不到翻译）  → pass 361 fail 1
-CAUGHT W9 WP4：t 退回 WorkbenchPage 内部（三个弹窗渲染即崩 → 整页白屏）  → pass 360 fail 2
-CAUGHT W10 WP4：三个弹窗组件不渲染（主路径静默消失）  → pass 359 fail 3
-CAUGHT W11 WP4：event.restore 不校验凭证（审批旁路 → 已删事件被悄悄恢复）  → pass 360 fail 2
-CAUGHT W12 WP4：ConfirmDelete 不传 t（中文界面确认弹窗变英文）  → pass 361 fail 1
-CAUGHT W13 WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）  → pass 360 fail 2
-CAUGHT W14 WP4：task.upsert 整行替换（AI 工具更新既有待办 → 字段被抹掉）  → pass 360 fail 2
-CAUGHT W15 WP4：软删审批不判库中既有行（无凭证复活已删待办）  → pass 361 fail 1
-CAUGHT W16 WP4：AI 工具 task.list 不透传 includeDeleted（AI 看不到已删待办）  → pass 361 fail 1
-CAUGHT W17 WP4：AI 工具 event.update 不带 patch（编辑不生效）  → pass 361 fail 1
-CAUGHT W18 WP5：excludeDates 不进 PATCHABLE（单次移动被静默丢弃，排除的实例复活）  → pass 359 fail 3
-CAUGHT W19 WP5：mergePatch 基准不带 excludeDates（任何 update 复活所有排除实例）  → pass 361 fail 1
-CAUGHT W20 WP5：MOVABLE_MODES 放行 thisAndFuture（假装支持 RRULE 分段）  → pass 361 fail 1
-CAUGHT W21 WP5：预览把冲突当成可创建（用户看不到冲突）  → pass 361 fail 1
-CAUGHT W22 WP5：预览把重复项当成可创建（重复导入同一日历）  → pass 360 fail 2
-CAUGHT W23 WP5：task.reorder 不校验未知 id（部分写入，顺序被算错）  → pass 361 fail 1
-CAUGHT W24 WP5：撤销不清空重做栈（重做跨越新操作，历史错乱）  → pass 361 fail 1
-CAUGHT W25 WP5：store.rollback 不清空撤销栈（半截导入数据可被撤销复活）  → pass 361 fail 1
-CAUGHT W26 WP5：提醒不按触发时刻排序（UI 顺序错乱，最近的不在最前）  → pass 361 fail 1
-CAUGHT W27 WP5：空 dueAt 当坏数据（新建待办就报「数据有问题」假警报）  → pass 361 fail 1
-CAUGHT W28 WP5：skipped 被静默吞掉（算不出提醒伪装成没有提醒）  → pass 361 fail 1
-CAUGHT W29 WP5：reminder.plan 混进 WRITE_OPS（deny 模式下只读也被拦）  → pass 360 fail 2
-CAUGHT W30 WP5-UI：导入执行绕过宿主审批（confirmImport 拿不到凭证也继续）  → pass 361 fail 1
-CAUGHT W31 WP5-UI：排序只传被移动的一条（并发写入互相覆盖）  → pass 361 fail 1
-CAUGHT W32 WP5-UI：归档走 task.upsert 写软删（归档变删除，用户找不回来）  → pass 361 fail 1
-CAUGHT W33 WP5-UI：键盘改期 ref 恒为 null（选中后按 ←/→ 无反应）  → pass 360 fail 2
-CAUGHT W34 WP5-UI：拖拽失败后不 reload（界面停在假的新位置）  → pass 361 fail 1
-CAUGHT undefined WP5-UI：恢复归档退回不存在的 task.unarchive（B2）  → pass 360 fail 2
-CAUGHT undefined WP5-UI：主列表不再排除已归档待办（B2 双渲染）  → pass 361 fail 1
-CAUGHT undefined WP5-UI：approvalToken 塞回 payload（B1 桥接丢凭证）  → pass 361 fail 1
-CAUGHT undefined WP5-UI：导入签发不带原文（B1 指纹对不上）  → pass 361 fail 1
-CAUGHT undefined WP5-UI：拖拽不带源日（B3 改期必失败）  → pass 361 fail 1
-CAUGHT undefined WP5-UI：弹窗拿落点冒充源日（B3 静默写坏数据）  → pass 361 fail 1
-CAUGHT undefined WP5-UI：排序索引基退回未排序数组（B4 写错顺序）  → pass 361 fail 1
-CAUGHT undefined WP5-UI：ICS 计数本地重算且 unsupported 硬写 0（B5）  → pass 361 fail 1
-CAUGHT undefined core：series 移动不给脏母体补时区（null 永久留在盘上）  → pass 361 fail 1
-CAUGHT undefined core：内容类签发不绑 digest（B1 指纹恒不匹配）  → pass 360 fail 2
-CAUGHT W35 WP5-UI：选中事件不带 kind（键盘改期变死代码）  → pass 361 fail 1
-CAUGHT W36 WP5-UI：buildIcsCounts 丢弃 degraded（降级条目被当成新增）  → pass 361 fail 1
-CAUGHT W37 WP5-UI：buildIcsCounts 硬写 removed=0（与 snapshot.preview 矛盾）  → pass 361 fail 1
-CAUGHT W38 WP5-UI：导入预览行名退回硬编码中文（英文用户看到中文）  → pass 361 fail 1
-CAUGHT W39 WP5-UI：TaskForm 跳过 dueAt 校验（坏值落盘让提醒永不响）  → pass 361 fail 1
-CAUGHT W40 WP5-UI：空 dueAt 写成空串而不是省略字段  → pass 361 fail 1
+CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 367 fail 2
+CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 368 fail 1
+CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 338 fail 31
+CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 367 fail 2
+CAUGHT M5 恢复层不传 scope  → pass 367 fail 2
+CAUGHT M6 已投递判定失效（无视 history）  → pass 366 fail 3
+CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 362 fail 7
+CAUGHT M8 审批门放行（不校验 token）  → pass 342 fail 27
+CAUGHT M9 service 重新暴露 store 写方法  → pass 366 fail 3
+CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 367 fail 2
+CAUGHT M11 hostMap 不持久化（只写内存）  → pass 362 fail 7
+CAUGHT M12 hostMap 允许 hostId 重复  → pass 368 fail 1
+CAUGHT M13 损坏映射静默重建为空  → pass 368 fail 1
+CAUGHT M14 compileReminder 不再滤过期  → pass 367 fail 2
+CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 360 fail 9
+CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 368 fail 1
+CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 368 fail 1
+CAUGHT X11 UNKNOWN 纳入 future  → pass 362 fail 7
+CAUGHT X12 删除失败不计入 failed  → pass 368 fail 1
+CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 365 fail 4
+CAUGHT X14 hostMap 保留上限失效  → pass 363 fail 6
+CAUGHT X15 N-05 deny 模式不拦  → pass 368 fail 1
+CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 368 fail 1
+CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 368 fail 1
+CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 367 fail 2
+CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 365 fail 4
+CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 366 fail 3
+CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 365 fail 4
+CAUGHT X22 裁剪不生效（条目数无上限）  → pass 363 fail 6
+CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 368 fail 1
+CAUGHT X24 catalog 不用身份索引（认不出宿主行 → 重复创建）  → pass 358 fail 11
+CAUGHT X25 N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）  → pass 365 fail 4
+CAUGHT X26 去掉同 key 创建锁（并发重复投递回归）  → pass 368 fail 1
+CAUGHT X27 不识别宿主 status 形状（unknown 被判未投递 → 二次投递）  → pass 368 fail 1
+CAUGHT X28 B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）  → pass 367 fail 2
+CAUGHT X29 B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）  → pass 368 fail 1
+CAUGHT W1 WP4：callHost 退回扁平解码（真信封下静默空列表）  → pass 359 fail 10
+CAUGHT W2 WP4：approval.request 丢 receiver（真审批永不签发 token）  → pass 368 fail 1
+CAUGHT W3 WP4：初始 sessionId 不从 sessions store 取（UI 拿不到会话）  → pass 368 fail 1
+CAUGHT W4 WP4/WP5：软删判定恒假（已删待办回到列表，删除对用户无效）  → pass 366 fail 3
+CAUGHT W5 WP4：service task.list 不过滤已删除（删除后仍可见）  → pass 366 fail 3
+CAUGHT W6 WP4：软删待办不需审批（删除绕过审批门）  → pass 366 fail 3
+CAUGHT W7 WP4：TaskForm 编辑丢字段（subtasks/sourceSessionId 消失）  → pass 368 fail 1
+CAUGHT W8 WP4：UI 文案退回硬编码英文（中文用户看不到翻译）  → pass 368 fail 1
+CAUGHT W9 WP4：t 退回 WorkbenchPage 内部（三个弹窗渲染即崩 → 整页白屏）  → pass 367 fail 2
+CAUGHT W10 WP4：三个弹窗组件不渲染（主路径静默消失）  → pass 366 fail 3
+CAUGHT W11 WP4：event.restore 不校验凭证（审批旁路 → 已删事件被悄悄恢复）  → pass 367 fail 2
+CAUGHT W12 WP4：ConfirmDelete 不传 t（中文界面确认弹窗变英文）  → pass 368 fail 1
+CAUGHT W13 WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）  → pass 367 fail 2
+CAUGHT W14 WP4：task.upsert 整行替换（AI 工具更新既有待办 → 字段被抹掉）  → pass 367 fail 2
+CAUGHT W15 WP4：软删审批不判库中既有行（无凭证复活已删待办）  → pass 368 fail 1
+CAUGHT W16 WP4：AI 工具 task.list 不透传 includeDeleted（AI 看不到已删待办）  → pass 368 fail 1
+CAUGHT W17 WP4：AI 工具 event.update 不带 patch（编辑不生效）  → pass 368 fail 1
+CAUGHT W18 WP5：excludeDates 不进 PATCHABLE（单次移动被静默丢弃，排除的实例复活）  → pass 365 fail 4
+CAUGHT W19 WP5：mergePatch 基准不带 excludeDates（任何 update 复活所有排除实例）  → pass 368 fail 1
+CAUGHT W20 WP5：MOVABLE_MODES 放行 thisAndFuture（假装支持 RRULE 分段）  → pass 368 fail 1
+CAUGHT W21 WP5：预览把冲突当成可创建（用户看不到冲突）  → pass 368 fail 1
+CAUGHT W22 WP5：预览把重复项当成可创建（重复导入同一日历）  → pass 367 fail 2
+CAUGHT W23 WP5：task.reorder 不校验未知 id（部分写入，顺序被算错）  → pass 368 fail 1
+CAUGHT W24 WP5：撤销不清空重做栈（重做跨越新操作，历史错乱）  → pass 368 fail 1
+CAUGHT W25 WP5：store.rollback 不清空撤销栈（半截导入数据可被撤销复活）  → pass 368 fail 1
+CAUGHT W26 WP5：提醒不按触发时刻排序（UI 顺序错乱，最近的不在最前）  → pass 368 fail 1
+CAUGHT W27 WP5：空 dueAt 当坏数据（新建待办就报「数据有问题」假警报）  → pass 368 fail 1
+CAUGHT W28 WP5：skipped 被静默吞掉（算不出提醒伪装成没有提醒）  → pass 368 fail 1
+CAUGHT W29 WP5：reminder.plan 混进 WRITE_OPS（deny 模式下只读也被拦）  → pass 367 fail 2
+CAUGHT W30 WP5-UI：导入执行绕过宿主审批（confirmImport 拿不到凭证也继续）  → pass 367 fail 2
+CAUGHT W31 WP5-UI：排序只传被移动的一条（并发写入互相覆盖）  → pass 368 fail 1
+CAUGHT W32 WP5-UI：归档走 task.upsert 写软删（归档变删除，用户找不回来）  → pass 368 fail 1
+CAUGHT W33 WP5-UI：键盘改期 ref 恒为 null（选中后按 ←/→ 无反应）  → pass 367 fail 2
+CAUGHT W34 WP5-UI：拖拽失败后不 reload（界面停在假的新位置）  → pass 368 fail 1
+CAUGHT undefined WP5-UI：恢复归档退回不存在的 task.unarchive（B2）  → pass 367 fail 2
+CAUGHT undefined WP5-UI：主列表不再排除已归档待办（B2 双渲染）  → pass 368 fail 1
+CAUGHT undefined WP5-UI：approvalToken 塞回 payload（B1 桥接丢凭证）  → pass 368 fail 1
+CAUGHT undefined WP5-UI：导入签发不带原文（B1 指纹对不上）  → pass 368 fail 1
+CAUGHT undefined WP5-UI：拖拽不带源日（B3 改期必失败）  → pass 368 fail 1
+CAUGHT undefined WP5-UI：弹窗拿落点冒充源日（B3 静默写坏数据）  → pass 368 fail 1
+CAUGHT undefined WP5-UI：排序索引基退回未排序数组（B4 写错顺序）  → pass 368 fail 1
+CAUGHT undefined WP5-UI：ICS 计数本地重算且 unsupported 硬写 0（B5）  → pass 368 fail 1
+CAUGHT undefined core：series 移动不给脏母体补时区（null 永久留在盘上）  → pass 368 fail 1
+CAUGHT undefined core：内容类签发不绑 digest（B1 指纹恒不匹配）  → pass 367 fail 2
+CAUGHT W35 WP5-UI：选中事件不带 kind（键盘改期变死代码）  → pass 368 fail 1
+CAUGHT W36 WP5-UI：buildIcsCounts 丢弃 degraded（降级条目被当成新增）  → pass 368 fail 1
+CAUGHT W37 WP5-UI：buildIcsCounts 硬写 removed=0（与 snapshot.preview 矛盾）  → pass 368 fail 1
+CAUGHT W38 WP5-UI：导入预览行名退回硬编码中文（英文用户看到中文）  → pass 366 fail 3
+CAUGHT W39 WP5-UI：TaskForm 跳过 dueAt 校验（坏值落盘让提醒永不响）  → pass 367 fail 2
+CAUGHT W40 WP5-UI：空 dueAt 写成空串而不是省略字段  → pass 368 fail 1
+CAUGHT W41 core：服务端跳过 dueAt 校验（AI 路径可写坏值）  → pass 368 fail 1
+CAUGHT W42 core：服务端把空白 dueAt 当坏值（正常新建报假警）  → pass 368 fail 1
+CAUGHT W43 core：M-2 判据退回「同日且时刻未变」（冒用落点+改时刻可绕过）  → pass 368 fail 1
+CAUGHT W44 ui：MoveScopeDialog 渲染不传 t（回落英文，中英混排）  → pass 368 fail 1
+CAUGHT W45 ui：ImportPreview 渲染不传 t（回落英文，中英混排）  → pass 368 fail 1
+CAUGHT W46 ui：弹窗里恢复硬编码中文（英文用户看到中文）  → pass 353 fail 16
+CAUGHT W47 ui：buildIcsCounts 用 skip 兜底 duplicate（「重复0/跳过1」显示成重复0）  → pass 368 fail 1
+CAUGHT W48 ui：parseDueAt 退回宽松 Date.parse（放行 '1'、'2026' 等）  → pass 368 fail 1
+CAUGHT undefined W49  → pass 368 fail 1
+CAUGHT undefined W50  → pass 368 fail 1
+CAUGHT undefined W51  → pass 368 fail 1
+CAUGHT undefined W52  → pass 368 fail 1
+CAUGHT undefined W53  → pass 368 fail 1
+CAUGHT undefined W54  → pass 368 fail 1
 
 === 汇总 ===
-CAUGHT: 86
+CAUGHT: 100
 VACUUM: 0
 SKIP:   0
 

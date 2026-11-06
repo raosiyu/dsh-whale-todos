@@ -71,9 +71,61 @@ window.__ModuleLoader__.load({
       "redo": "Redo",
       "archive": "Archive",
       "restore": "Restore",
-      "grouped": "Grouped",
+      "archivedSection": "Archived",
       "reminder": "Reminder",
       "moveScope": "Choose move scope",
+      "view": "View",
+      "openLabel": "Open {title}",
+      "importSummary": "Import {kind} data",
+      "untitled": "(untitled)",
+      "kindTask": "Task",
+      "kindEvent": "Event",
+      "fieldDue": "Due",
+      "fieldStart": "Start",
+      "fieldDescription": "Description",
+      "fieldRepeats": "Repeats",
+      "fieldCustom": "custom",
+      "occurrencesNext7": "{n} occurrence(s) in next 7 days",
+      "fieldConflict": "Conflict",
+      "conflictOverlap": "Overlaps another event",
+      "fieldSubtasks": "Subtasks",
+      "fieldAiSession": "AI session",
+      "aiSessionNote": "Shared with the current Agent session (same Host Service)",
+      "openDetails": "Details of {title}",
+      "complete": "Complete",
+      "reopen": "Reopen",
+      "fieldId": "ID",
+      "untitledEvent": "untitled event",
+      "selectToSeeDetails": "Select an event or task to see details",
+      "dateLocale": "en",
+      "weekdayMon": "Mon",
+      "weekdayTue": "Tue",
+      "weekdayWed": "Wed",
+      "weekdayThu": "Thu",
+      "weekdayFri": "Fri",
+      "weekdaySat": "Sat",
+      "weekdaySun": "Sun",
+      "moveScopeTitle": "Move a recurring event",
+      "moveScopeBody": "\"{title}\" repeats. Move it to {date}:",
+      "untitled": "(untitled)",
+      "dragMoving": "Moving",
+      "dragWillDrop": "will land on",
+      "unsupportedTitle": "Unsupported items",
+      "unsupportedFallback": "unsupported",
+      "warningsTitle": "Warnings",
+      "importNote": "Confirming an import goes through host approval and takes a backup first.",
+      "importPreviewTitle": "Import preview",
+      "previewColKind": "Kind",
+      "previewColCount": "Count",
+      "previewColHint": "What happens",
+      "previewDegraded": "Degraded",
+      "previewDegradedHint": "Imported, but missing timezone details",
+      "previewSkip": "Skipped",
+      "previewSkipHint": "Not imported for other reasons",
+      "saving": "Saving…",
+      "noUpcoming": "No reminders due in the next 7 days",
+      "reminderSkipped": "reminders cannot be scheduled (bad data, will not fire)",
+      "cancel": "Cancel",
       "moveSingle": "Only this occurrence",
       "moveSeries": "Entire series",
       "confirmImport": "Confirm import",
@@ -84,6 +136,36 @@ window.__ModuleLoader__.load({
       "previewUnsupported": "Unsupported",
       "previewRemoved": "Will be removed",
       "moved": "Moved to",
+      "onlyThisOne": "(this one only)",
+      "eventCreated": "Event created in Host",
+      "eventUpdated": "Event updated in Host",
+      "taskSaved": "Task saved in Host",
+      "loadedFromHost": "Loaded from Host Service",
+      "eventGone": "That event no longer exists; please refresh",
+      "nEvents": "events",
+      "dragToReschedule": "drag to reschedule",
+      "event": "Event",
+      "openDetailsHint": "click for details; use ←/→ or drag to reschedule",
+      "dragToMonthGrid": "Drag onto a day cell to reschedule",
+      "draggableHint": "drag to reschedule",
+      "conflictCheck": "Conflict check",
+      "expandCheck": "Recurrence expand",
+      "unavailable": "unavailable",
+      "importData": "Import data",
+      "importHint": "Import a JSON snapshot or an ICS calendar; preview first",
+      "undoableSteps": "undoable steps:",
+      "ungrouped": "Ungrouped",
+      "items": "items",
+      "dragToReorder": "drag to reorder",
+      "reorderHint": "Drag to reorder; keyboard users use the up/down buttons",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "noEvents7d": "No events in the next 7 days",
+      "noEventsRange": "No events in this range",
+      "nothingScheduled": "Nothing scheduled",
+      "next7days": "next 7 days",
+      "previous": "Previous",
+      "next": "Next",
       "orderSaved": "Order saved",
       "undoDone": "Undid last step",
       "redoDone": "Redone",
@@ -132,9 +214,61 @@ window.__ModuleLoader__.load({
       "redo": "重做",
       "archive": "归档",
       "restore": "恢复",
-      "grouped": "分组",
+      "archivedSection": "已归档",
       "reminder": "提醒",
       "moveScope": "选择移动范围",
+      "view": "视图",
+      "openLabel": "打开 {title}",
+      "importSummary": "导入 {kind} 数据",
+      "untitled": "（未命名）",
+      "kindTask": "待办",
+      "kindEvent": "日程",
+      "fieldDue": "截止",
+      "fieldStart": "开始",
+      "fieldDescription": "描述",
+      "fieldRepeats": "重复",
+      "fieldCustom": "自定义",
+      "occurrencesNext7": "未来 7 天共 {n} 次",
+      "fieldConflict": "冲突",
+      "conflictOverlap": "与另一日程时间重叠",
+      "fieldSubtasks": "子任务",
+      "fieldAiSession": "AI 会话",
+      "aiSessionNote": "与当前 Agent 会话共享同一 Host Service",
+      "openDetails": "查看 {title} 详情",
+      "complete": "完成",
+      "reopen": "重新打开",
+      "fieldId": "ID",
+      "untitledEvent": "未命名日程",
+      "selectToSeeDetails": "选中一个日程或待办查看详情",
+      "dateLocale": "zh",
+      "weekdayMon": "周一",
+      "weekdayTue": "周二",
+      "weekdayWed": "周三",
+      "weekdayThu": "周四",
+      "weekdayFri": "周五",
+      "weekdaySat": "周六",
+      "weekdaySun": "周日",
+      "moveScopeTitle": "移动重复事件",
+      "moveScopeBody": "「{title}」是重复事件。移到 {date}：",
+      "untitled": "（无标题）",
+      "dragMoving": "移动",
+      "dragWillDrop": "将落到",
+      "unsupportedTitle": "不支持的条目",
+      "unsupportedFallback": "不支持",
+      "warningsTitle": "警告",
+      "importNote": "确认导入会走宿主审批，并自动先做一次备份。",
+      "importPreviewTitle": "导入预览",
+      "previewColKind": "类别",
+      "previewColCount": "数量",
+      "previewColHint": "说明",
+      "previewDegraded": "降级",
+      "previewDegradedHint": "能导进来，但时区信息不全",
+      "previewSkip": "跳过",
+      "previewSkipHint": "因其它原因未导入",
+      "saving": "保存中…",
+      "noUpcoming": "接下来 7 天没有到点的提醒",
+      "reminderSkipped": "条算不出提醒时刻（数据有问题，不会响）",
+      "cancel": "取消",
       "moveSingle": "只改这一次",
       "moveSeries": "改整个系列",
       "confirmImport": "确认导入",
@@ -145,6 +279,36 @@ window.__ModuleLoader__.load({
       "previewUnsupported": "不支持",
       "previewRemoved": "会被移除",
       "moved": "已移动到",
+      "onlyThisOne": "（仅这一次）",
+      "eventCreated": "日程已写入 Host",
+      "eventUpdated": "日程已更新到 Host",
+      "taskSaved": "待办已保存到 Host",
+      "loadedFromHost": "已从 Host Service 加载",
+      "eventGone": "事件已不存在，请刷新",
+      "nEvents": "个事件",
+      "dragToReschedule": "拖放可改期",
+      "event": "事件",
+      "openDetailsHint": "可打开详情；改期请用 ←/→ 键或拖动",
+      "dragToMonthGrid": "拖动到月视图的日期格可改期",
+      "draggableHint": "拖动可改期",
+      "conflictCheck": "冲突检测",
+      "expandCheck": "重复展开",
+      "unavailable": "不可用",
+      "importData": "导入数据",
+      "importHint": "导入 JSON 快照或 ICS 日历；先预览再确认",
+      "undoableSteps": "可撤销步数：",
+      "ungrouped": "未分组",
+      "items": "项",
+      "dragToReorder": "拖动调整顺序：",
+      "reorderHint": "拖动调整顺序；键盘用户请用上移/下移按钮",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "noEvents7d": "接下来 7 天没有日程",
+      "noEventsRange": "这段时间没有日程",
+      "nothingScheduled": "没有安排",
+      "next7days": "接下来 7 天",
+      "previous": "上一页",
+      "next": "下一页",
       "orderSaved": "顺序已保存",
       "undoDone": "已撤销上一步",
       "redoDone": "已重做",
@@ -278,7 +442,26 @@ window.__ModuleLoader__.load({
     const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
     const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
     const sameDay = (a, b) => isoDate(a) === isoDate(b)
-    const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    /**
+     * 星期表头必须跟着语言走。
+     *
+     * 原来写死英文数组 + `cursor.toDateString()`，两者都由引擎给出英文，
+     * 中文界面里就成了「日历 / 待办」配「Mon Tue Wed」和「Sat Nov 07 2026」。
+     * 模块级常量拿不到 t（t 是组件作用域），所以做成函数，渲染时传入。
+     */
+    const weekdayLabels = (t) => [
+      t('weekdayMon'), t('weekdayTue'), t('weekdayWed'), t('weekdayThu'),
+      t('weekdayFri'), t('weekdaySat'), t('weekdaySun'),
+    ]
+    const formatCursor = (d, t) => {
+      const locale = t('dateLocale') === 'zh' ? 'zh-CN' : 'en-US'
+      try {
+        return d.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' })
+      } catch {
+        // 运行环境不支持 locale 参数时退回 ISO 日期，至少不是错的英文句子
+        return isoDate(d)
+      }
+    }
     const fmtTime = (iso) => {
       if (typeof iso !== 'string') return ''
       const d = new Date(iso)
@@ -351,14 +534,19 @@ function filterTasksForView(tasks, { search = '', taskFilter, now } = {}) {
  */
 
 /** 导入确认：签发请求体（内容类 op 的 target 恒为 undefined，摘要由 text 推导）。 */
-function buildImportApprovalRequest(kind, text) {
+function buildImportApprovalRequest(kind, text, summary) {
+  /**
+   * summary 会原样显示在用户审批弹窗里，所以必须能本地化。
+   * 这是纯构造器、拿不到 `t`，只能由调用方传入；不传时退回英文兜底，
+   * 保证旧调用点与测试不破。
+   */
   return {
     op: 'confirmUserAction',
     payload: {
       approvalOp: kind === 'ics' ? 'event.import' : 'snapshot.replace',
       target: undefined,
       text,
-      summary: 'Import ' + kind + ' data',
+      summary: summary ?? ('Import ' + kind + ' data'),
     },
   }
 }
@@ -419,6 +607,9 @@ function parseDueAt(raw) {
   if (text === '') return { ok: true, value: undefined }
   const ms = Date.parse(text)
   if (Number.isNaN(ms)) return { ok: false, value: undefined }
+  // Date.parse 宽松到危险：'1'、'12'、'2026'、'0'、'2026/11/10' 全部返回合法毫秒数。
+  // 界面若按它放行，值送到服务端会被 isoInstant 拒收 → 「点保存后莫名失败」。
+  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(text)) return { ok: false, value: undefined }
   return { ok: true, value: text }
 }
 
@@ -435,7 +626,10 @@ function buildIcsCounts(serverCounts) {
    */
   return {
     create: Number(c.create ?? 0),
-    duplicate: Number(c.duplicate ?? c.skip ?? 0),
+    // duplicate 不得拿 skip 兜底：服务端给了 duplicate:0 / skip:1 时，
+    // 兜底会把「跳过 1 条」显示成「重复 0 条」，用户以为没有重复，实际有 1 条被跳过。
+    duplicate: Number(c.duplicate ?? 0),
+    skip: Number(c.skip ?? 0),
     conflict: Number(c.conflict ?? 0),
     unsupported: Number(c.unsupported ?? 0),
     degraded: Number(c.degraded ?? 0),
@@ -520,6 +714,8 @@ function taskBucket(t, now) {
      */
     const __test = {
       callHost,
+      // 让测试读真实键集，而不是拿正则去扫源码（正则扫出的键数和真实 LOCALE 对不上）
+      LOCALE,
       // 请求体构造器：让测试断言真实 payload 形状，而不是扫源码正则
       buildImportApprovalRequest, buildImportExecuteRequest, buildEventMoveRequest,
       buildReorderRequest, buildArchiveRequest, buildIcsCounts,
@@ -537,18 +733,18 @@ function taskBucket(t, now) {
     }
 
     // --------------------------------------------------------------- 组件
-    function StatusBar({ loading, error, onRetry }) {
-      if (loading) return h('div', { className: 'wb-status', role: 'status', 'aria-live': 'polite' }, 'Loading…')
+    function StatusBar({ loading, error, onRetry, t = defaultT }) {
+      if (loading) return h('div', { className: 'wb-status', role: 'status', 'aria-live': 'polite' }, t('loading'))
       if (error) {
         return h('div', { className: 'wb-status wb-status-error', role: 'alert' },
-          h('span', null, `Error: ${error}`),
-          h('button', { className: 'wb-btn', type: 'button', onClick: onRetry, 'aria-label': 'Retry' }, 'Retry'))
+          h('span', null, `${t('error')}: ${error}`),
+          h('button', { className: 'wb-btn', type: 'button', onClick: onRetry, 'aria-label': t('retry') }, t('retry')))
       }
-      return h('div', { className: 'wb-status', role: 'status', 'aria-live': 'polite' }, 'Ready')
+      return h('div', { className: 'wb-status', role: 'status', 'aria-live': 'polite' }, t('ready'))
     }
 
-    function ViewTabs({ value, onChange, options }) {
-      return h('div', { className: 'wb-tabs', role: 'tablist', 'aria-label': 'View' },
+    function ViewTabs({ value, onChange, options, t = defaultT }) {
+      return h('div', { className: 'wb-tabs', role: 'tablist', 'aria-label': t('view') },
         options.map((o) => h('button', {
           key: o.id, className: 'wb-btn', type: 'button', role: 'tab',
           'aria-selected': value === o.id, 'aria-pressed': value === o.id,
@@ -564,7 +760,7 @@ function taskBucket(t, now) {
      * 既是非法 HTML，也会让拖拽手势被父级按钮吃掉——拖不动。
      * 现在空区域点击 = 选这天，事件块点击 = 选这个事件，两者互不干扰。
      */
-    function MonthView({ events, cursor, onSelectDay, onSelectEvent, drag, setDrag, dropHint, setDropHint, onDropEvent }) {
+    function MonthView({ events, cursor, onSelectDay, onSelectEvent, drag, setDrag, dropHint, setDropHint, onDropEvent, t = defaultT }) {
       const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
       const offset = (first.getDay() + 6) % 7 // Monday first
       const start = addDays(first, -offset)
@@ -582,7 +778,7 @@ function taskBucket(t, now) {
         return m
       }, [events])
       return h('div', { className: 'wb-grid wb-grid-7' },
-        WEEKDAYS.map((w) => h('div', { key: w, className: 'wb-tertiary', style: { padding: '8px', fontSize: '12px' } }, w)),
+        weekdayLabels(t).map((w) => h('div', { key: w, className: 'wb-tertiary', style: { padding: '8px', fontSize: '12px' } }, w)),
         cells.map((d) => {
           const k = isoDate(d)
           const list = byDay.get(k) ?? []
@@ -593,7 +789,7 @@ function taskBucket(t, now) {
             role: 'button',
             tabIndex: 0,
             className: `wb-cell${sameDay(d, today) ? ' wb-cell-today' : ''}${isTarget ? ' wb-drop-target' : ''}`,
-            'aria-label': `${k}，${list.length} 个事件；拖放可改期`,
+            'aria-label': `${k}, ${list.length} ${t('nEvents')}; ${t('dragToReschedule')}`,
             onClick: () => onSelectDay(d),
             onKeyDown: (ev) => {
               if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelectDay(d) }
@@ -624,8 +820,8 @@ function taskBucket(t, now) {
               type: 'button',
               draggable: true,
               className: `wb-tertiary${drag !== null && drag.id === e.id ? ' wb-drag-source' : ''}`,
-              'aria-label': `${e.title || '事件'}，可打开详情；改期请用 ←/→ 键或拖动`,
-              title: '拖动到别的日期可改期',
+              'aria-label': `${e.title || t('event')}, ${t('openDetailsHint')}`,
+              title: t('dragToReschedule'),
               onClick: (ev) => { ev.stopPropagation(); onSelectEvent(e) },
               onDragStart: (ev) => {
                 ev.stopPropagation()
@@ -660,7 +856,7 @@ function taskBucket(t, now) {
         }))
     }
 
-    function AgendaList({ events, onSelect, emptyText, drag, setDrag }) {
+    function AgendaList({ events, onSelect, emptyText, drag, setDrag, t = defaultT }) {
       if (events.length === 0) return h('div', { className: 'wb-empty' }, emptyText)
       const d = drag ?? null
       const set = setDrag ?? (() => {})
@@ -669,8 +865,8 @@ function taskBucket(t, now) {
         const main = h('button', {
           className: 'wb-row-main', type: 'button',
           draggable: true,
-          title: '拖动到月视图的日期格可改期',
-          'aria-label': (e.title || 'event') + '，拖动可改期',
+          title: t('dragToMonthGrid'),
+          'aria-label': (e.title || t('event')) + ', ' + t('draggableHint'),
           onClick: () => onSelect(e),
           onDragStart: (ev) => {
             ev.dataTransfer.effectAllowed = 'move'
@@ -688,7 +884,7 @@ function taskBucket(t, now) {
           e.conflict === true ? h('span', { className: 'wb-badge' }, 'Conflict') : null)
         const more = h('button', {
           className: 'wb-btn', type: 'button',
-          'aria-label': 'Open ' + (e.title || 'event'),
+          'aria-label': t('openLabel').replace('{title}', e.title || t('untitledEvent')),
           onClick: () => onSelect(e),
         }, '…')
         return h('div', {
@@ -728,10 +924,10 @@ function taskBucket(t, now) {
     function MoveScopeDialog({ title, dateKey, onChoose, onCancel, t = defaultT }) {
       useEscapeClose(onCancel)
       return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true',
-        'aria-label': '选择移动范围' },
+        'aria-label': t('moveScope') },
         h('div', { className: 'wb-overlay-panel' },
-          h('h2', null, '移动重复事件'),
-          h('p', { className: 'wb-muted' }, `「${title ?? '(无标题)'}」是重复事件。移到 ${dateKey}：`),
+          h('h2', null, t('moveScopeTitle')),
+          h('p', { className: 'wb-muted' }, t('moveScopeBody').replace('{title}', title ?? t('untitled')).replace('{date}', dateKey)),
           h('div', { style: { display: 'grid', gap: '8px', marginTop: '16px' } },
             h('button', { className: 'wb-btn', type: 'button',
               'aria-label': t('moveSingle'), onClick: () => onChoose('single') },
@@ -739,7 +935,7 @@ function taskBucket(t, now) {
             h('button', { className: 'wb-btn', type: 'button',
               'aria-label': t('moveSeries'), onClick: () => onChoose('series') },
               t('moveSeries'), h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, '  ' + t('moveSeriesHint'))),
-            h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, '取消'))))
+            h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel')))))
     }
 
     /**
@@ -765,36 +961,41 @@ function taskBucket(t, now) {
         row(t('previewConflict'), c.conflict, t('previewConflictHint'), 'wb-preview-warn'),
         row(t('previewUnsupported'), c.unsupported, t('previewUnsupportedHint'), 'wb-preview-warn'),
         row(t('previewRemoved'), c.removed, t('previewRemovedHint')),
+        // degraded：时区信息不足被降级解析的条目，它们不是干净的「新增」，
+        // 混进新增数会让用户以为导进来的东西和原件一致。
+        row(t('previewDegraded'), c.degraded, t('previewDegradedHint'), 'wb-preview-warn'),
+        // skip：与 duplicate 分开显示，合并会把「跳过」误报成「重复」。
+        row(t('previewSkip'), c.skip, t('previewSkipHint')),
       ]
       const unsupportedList = Array.isArray(preview.unsupported) ? preview.unsupported : []
       const warningList = Array.isArray(preview.warnings) ? preview.warnings : []
       const sections = []
       if (unsupportedList.length > 0) {
         sections.push(h('div', { key: 'unsup', style: { marginTop: '16px' } },
-          h('h3', { style: { fontSize: '16px' } }, '不支持的条目'),
+          h('h3', { style: { fontSize: '16px' } }, t('unsupportedTitle')),
           h('ul', null, unsupportedList.slice(0, 10).map((u, i) => h('li', {
             key: i, className: 'wb-status-error',
-          }, u.kind + '「' + (u.detail ?? '') + '」：' + (u.reason ?? '不支持'))))))
+          }, u.kind + '「' + (u.detail ?? '') + '」：' + (u.reason ?? t('unsupportedFallback')))))))
       }
       if (warningList.length > 0) {
         sections.push(h('div', { key: 'warn', style: { marginTop: '16px' } },
-          h('h3', { style: { fontSize: '16px' } }, '警告'),
+          h('h3', { style: { fontSize: '16px' } }, t('warningsTitle')),
           h('ul', null, warningList.slice(0, 10).map((w, i) => h('li', {
             key: i, className: 'wb-status-error',
           }, String(w?.message ?? w))))))
       }
       const foot = h('div', { style: { display: 'flex', gap: '8px', marginTop: '16px' } },
         h('button', { className: 'wb-btn wb-btn-danger', type: 'button',
-          disabled: approving, 'aria-label': '确认导入', onClick: onConfirm },
-        approving ? '导入中…' : '确认导入'),
-        h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, '取消'))
+          disabled: approving, 'aria-label': t('confirmImport'), onClick: onConfirm },
+        approving ? t('importing') : t('confirmImport')),
+        h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel')))
       const note = h('p', { className: 'wb-tertiary', style: { fontSize: '12px', marginTop: '16px' } },
-        '确认导入会走宿主审批，并自动先做一次备份。')
-      return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': '导入预览' },
+        t('importNote'))
+      return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('importPreviewTitle') },
         h('div', { className: 'wb-overlay-panel' },
-          h('h2', null, '导入预览'),
+          h('h2', null, t('importPreviewTitle')),
           h('table', { className: 'wb-preview-table' },
-            h('thead', null, h('tr', null, h('th', null, '类别'), h('th', null, '数量'), h('th', null, '说明'))),
+            h('thead', null, h('tr', null, h('th', null, t('previewColKind')), h('th', null, t('previewColCount')), h('th', null, t('previewColHint')))),
             h('tbody', null, body)),
           sections,
           note,
@@ -834,7 +1035,7 @@ function taskBucket(t, now) {
         h('label', null, 'Description',
           h('input', { className: 'wb-input', value: description, onChange: (e) => setDescription(e.target.value) })),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-          h('button', { className: 'wb-btn wb-btn-primary', type: 'submit', disabled: saving }, saving ? 'Saving…' : 'Save'),
+          h('button', { className: 'wb-btn wb-btn-primary', type: 'submit', disabled: saving }, saving ? t('saving') : t('save')),
           h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel'))))
     }
 
@@ -877,7 +1078,7 @@ function taskBucket(t, now) {
             h('option', { value: 'normal' }, 'Normal'),
             h('option', { value: 'high' }, 'High'))),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-          h('button', { className: 'wb-btn wb-btn-primary', type: 'submit', disabled: saving }, saving ? 'Saving…' : 'Save'),
+          h('button', { className: 'wb-btn wb-btn-primary', type: 'submit', disabled: saving }, saving ? t('saving') : t('save')),
           h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel'))))
     }
 
@@ -1016,13 +1217,13 @@ function taskBucket(t, now) {
           // 主数据（事件/待办）失败才算整体失败；冲突与展开失败只降级为「无」。
           // 两条错误**合并成一条**，避免后一条覆盖前一条（第三轮 nit N3）。
           const problems = []
-          if (ev.ok !== true) problems.push(`日程：${ev.error?.message ?? '加载失败'}`)
-          if (tk.ok !== true) problems.push(`待办：${tk.error?.message ?? '加载失败'}`)
+          if (ev.ok !== true) problems.push(`${t('calendar')}: ${ev.error?.message ?? t('loadFailed')}`)
+          if (tk.ok !== true) problems.push(`${t('todos')}: ${tk.error?.message ?? t('loadFailed')}`)
           // 辅助命令失败也提示（第三轮 nit N4：原先完全静默）
-          if (cf.ok !== true) problems.push(`冲突检测：${cf.error?.message ?? '不可用'}`)
-          if (ex.ok !== true) problems.push(`重复展开：${ex.error?.message ?? '不可用'}`)
-          if (rm.ok !== true) problems.push(`提醒：${rm.error?.message ?? '不可用'}`)
-          if (hs.ok !== true) problems.push(`撤销：${hs.error?.message ?? '不可用'}`)
+          if (cf.ok !== true) problems.push(`${t('conflictCheck')}: ${cf.error?.message ?? t('unavailable')}`)
+          if (ex.ok !== true) problems.push(`${t('expandCheck')}: ${ex.error?.message ?? t('unavailable')}`)
+          if (rm.ok !== true) problems.push(`${t('reminder')}: ${rm.error?.message ?? t('unavailable')}`)
+          if (hs.ok !== true) problems.push(`${t('undo')}: ${hs.error?.message ?? t('unavailable')}`)
           if (problems.length > 0) setError(problems.join('；'))
           const conflictIds = new Set(
             (cf.ok === true && Array.isArray(cf.value) ? cf.value : [])
@@ -1060,7 +1261,7 @@ function taskBucket(t, now) {
               }
             : { canUndo: false, canRedo: false, undoDepth: 0, redoDepth: 0 })
           setConflictCount(conflictIds.size)
-          if (keepFeedback !== true) setNotice('Loaded from Host Service')
+          if (keepFeedback !== true) setNotice(t('loadedFromHost'))
         } catch (e) {
           setError(String(e?.message ?? e))
         } finally {
@@ -1232,7 +1433,7 @@ function taskBucket(t, now) {
         if (target === null || target.kind !== 'event') return
         setError(null)
         const source = events.find((e) => e.id === target.id)
-        if (source === undefined) { setError('事件已不存在，请刷新'); return }
+        if (source === undefined) { setError(t('eventGone')); return }
         const recurring = source.recurrence !== null && source.recurrence !== undefined
         // 重复事件第一次拖：先问范围，不擅自决定
         if (recurring && modeChoice === undefined) {
@@ -1266,7 +1467,7 @@ function taskBucket(t, now) {
           if (source.allDay !== true) body.target = { start: `${dateKey}T${fmtTime(source.start) || '09:00'}` }
           const r = await request({ op: 'event.move', payload: body })
           if (r.ok !== true) throw new Error(r.error?.message ?? 'event.move failed')
-          setNotice(`已移动到 ${dateKey}${mode === 'single' ? '（仅这一次）' : ''}`)
+          setNotice(t('moved') + ' ' + dateKey + (mode === 'single' ? ' ' + t('onlyThisOne') : ''))
           await load(true)
         } catch (e) {
           // 失败不动界面：events 仍是 load 出来的旧值，等于「恢复原位」
@@ -1448,7 +1649,11 @@ function taskBucket(t, now) {
            * 内容类操作的 target 恒为 undefined（与 service 侧写死的契约一致），
            * 摘要一律由 text 推导。
            */
-          const approval = await request(buildImportApprovalRequest(panel.kind, panel.text))
+          const approval = await request(buildImportApprovalRequest(
+            panel.kind,
+            panel.text,
+            t('importSummary').replace('{kind}', panel.kind.toUpperCase()),
+          ))
           if (approval.ok !== true) throw new Error(approval.error?.message ?? 'Host approval was not granted')
           const token = approval.value?.token
           if (typeof token !== 'string' || token === '') throw new Error('Host approval was not granted')
@@ -1483,7 +1688,7 @@ function taskBucket(t, now) {
           const r = await request({ op, payload: body })
           if (r.ok !== true) throw new Error(r.error?.message ?? `${op} failed`)
           setEditing(null)
-          setNotice(op === 'event.create' ? 'Event created in Host' : 'Event updated in Host')
+          setNotice(op === 'event.create' ? t('eventCreated') : t('eventUpdated'))
           await load(true)
         } catch (e) {
           setError(String(e?.message ?? e))
@@ -1499,7 +1704,7 @@ function taskBucket(t, now) {
           const r = await request({ op: 'task.upsert', payload: { task } })
           if (r.ok !== true) throw new Error(r.error?.message ?? 'task.upsert failed')
           setEditing(null)
-          setNotice('Task saved in Host')
+          setNotice(t('taskSaved'))
           await load(true)
         } catch (e) {
           setError(String(e?.message ?? e))
@@ -1588,6 +1793,7 @@ function taskBucket(t, now) {
             value: tab,
             onChange: (v) => { setTab(v); setSelected(null); setEditing(null) },
             options: [{ id: 'calendar', label: t('calendar') }, { id: 'tasks', label: t('todos') }],
+            t,
           }),
           h('div', { className: 'wb-spacer' }),
           h('input', {
@@ -1600,10 +1806,10 @@ function taskBucket(t, now) {
           h('button', { className: 'wb-btn', type: 'button', onClick: () => load(), 'aria-label': t('refresh') }, t('refresh')),
           // 导入入口：选文件 → 预览 → 确认 → 走 Host 审批执行
           h('button', {
-            className: 'wb-btn', type: 'button', 'aria-label': '导入数据',
-            title: '导入 JSON 快照或 ICS 日历；先预览再确认',
+            className: 'wb-btn', type: 'button', 'aria-label': t('importData'),
+            title: t('importHint'),
             onClick: () => importInputRef.current?.click(),
-          }, '导入'),
+          }, t('import')),
           h('input', {
             ref: importInputRef, type: 'file', accept: '.json,.ics,application/json,text/calendar',
             style: { display: 'none' }, 'aria-hidden': 'true', tabIndex: -1,
@@ -1617,7 +1823,7 @@ function taskBucket(t, now) {
             },
           }),
           h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ ', t('new'))),
-        h(StatusBar, { loading, error, onRetry: load }),
+        h(StatusBar, { loading, error, onRetry: load, t }),
         // role=status 默认就是 polite，但显式写 aria-live 才能保证读屏真的播报
         // （部分实现只在节点已存在时才生效，动态插入需要这层兜底）
         notice ? h('div', { className: 'wb-status', role: 'status', 'aria-live': 'polite' }, notice) : null,
@@ -1635,9 +1841,9 @@ function taskBucket(t, now) {
           if (upcoming.length === 0 && reminderSkipped === 0) return null
           const shown = upcoming.slice(0, 3)
           return h('div', { className: 'wb-status wb-reminders', role: 'status', 'aria-live': 'polite' },
-            h('span', { className: 'wb-reminder-label' }, '⏰ 提醒'),
+            h('span', { className: 'wb-reminder-label' }, '⏰ ' + t('reminder')),
             shown.length === 0
-              ? h('span', null, '接下来 7 天没有到点的提醒')
+              ? h('span', null, t('noUpcoming'))
               : shown.map((r) => h('span', {
                   key: r.reminderKey,
                   className: 'wb-reminder-chip',
@@ -1648,7 +1854,7 @@ function taskBucket(t, now) {
               : null,
             reminderSkipped > 0
               ? h('span', { className: 'wb-reminder-warn' },
-                  `${reminderSkipped} 条算不出提醒时刻（数据有问题，不会响）`)
+                  `${reminderSkipped} ${t('reminderSkipped')}`)
               : null)
         })(),
         conflictCount > 0
@@ -1675,12 +1881,13 @@ function taskBucket(t, now) {
                       value: view,
                       onChange: setView,
                       options: [{ id: 'month', label: t('month') }, { id: 'week', label: t('week') }, { id: 'day', label: t('day') }, { id: 'agenda', label: t('agenda') }],
+                      t,
                     }),
                     h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' } },
-                      h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor((c) => view === 'month' ? new Date(c.getFullYear(), c.getMonth() - 1, 1) : addDays(c, view === 'week' ? -7 : -1)), 'aria-label': 'Previous' }, '‹'),
-                      h('span', { className: 'wb-muted' }, cursor.toDateString()),
-                      h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor((c) => view === 'month' ? new Date(c.getFullYear(), c.getMonth() + 1, 1) : addDays(c, view === 'week' ? 7 : 1)), 'aria-label': 'Next' }, '›'),
-                      h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor(new Date()) }, 'Today'))),
+                      h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor((c) => view === 'month' ? new Date(c.getFullYear(), c.getMonth() - 1, 1) : addDays(c, view === 'week' ? -7 : -1)), 'aria-label': t('previous') }, '‹'),
+                      h('span', { className: 'wb-muted' }, formatCursor(cursor, t)),
+                      h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor((c) => view === 'month' ? new Date(c.getFullYear(), c.getMonth() + 1, 1) : addDays(c, view === 'week' ? 7 : 1)), 'aria-label': t('next') }, '›'),
+                      h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor(new Date()) }, t('today')))),
                   view === 'month'
                     ? h(MonthView, {
                         events: filteredEvents, cursor,
@@ -1690,16 +1897,17 @@ function taskBucket(t, now) {
                         onSelectEvent: (e) => setSelected({ kind: 'event', ...e }),
                         drag, setDrag, dropHint, setDropHint,
                         onDropEvent: (target, dateKey) => moveEventToDate(target, dateKey),
+                        t,
                       })
                     : h(AgendaList, {
                         events: view === 'week' ? weekEvents : view === 'day' ? dayEvents : todayEvents,
                         onSelect: (e) => setSelected({ kind: 'event', ...e }),
-                        emptyText: view === 'agenda' ? 'No events in the next 7 days' : 'No events in this range',
-                        drag, setDrag,
+                        emptyText: view === 'agenda' ? t('noEvents7d') : t('noEventsRange'),
+                        drag, setDrag, t,
                       }),
                   h('div', { className: 'wb-section', style: { marginTop: '24px' } },
-                    h('h2', null, t('today'), ' & next 7 days'),
-                    h(AgendaList, { events: todayEvents, onSelect: (e) => setSelected({ kind: 'event', ...e }), emptyText: 'Nothing scheduled' })))
+                    h('h2', null, t('today') + ' & ' + t('next7days')),
+                    h(AgendaList, { events: todayEvents, onSelect: (e) => setSelected({ kind: 'event', ...e }), emptyText: t('nothingScheduled'), t })))
               : h('div', null,
                   h('div', { className: 'wb-section' },
                     h(ViewTabs, {
@@ -1709,20 +1917,21 @@ function taskBucket(t, now) {
                         { id: 'today', label: t('today') }, { id: 'planned', label: t('planned') },
                         { id: 'doing', label: t('inProgress') }, { id: 'done', label: t('done') },
                       ],
+                      t,
                     })),
                   h('div', { className: 'wb-section', style: { display: 'flex', gap: '8px', alignItems: 'center' } },
                     h('button', {
                       className: 'wb-btn', type: 'button', disabled: !history.canUndo,
-                      'aria-label': '撤销上一步', title: history.canUndo ? '撤销上一步（Ctrl/Cmd+Z）' : '没有可撤销的操作',
+                      'aria-label': t('undo'), title: history.canUndo ? t('undo') + ' (Ctrl/Cmd+Z)' : t('nothingToUndo'),
                       onClick: undo,
-                    }, '↶ 撤销'),
+                    }, '↶ ' + t('undo')),
                     h('button', {
                       className: 'wb-btn', type: 'button', disabled: !history.canRedo,
-                      'aria-label': '重做', title: history.canRedo ? '重做（Ctrl/Cmd+Shift+Z）' : '没有可重做的操作',
+                      'aria-label': t('redo'), title: history.canRedo ? t('redo') + ' (Ctrl/Cmd+Shift+Z)' : t('nothingToRedo'),
                       onClick: redo,
-                    }, '↷ 重做'),
+                    }, '↷ ' + t('redo')),
                     h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } },
-                      `可撤销 ${history.undoDepth} 步`)),
+                      `${t('undoableSteps')} ${history.undoDepth}`)),
                   // 分组渲染：project 相同的待办归一组，组内按 order 排。
                   // 拖拽排序只在**组内**进行——跨组拖动要改 project，那是另一个语义，
                   // 不在本次授权范围内，所以明确不做（而不是默默允许然后字段错乱）。
@@ -1731,63 +1940,63 @@ function taskBucket(t, now) {
                     : h('div', null,
                         groupedTasks.map((g) => h('div', { key: g.project ?? '__none__' },
                           h('div', { className: 'wb-group-head' },
-                            h('span', null, g.project === null ? '未分组' : g.project),
+                            h('span', null, g.project === null ? t('ungrouped') : g.project),
                             h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } },
-                              `${g.rows.length} 项`)),
-                          g.rows.map((t) => h('div', {
-                            key: t.id,
-                            className: `wb-row${dropHint !== null && dropHint.kind === 'task' && dropHint.id === t.id ? ' wb-drop-target' : ''}`,
+                              `${g.rows.length} ${t('items')}`)),
+                          g.rows.map((row) => h('div', {
+                            key: row.id,
+                            className: `wb-row${dropHint !== null && dropHint.kind === 'task' && dropHint.id === row.id ? ' wb-drop-target' : ''}`,
                             onDragOver: (ev) => {
                               if (drag === null || drag.kind !== 'task') return
                               ev.preventDefault()
                               ev.dataTransfer.dropEffect = 'move'
-                              if (dropHint === null || dropHint.id !== t.id) setDropHint({ kind: 'task', id: t.id })
+                              if (dropHint === null || dropHint.id !== row.id) setDropHint({ kind: 'task', id: row.id })
                             },
                             onDragLeave: () => {
-                              if (dropHint !== null && dropHint.kind === 'task' && dropHint.id === t.id) setDropHint(null)
+                              if (dropHint !== null && dropHint.kind === 'task' && dropHint.id === row.id) setDropHint(null)
                             },
                             onDrop: (ev) => {
                               ev.preventDefault()
                               setDropHint(null)
                               if (drag === null || drag.kind !== 'task') return
-                              reorderTasks(g.project ?? null, drag.id, t.id)
+                              reorderTasks(g.project ?? null, drag.id, row.id)
                             },
                           },
                             // 拖拽手柄：键盘用户用下方「上移/下移」按钮，不依赖拖拽
                             h('button', {
                               className: 'wb-handle', type: 'button', draggable: true,
-                              'aria-label': `拖动 ${t.title} 调整顺序`,
-                              title: '拖动调整顺序；键盘用户请用上移/下移按钮',
+                              'aria-label': `${t('dragToReorder')} ${row.title}`,
+                              title: t('reorderHint'),
                               onDragStart: (ev) => {
                                 ev.dataTransfer.effectAllowed = 'move'
-                                ev.dataTransfer.setData('text/plain', t.id)
-                                setDrag({ kind: 'task', id: t.id, title: t.title, group: g.project ?? null })
+                                ev.dataTransfer.setData('text/plain', row.id)
+                                setDrag({ kind: 'task', id: row.id, title: row.title, group: g.project ?? null })
                               },
                               onDragEnd: () => { setDrag(null); setDropHint(null) },
                             }, '⠿'),
                             h('button', {
                               className: 'wb-row-main', type: 'button',
-                              'aria-label': `${t.done === true ? 'Reopen' : 'Complete'} ${t.title}`,
+                              'aria-label': `${row.done === true ? t('reopen') : t('complete')} ${row.title}`,
                               onClick: () => toggleTask(t),
                             },
-                              h('span', { 'aria-hidden': true }, t.done === true ? '☑' : '☐'),
-                              h('span', { style: { flex: 1, textDecoration: t.done === true ? 'line-through' : 'none' } }, t.title),
-                              t.priority === 'high' ? h('span', { className: 'wb-badge' }, 'High') : null,
-                              t.dueAt ? h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, String(t.dueAt).slice(0, 10)) : null),
-                            h('button', { className: 'wb-btn', type: 'button', 'aria-label': `Details of ${t.title}`, onClick: () => setSelected({ kind: 'task', ...t }) }, '…'),
+                              h('span', { 'aria-hidden': true }, row.done === true ? '☑' : '☐'),
+                              h('span', { style: { flex: 1, textDecoration: row.done === true ? 'line-through' : 'none' } }, row.title),
+                              row.priority === 'high' ? h('span', { className: 'wb-badge' }, 'High') : null,
+                              row.dueAt ? h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, String(row.dueAt).slice(0, 10)) : null),
+                            h('button', { className: 'wb-btn', type: 'button', 'aria-label': t('openDetails').replace('{title}', row.title), onClick: () => setSelected({ kind: 'task', ...row }) }, '…'),
                             // 键盘替代操作：不依赖鼠标拖拽也能调整顺序
                             h('button', {
-                              className: 'wb-btn', type: 'button', 'aria-label': `上移 ${t.title}`,
-                              onClick: () => nudgeTask(g.project ?? null, t.id, -1),
+                              className: 'wb-btn', type: 'button', 'aria-label': `${t('moveUp')} ${row.title}`,
+                              onClick: () => nudgeTask(g.project ?? null, row.id, -1),
                             }, '↑'),
                             h('button', {
-                              className: 'wb-btn', type: 'button', 'aria-label': `下移 ${t.title}`,
-                              onClick: () => nudgeTask(g.project ?? null, t.id, 1),
+                              className: 'wb-btn', type: 'button', 'aria-label': `${t('moveDown')} ${row.title}`,
+                              onClick: () => nudgeTask(g.project ?? null, row.id, 1),
                             }, '↓'),
                             h('button', {
-                              className: 'wb-btn', type: 'button', 'aria-label': `归档 ${t.title}`,
-                              title: '归档不是删除：随时可以恢复', onClick: () => setArchived(t.id, true),
-                            }, '归档')))))),
+                              className: 'wb-btn', type: 'button', 'aria-label': `${t('archive')} ${row.title}`,
+                              title: t('archiveHint'), onClick: () => setArchived(row.id, true),
+                            }, t('archive'))))))),
                   // 归档区：默认收起。归档不是删除，所以这里必须能恢复。
                   archivedTasks.length === 0
                     ? null
@@ -1796,41 +2005,41 @@ function taskBucket(t, now) {
                           className: 'wb-btn', type: 'button',
                           'aria-expanded': showArchived ? 'true' : 'false',
                           onClick: () => setShowArchived((v) => !v),
-                        }, showArchived ? '▾' : '▸', ` 已归档（${archivedTasks.length}）`),
+                        }, showArchived ? '▾' : '▸', ` ${t('archivedSection')}（${archivedTasks.length}）`),
                         showArchived
-                          ? h('div', null, archivedTasks.map((t) => h('div', { key: t.id, className: 'wb-row' },
-                              h('span', { className: 'wb-tertiary', style: { flex: 1, minHeight: '44px', display: 'flex', alignItems: 'center' } }, t.title),
+                          ? h('div', null, archivedTasks.map((row) => h('div', { key: row.id, className: 'wb-row' },
+                              h('span', { className: 'wb-tertiary', style: { flex: 1, minHeight: '44px', display: 'flex', alignItems: 'center' } }, row.title),
                               h('button', {
-                                className: 'wb-btn', type: 'button', 'aria-label': `恢复 ${t.title}`,
-                                onClick: () => setArchived(t.id, false),
-                              }, '恢复'))))
+                                className: 'wb-btn', type: 'button', 'aria-label': `${t('restore')} ${row.title}`,
+                                onClick: () => setArchived(row.id, false),
+                              }, t('restore')))))
                           : null)))
 
           , h('div', { className: 'wb-side wb-scroll' },
               selected === null
-                ? h('div', { className: 'wb-empty' }, 'Select an event or task to see details')
+                ? h('div', { className: 'wb-empty' }, t('selectToSeeDetails'))
                 : h('div', null,
-                    h('h2', null, selected.title ?? '(untitled)'),
-                    h('div', { className: 'wb-muted' }, selected.kind === 'task' ? 'Task' : 'Event'),
+                    h('h2', null, selected.title ?? t('untitled')),
+                    h('div', { className: 'wb-muted' }, selected.kind === 'task' ? t('kindTask') : t('kindEvent')),
                     h('dl', null,
-                      h('dt', { className: 'wb-tertiary' }, 'ID'),
+                      h('dt', { className: 'wb-tertiary' }, t('fieldId')),
                       h('dd', null, selected.id),
-                      selected.dueAt ? h('dt', { className: 'wb-tertiary' }, 'Due') : null,
+                      selected.dueAt ? h('dt', { className: 'wb-tertiary' }, t('fieldDue')) : null,
                       selected.dueAt ? h('dd', null, selected.dueAt) : null,
-                      selected.start ? h('dt', { className: 'wb-tertiary' }, 'Start') : null,
+                      selected.start ? h('dt', { className: 'wb-tertiary' }, t('fieldStart')) : null,
                       selected.start ? h('dd', null, selected.start) : null,
-                      selected.description ? h('dt', { className: 'wb-tertiary' }, 'Description') : null,
+                      selected.description ? h('dt', { className: 'wb-tertiary' }, t('fieldDescription')) : null,
                       selected.description ? h('dd', null, selected.description) : null,
-                      selected.recurrence ? h('dt', { className: 'wb-tertiary' }, 'Repeats') : null,
-                      selected.recurrence ? h('dd', null, `${selected.recurrence.freq ?? 'custom'}${selected.recurrenceOccurrences ? ` · ${selected.recurrenceOccurrences} occurrence(s) in next 7 days` : ''}`) : null,
-                      selected.conflict === true ? h('dt', { className: 'wb-tertiary' }, 'Conflict') : null,
-                      selected.conflict === true ? h('dd', { className: 'wb-status-error' }, 'Overlaps another event') : null,
-                      selected.subtasks ? h('dt', { className: 'wb-tertiary' }, 'Subtasks') : null,
+                      selected.recurrence ? h('dt', { className: 'wb-tertiary' }, t('fieldRepeats')) : null,
+                      selected.recurrence ? h('dd', null, `${selected.recurrence.freq ?? t('fieldCustom')}${selected.recurrenceOccurrences ? ' · ' + t('occurrencesNext7').replace('{n}', selected.recurrenceOccurrences) : ''}`) : null,
+                      selected.conflict === true ? h('dt', { className: 'wb-tertiary' }, t('fieldConflict')) : null,
+                      selected.conflict === true ? h('dd', { className: 'wb-status-error' }, t('conflictOverlap')) : null,
+                      selected.subtasks ? h('dt', { className: 'wb-tertiary' }, t('fieldSubtasks')) : null,
                       selected.subtasks ? h('dd', null, h('ul', null,
                         (Array.isArray(selected.subtasks) ? selected.subtasks : []).map((st, i) =>
                           h('li', { key: i }, typeof st === 'string' ? st : (st.title ?? JSON.stringify(st)))))) : null,
-                      h('dt', { className: 'wb-tertiary' }, 'AI session'),
-                      h('dd', null, 'Shared with the current Agent session (same Host Service)')),
+                      h('dt', { className: 'wb-tertiary' }, t('fieldAiSession')),
+                      h('dd', null, t('aiSessionNote'))),
                     h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px' } },
                       h('button', {
                         className: 'wb-btn', type: 'button',
@@ -1883,6 +2092,8 @@ function taskBucket(t, now) {
                 )
               },
               onCancel: () => setMoveDialog(null),
+              // 不传 t 会回落到 defaultT（= LOCALE.en），组件内的中文就混排出来
+              t,
             })
           : null,
 
@@ -1893,6 +2104,7 @@ function taskBucket(t, now) {
               approving,
               onConfirm: () => confirmImport(importPanel),
               onCancel: () => setImportPanel(null),
+              t,
             })
           : null,
 
@@ -1904,7 +2116,7 @@ function taskBucket(t, now) {
               'aria-hidden': 'true',
               style: dragAt === null ? null : { left: `${dragAt.x + 12}px`, top: `${dragAt.y + 12}px` },
             },
-              '移动：' + (drag.title || '(无标题)'),
+              t('dragMoving') + ' ' + (drag.title || t('untitled')),
               dropHint !== null && dropHint.kind === 'event' ? ' → ' + dropHint.dateKey : '')
           : null,
         /**
@@ -1913,8 +2125,8 @@ function taskBucket(t, now) {
          */
         drag !== null
           ? h('div', { className: 'wb-sr-only', role: 'status', 'aria-live': 'polite' },
-              '正在拖动 ' + (drag.title || '(无标题)')
-              + (dropHint !== null && dropHint.kind === 'event' ? '，将落到 ' + dropHint.dateKey : ''))
+              t('dragMoving') + ' ' + (drag.title || t('untitled'))
+              + (dropHint !== null && dropHint.kind === 'event' ? ' ' + t('dragWillDrop') + ' ' + dropHint.dateKey : ''))
           : null)
     }
 
