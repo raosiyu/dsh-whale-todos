@@ -604,3 +604,73 @@ test('WP4：UI 的 sessionId 必须来自 sessions store（不得回退到无效
   assert.match(client, /ctx\.sessions\?\.list\?\.getSnapshot/, '必须读 sessions store')
   assert.match(client, /list\.subscribe\(read\)/, '必须订阅会话变化')
 })
+
+test('WP4：UI 删除走「用户确认」凭证，回合外也能完成（第四轮 BLOCKER-4）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+
+    // 建一个事件
+    const created = await call(host, 's1', {
+      op: 'event.create',
+      payload: { title: '待删除', allDay: false, start: '2026-11-10T09:00:00', end: '2026-11-10T10:00:00', timeZone: 'UTC' },
+    })
+    assert.equal(created.ok, true, JSON.stringify(created))
+    const id = created.value.event.id
+
+    // 用户在确认对话框点了「删除」→ 宿主签发一次性凭证
+    const approval = await call(host, 's1', {
+      op: 'confirmUserAction',
+      payload: { approvalOp: 'event.delete', target: id, summary: 'Delete event' },
+    })
+    assert.equal(approval.ok, true, `宿主应签发用户确认凭证：${JSON.stringify(approval)}`)
+    const token = approval.value?.token
+    assert.equal(typeof token, 'string', '应签发 token')
+
+    // 带凭证删除必须成功（不依赖 ctx.approval，不依赖模型回合）
+    const del = await call(host, 's1', { op: 'event.delete', payload: { id }, approvalToken: token })
+    assert.equal(del.ok, true, `带用户确认凭证的删除应成功：${JSON.stringify(del)}`)
+    const rows = await call(host, 's1', { op: 'event.list', payload: {} })
+    assert.equal(rows.value.length, 0, '删除后不应再有该事件')
+  })
+})
+
+test('WP4：用户确认凭证绑定 op+target、一次性，伪造与挪用均被拒', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+    const svc = host.getService().forSession('s1')
+
+    const created = await call(host, 's1', {
+      op: 'event.create',
+      payload: { title: 'X', allDay: false, start: '2026-11-10T09:00:00', end: '2026-11-10T10:00:00', timeZone: 'UTC' },
+    })
+    const id = created.value.event.id
+
+    // 1) 伪造 token 被拒
+    assert.throws(
+      () => svc.execute('event.delete', { id }, { actor: 'ui', approvalToken: 'forged-token' }),
+      (e) => e?.code === 'confirmation-required',
+      '伪造 token 必须被拒',
+    )
+
+    // 2) 凭证挪用到别的目标 → fingerprint-mismatch
+    const t1 = svc.confirmUserAction('event.delete', id, { summary: 'x' })
+    assert.equal(typeof t1.token, 'string')
+    assert.throws(
+      () => svc.execute('event.delete', { id: 'other-id' }, { actor: 'ui', approvalToken: t1.token }),
+      (e) => e?.code === 'confirmation-required',
+      '凭证不得挪用到别的目标',
+    )
+
+    // 3) 一次性：同一凭证用第二次被拒
+    svc.execute('event.delete', { id }, { actor: 'ui', approvalToken: t1.token })
+    assert.throws(
+      () => svc.execute('event.delete', { id }, { actor: 'ui', approvalToken: t1.token }),
+      (e) => e?.code === 'confirmation-required',
+      '凭证必须一次性',
+    )
+  })
+})

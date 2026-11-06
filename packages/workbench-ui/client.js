@@ -652,8 +652,16 @@ window.__ModuleLoader__.load({
           //  - 待办软删 → op = task.upsert（真实在 DANGEROUS_OPS 里，且软删确实走它）
           const op = kind === 'task' ? 'task.upsert' : 'event.delete'
           const detail = { target: id, summary: `Delete ${kind} ${id}` }
+          /**
+           * 用户已在确认对话框点了「删除」→ 该动作本身就是授权。
+           * 凭证由**宿主**签发（绑定 op+target+digest、一次性、不可伪造）。
+           *
+           * 为什么不用 ctx.approval.request：DSH 的审批只能在**模型回合内**发起
+           * （dsh-user-approval/README.md:153），而 UI 删除是回合外的用户操作，
+           * 走那条路在真实浏览器里必然拿不到 token（第四轮 Review 的 BLOCKER-4）。
+           */
           const approval = await request({
-            op: 'requestApproval',
+            op: 'confirmUserAction',
             payload: { approvalOp: op, ...detail },
           })
           if (approval.ok !== true) {

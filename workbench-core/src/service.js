@@ -457,6 +457,18 @@ export function createWorkbenchService(options) {
       get: (id) => events.get(id),
     }),
     requestApproval,
+    /**
+     * 用户在 UI 里显式确认后，由**宿主**签发一次性凭证。
+     *
+     * 用途：DSH 的 `ctx.approval.request` 只能在模型回合内发起
+     * （dsh-user-approval/README.md:153），而 UI 的删除是回合外的用户操作，
+     * 走 DSH 审批必然失败（WP4 第四轮 Review 的 BLOCKER-4）。
+     *
+     * 凭证由 gate 签发（绑定 op+target+digest、一次性、不可离线伪造），
+     * 因此仍满足「不认 payload 里的 confirmed 布尔」这条硬约束。
+     */
+    confirmUserAction: (op, target, detail = {}) =>
+      gate.issueForUserConfirm(op, target, detail),
     defaultTimeZone,
     /**
      * 唯一入口。

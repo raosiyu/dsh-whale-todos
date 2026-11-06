@@ -129,6 +129,23 @@ export function apply(ctx, config = {}) {
 
     const { op, payload = {}, scope = '', approvalToken, agent } = parsed.req
     try {
+      /**
+       * **用户显式确认**（UI 删除）：由宿主签发一次性凭证。
+       *
+       * DSH 的 ctx.approval.request 只能在模型回合内发起，UI 的删除是回合外
+       * 的用户操作 → 走 DSH 审批必然失败（第四轮 Review 的 BLOCKER-4）。
+       * 这里用「用户在确认对话框点了删除」作为授权，由 gate 签发绑定
+       * (op,target,digest) 的一次性凭证 —— 仍是宿主签发、不可伪造。
+       */
+      if (op === 'confirmUserAction') {
+        const target = payload.target ?? payload.id ?? ''
+        const approval = service.forSession(sessionId).confirmUserAction(
+          payload.approvalOp ?? 'event.delete',
+          target,
+          { digest: payload.digest, summary: payload.summary ?? `Confirm ${target}` },
+        )
+        return encodeResult({ ok: approval.approved === true, value: approval, op })
+      }
       // 删除前的真 Host 审批：只走 service.askApproval（token 由真
       // ApprovalService 签发），绝不读 payload 里的 confirmed 布尔。
       if (op === 'requestApproval') {

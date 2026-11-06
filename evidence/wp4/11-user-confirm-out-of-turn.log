@@ -1,0 +1,8 @@
+1) 创建事件 = OK
+2) 尝试走 DSH 审批（应失败，证明回合外不可用）
+   如预期失败: approval.request() outside an open turn: the approval/asked  …
+3) 走「用户确认」凭证（宿主签发）
+   签发 = OK token=1b967593cde8…
+4) 带凭证删除 = OK ✅ 回合外删除成功
+5) 删除后剩余事件 = 0
+   DSH 审批 waterfall 调用次数 = 0 （0 表示完全没依赖 DSH 审批）

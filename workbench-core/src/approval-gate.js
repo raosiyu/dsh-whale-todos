@@ -133,6 +133,32 @@ export function createHostApprovalGate(options = {}) {
     },
 
     /**
+     * **用户显式确认**后由**宿主**签发一次性凭证。
+     *
+     * ## 为什么需要它（WP4 第四轮 Review 的 BLOCKER-4）
+     *
+     * DSH 的 `ctx.approval.request` 只能在**模型回合内**发起
+     * （`dsh-user-approval/README.md:153`：requests are valid only inside an
+     * open turn；回合外调用直接抛错）。而**UI 里的删除**是用户自己点的
+     * 回合外操作 → 走 DSH 审批永远拿不到 token → 删除在真实浏览器里必然失败。
+     *
+     * ## 授权从哪来
+     *
+     * 用户的**显式确认动作**（UI 对话框点了「删除」）就是授权。
+     * 凭证仍由**宿主**签发——不是模型、不是浏览器自造：
+     *  - 指纹绑定 (op, target, digest)，挪用到别的操作/目标会 fingerprint-mismatch；
+     *  - 一次性：verify 后即失效（used → unknown-token）；
+     *  - 由 gate 内部 nonce 签名，外部无法离线构造。
+     *
+     * **AI 侧的删除路径不变**（仍走 `ctx.approval.request`，回合内成立）。
+     */
+    issueForUserConfirm(op, target, detail = {}) {
+      if (mode === 'deny') return { approved: false, reason: 'approval-mode-deny' }
+      const fingerprint = approvalFingerprint({ op, target, digest: detail.digest })
+      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }
+    },
+
+    /**
      * 校验并消费凭证。**服务层唯一认的批准依据**。
      *
      * @param {{ op: string, target?: string, digest?: string }} req
