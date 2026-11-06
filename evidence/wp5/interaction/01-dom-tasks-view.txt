@@ -1,0 +1,3778 @@
+{
+  "tabId": "72195D8EF06D48F6EF2036FC3EACE5CD",
+  "url": "http://127.0.0.1:54984/",
+  "title": "DeepSeek Harness",
+  "truncated": false,
+  "nodes": [
+    {
+      "ref": 0,
+      "tag": "body",
+      "depth": 0,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "ref": 1,
+      "tag": "div",
+      "depth": 1,
+      "id": "root",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "ref": 2,
+      "tag": "div",
+      "depth": 3,
+      "classes": [
+        "pI_x6G_frame"
+      ],
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "ref": 3,
+      "tag": "div",
+      "depth": 4,
+      "classes": [
+        "pI_x6G_sidebarCol"
+      ],
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 280,
+        "height": 800
+      }
+    },
+    {
+      "ref": 4,
+      "tag": "div",
+      "depth": 6,
+      "classes": [
+        "hHd-Xa_root"
+      ],
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 280,
+        "height": 800
+      }
+    },
+    {
+      "ref": 5,
+      "tag": "div",
+      "depth": 7,
+      "classes": [
+        "hHd-Xa_logoRow"
+      ],
+      "box": {
+        "x": 12,
+        "y": 6,
+        "width": 256,
+        "height": 60
+      }
+    },
+    {
+      "ref": 6,
+      "tag": "button",
+      "depth": 8,
+      "classes": [
+        "hHd-Xa_brand",
+        "hHd-Xa_wide"
+      ],
+      "role": "button",
+      "name": "新建会话",
+      "box": {
+        "x": 16,
+        "y": 24,
+        "width": 216,
+        "height": 24
+      }
+    },
+    {
+      "ref": 7,
+      "tag": "span",
+      "depth": 9,
+      "classes": [
+        "hHd-Xa_brandIdentity"
+      ],
+      "box": {
+        "x": 16,
+        "y": 24,
+        "width": 188,
+        "height": 24
+      }
+    },
+    {
+      "ref": 8,
+      "tag": "span",
+      "depth": 10,
+      "classes": [
+        "hHd-Xa_brandMark"
+      ],
+      "box": {
+        "x": 16,
+        "y": 27,
+        "width": 24,
+        "height": 18
+      }
+    },
+    {
+      "ref": 9,
+      "tag": "svg",
+      "depth": 12,
+      "box": {
+        "x": 16,
+        "y": 27,
+        "width": 24,
+        "height": 18
+      }
+    },
+    {
+      "ref": 10,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 16,
+        "y": 27,
+        "width": 24,
+        "height": 18
+      }
+    },
+    {
+      "ref": 11,
+      "tag": "span",
+      "depth": 10,
+      "classes": [
+        "hHd-Xa_brandName"
+      ],
+      "box": {
+        "x": 48,
+        "y": 24,
+        "width": 156,
+        "height": 24
+      }
+    },
+    {
+      "ref": 12,
+      "tag": "svg",
+      "depth": 12,
+      "box": {
+        "x": 48,
+        "y": 24,
+        "width": 156,
+        "height": 24
+      }
+    },
+    {
+      "ref": 13,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 85,
+        "y": 32,
+        "width": 10,
+        "height": 14
+      }
+    },
+    {
+      "ref": 14,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 49,
+        "y": 29,
+        "width": 10,
+        "height": 14
+      }
+    },
+    {
+      "ref": 15,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 61,
+        "y": 32,
+        "width": 10,
+        "height": 11
+      }
+    },
+    {
+      "ref": 16,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 73,
+        "y": 32,
+        "width": 10,
+        "height": 11
+      }
+    },
+    {
+      "ref": 17,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 97,
+        "y": 32,
+        "width": 10,
+        "height": 11
+      }
+    },
+    {
+      "ref": 18,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 109,
+        "y": 32,
+        "width": 10,
+        "height": 11
+      }
+    },
+    {
+      "ref": 19,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 121,
+        "y": 32,
+        "width": 10,
+        "height": 11
+      }
+    },
+    {
+      "ref": 20,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 133,
+        "y": 29,
+        "width": 2,
+        "height": 14
+      }
+    },
+    {
+      "ref": 21,
+      "tag": "path",
+      "depth": 13,
+      "box": {
+        "x": 137,
+        "y": 32,
+        "width": 7,
+        "height": 10
+      }
+    },
+    {
+      "ref": 22,
+      "tag": "g",
+      "depth": 13,
+      "box": {
+        "x": 22,
+        "y": 28,
+        "width": 23,
+        "height": 17
+      }
+    },
+    {
+      "ref": 23,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 22,
+        "y": 28,
+        "width": 23,
+        "height": 17
+      }
+    },
+    {
+      "ref": 24,
+      "tag": "rect",
+      "depth": 13,
+      "box": {
+        "x": 151,
+        "y": 30,
+        "width": 52,
+        "height": 14
+      }
+    },
+    {
+      "ref": 25,
+      "tag": "g",
+      "depth": 13,
+      "box": {
+        "x": 155,
+        "y": 33,
+        "width": 46,
+        "height": 7
+      }
+    },
+    {
+      "ref": 26,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 155,
+        "y": 33,
+        "width": 5,
+        "height": 7
+      }
+    },
+    {
+      "ref": 27,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 161,
+        "y": 33,
+        "width": 6,
+        "height": 7
+      }
+    },
+    {
+      "ref": 28,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 168,
+        "y": 33,
+        "width": 6,
+        "height": 7
+      }
+    },
+    {
+      "ref": 29,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 175,
+        "y": 33,
+        "width": 5,
+        "height": 7
+      }
+    },
+    {
+      "ref": 30,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 182,
+        "y": 33,
+        "width": 5,
+        "height": 7
+      }
+    },
+    {
+      "ref": 31,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 188,
+        "y": 33,
+        "width": 5,
+        "height": 7
+      }
+    },
+    {
+      "ref": 32,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 195,
+        "y": 33,
+        "width": 5,
+        "height": 7
+      }
+    },
+    {
+      "ref": 33,
+      "tag": "button",
+      "depth": 8,
+      "classes": [
+        "hHd-Xa_iconButton",
+        "hHd-Xa_toggle"
+      ],
+      "role": "button",
+      "name": "收起侧边栏",
+      "box": {
+        "x": 240,
+        "y": 22,
+        "width": 28,
+        "height": 28
+      }
+    },
+    {
+      "ref": 34,
+      "tag": "svg",
+      "depth": 9,
+      "classes": [
+        "hHd-Xa_panelIcon"
+      ],
+      "box": {
+        "x": 246,
+        "y": 28,
+        "width": 16,
+        "height": 16
+      }
+    },
+    {
+      "ref": 35,
+      "tag": "path",
+      "depth": 10,
+      "box": {
+        "x": 248,
+        "y": 30,
+        "width": 13,
+        "height": 13
+      }
+    },
+    {
+      "ref": 36,
+      "tag": "button",
+      "depth": 7,
+      "classes": [
+        "hHd-Xa_newSession"
+      ],
+      "role": "button",
+      "name": "新建会话",
+      "box": {
+        "x": 14,
+        "y": 70,
+        "width": 252,
+        "height": 38
+      }
+    },
+    {
+      "ref": 37,
+      "tag": "span",
+      "depth": 8,
+      "classes": [
+        "hHd-Xa_newSessionLabelMask"
+      ],
+      "box": {
+        "x": 27,
+        "y": 78,
+        "width": 188,
+        "height": 22
+      }
+    },
+    {
+      "ref": 38,
+      "tag": "span",
+      "depth": 9,
+      "classes": [
+        "hHd-Xa_newSessionContent"
+      ],
+      "box": {
+        "x": 27,
+        "y": 78,
+        "width": 226,
+        "height": 22
+      }
+    },
+    {
+      "ref": 39,
+      "tag": "svg",
+      "depth": 10,
+      "box": {
+        "x": 109,
+        "y": 82,
+        "width": 14,
+        "height": 14
+      }
+    },
+    {
+      "ref": 40,
+      "tag": "path",
+      "depth": 11,
+      "box": {
+        "x": 110,
+        "y": 83,
+        "width": 11,
+        "height": 11
+      }
+    },
+    {
+      "ref": 41,
+      "tag": "span",
+      "depth": 10,
+      "classes": [
+        "hHd-Xa_newSessionLabel",
+        "hHd-Xa_wide"
+      ],
+      "name": "新会话",
+      "text": "新会话",
+      "box": {
+        "x": 129,
+        "y": 78,
+        "width": 43,
+        "height": 22
+      }
+    },
+    {
+      "ref": 42,
+      "tag": "span",
+      "depth": 8,
+      "classes": [
+        "hHd-Xa_newSessionShortcut"
+      ],
+      "box": {
+        "x": 215,
+        "y": 81,
+        "width": 38,
+        "height": 16
+      }
+    },
+    {
+      "ref": 43,
+      "tag": "span",
+      "depth": 9,
+      "classes": [
+        "_keys_38b9q_1"
+      ],
+      "box": {
+        "x": 215,
+        "y": 81,
+        "width": 38,
+        "height": 16
+      }
+    },
+    {
+      "ref": 44,
+      "tag": "kbd",
+      "depth": 10,
+      "classes": [
+        "_key_38b9q_1"
+      ],
+      "name": "⌥",
+      "text": "⌥",
+      "box": {
+        "x": 215,
+        "y": 81,
+        "width": 12,
+        "height": 16
+      }
+    },
+    {
+      "ref": 45,
+      "tag": "kbd",
+      "depth": 10,
+      "classes": [
+        "_key_38b9q_1"
+      ],
+      "name": "⌘",
+      "text": "⌘",
+      "box": {
+        "x": 230,
+        "y": 81,
+        "width": 11,
+        "height": 16
+      }
+    },
+    {
+      "ref": 46,
+      "tag": "kbd",
+      "depth": 10,
+      "classes": [
+        "_key_38b9q_1"
+      ],
+      "name": "N",
+      "text": "N",
+      "box": {
+        "x": 244,
+        "y": 81,
+        "width": 9,
+        "height": 16
+      }
+    },
+    {
+      "ref": 47,
+      "tag": "nav",
+      "depth": 7,
+      "classes": [
+        "hHd-Xa_panelList"
+      ],
+      "role": "navigation",
+      "name": "全局面板",
+      "box": {
+        "x": 12,
+        "y": 120,
+        "width": 256,
+        "height": 76
+      }
+    },
+    {
+      "ref": 48,
+      "tag": "button",
+      "depth": 8,
+      "classes": [
+        "hHd-Xa_panelRow"
+      ],
+      "role": "button",
+      "name": "插件",
+      "box": {
+        "x": 14,
+        "y": 120,
+        "width": 252,
+        "height": 36
+      }
+    },
+    {
+      "ref": 49,
+      "tag": "span",
+      "depth": 9,
+      "classes": [
+        "hHd-Xa_panelGlyph"
+      ],
+      "box": {
+        "x": 22,
+        "y": 130,
+        "width": 16,
+        "height": 16
+      }
+    },
+    {
+      "ref": 50,
+      "tag": "svg",
+      "depth": 11,
+      "box": {
+        "x": 22,
+        "y": 130,
+        "width": 16,
+        "height": 16
+      }
+    },
+    {
+      "ref": 51,
+      "tag": "path",
+      "depth": 12,
+      "box": {
+        "x": 30,
+        "y": 135,
+        "width": 7,
+        "height": 6
+      }
+    },
+    {
+      "ref": 52,
+      "tag": "path",
+      "depth": 12,
+      "box": {
+        "x": 27,
+        "y": 131,
+        "width": 6,
+        "height": 7
+      }
+    },
+    {
+      "ref": 53,
+      "tag": "path",
+      "depth": 12,
+      "box": {
+        "x": 23,
+        "y": 135,
+        "width": 7,
+        "height": 6
+      }
+    },
+    {
+      "ref": 54,
+      "tag": "path",
+      "depth": 12,
+      "box": {
+        "x": 27,
+        "y": 138,
+        "width": 6,
+        "height": 7
+      }
+    },
+    {
+      "ref": 55,
+      "tag": "span",
+      "depth": 9,
+      "classes": [
+        "hHd-Xa_panelTitle",
+        "hHd-Xa_wide"
+      ],
+      "name": "插件",
+      "text": "插件",
+      "box": {
+        "x": 46,
+        "y": 127,
+        "width": 29,
+        "height": 22
+      }
+    },
+    {
+      "ref": 56,
+      "tag": "button",
+      "depth": 8,
+      "classes": [
+        "hHd-Xa_panelRow",
+        "hHd-Xa_panelActive"
+      ],
+      "role": "button",
+      "name": "鲸鱼待办",
+      "box": {
+        "x": 14,
+        "y": 160,
+        "width": 252,
+        "height": 36
+      }
+    },
+    {
+      "ref": 57,
+      "tag": "span",
+      "depth": 9,
+      "classes": [
+        "hHd-Xa_panelGlyph"
+      ],
+      "box": {
+        "x": 22,
+        "y": 168,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "ref": 58,
+      "tag": "svg",
+      "depth": 11,
+      "box": {
+        "x": 22,
+        "y": 168,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "ref": 59,
+      "tag": "rect",
+      "depth": 12,
+      "box": {
+        "x": 25,
+        "y": 171,
+        "width": 15,
+        "height": 14
+      }
+    },
+    {
+      "ref": 60,
+      "tag": "path",
+      "depth": 12,
+      "box": {
+        "x": 25,
+        "y": 170,
+        "width": 15,
+        "height": 6
+      }
+    },
+    {
+      "ref": 61,
+      "tag": "path",
+      "depth": 12,
+      "box": {
+        "x": 28,
+        "y": 180,
+        "width": 3,
+        "height": 3
+      }
+    },
+    {
+      "ref": 62,
+      "tag": "span",
+      "depth": 9,
+      "classes": [
+        "hHd-Xa_panelTitle",
+        "hHd-Xa_wide"
+      ],
+      "name": "鲸鱼待办",
+      "text": "鲸鱼待办",
+      "box": {
+        "x": 50,
+        "y": 167,
+        "width": 57,
+        "height": 22
+      }
+    },
+    {
+      "ref": 63,
+      "tag": "div",
+      "depth": 7,
+      "classes": [
+        "hHd-Xa_regionArea"
+      ],
+      "box": {
+        "x": 8,
+        "y": 204,
+        "width": 272,
+        "height": 540
+      }
+    },
+    {
+      "ref": 64,
+      "tag": "div",
+      "depth": 9,
+      "classes": [
+        "bhn1Oq_root"
+      ],
+      "box": {
+        "x": 12,
+        "y": 204,
+        "width": 268,
+        "height": 540
+      }
+    },
+    {
+      "ref": 65,
+      "tag": "div",
+      "depth": 10,
+      "classes": [
+        "bhn1Oq_sectionHeader"
+      ],
+      "box": {
+        "x": 12,
+        "y": 206,
+        "width": 260,
+        "height": 36
+      }
+    },
+    {
+      "ref": 66,
+      "tag": "span",
+      "depth": 11,
+      "classes": [
+        "bhn1Oq_sectionLabel",
+        "bhn1Oq_wide"
+      ],
+      "name": "工作区",
+      "text": "工作区",
+      "box": {
+        "x": 16,
+        "y": 214,
+        "width": 43,
+        "height": 20
+      }
+    },
+    {
+      "ref": 67,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "bhn1Oq_searchSlot"
+      ],
+      "box": {
+        "x": 176,
+        "y": 210,
+        "width": 28,
+        "height": 28
+      }
+    },
+    {
+      "ref": 68,
+      "tag": "div",
+      "depth": 12,
+      "classes": [
+        "bhn1Oq_search"
+      ],
+      "box": {
+        "x": 176,
+        "y": 210,
+        "width": 28,
+        "height": 28
+      }
+    },
+    {
+      "ref": 69,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "bhn1Oq_searchButton"
+      ],
+      "role": "button",
+      "name": "搜索会话",
+      "box": {
+        "x": 176,
+        "y": 210,
+        "width": 28,
+        "height": 28
+      }
+    },
+    {
+      "ref": 70,
+      "tag": "svg",
+      "depth": 14,
+      "box": {
+        "x": 183,
+        "y": 217,
+        "width": 14,
+        "height": 14
+      }
+    },
+    {
+      "ref": 71,
+      "tag": "path",
+      "depth": 15,
+      "box": {
+        "x": 184,
+        "y": 218,
+        "width": 9,
+        "height": 9
+      }
+    },
+    {
+      "ref": 72,
+      "tag": "path",
+      "depth": 15,
+      "box": {
+        "x": 192,
+        "y": 226,
+        "width": 4,
+        "height": 4
+      }
+    },
+    {
+      "ref": 73,
+      "tag": "input",
+      "depth": 13,
+      "classes": [
+        "bhn1Oq_searchInput"
+      ],
+      "role": "textbox",
+      "box": {
+        "x": 204,
+        "y": 214,
+        "width": 4,
+        "height": 20
+      }
+    },
+    {
+      "ref": 74,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "bhn1Oq_headerActions"
+      ],
+      "box": {
+        "x": 208,
+        "y": 210,
+        "width": 60,
+        "height": 28
+      }
+    },
+    {
+      "ref": 75,
+      "tag": "span",
+      "depth": 12,
+      "classes": [
+        "_root_gzo7u_1"
+      ],
+      "box": {
+        "x": 208,
+        "y": 210,
+        "width": 28,
+        "height": 28
+      }
+    },
+    {
+      "ref": 76,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "bhn1Oq_iconButton",
+        "bhn1Oq_wide"
+      ],
+      "role": "button",
+      "name": "视图选项",
+      "box": {
+        "x": 208,
+        "y": 210,
+        "width": 28,
+        "height": 28
+      }
+    },
+    {
+      "ref": 77,
+      "tag": "svg",
+      "depth": 14,
+      "box": {
+        "x": 214,
+        "y": 216,
+        "width": 16,
+        "height": 16
+      }
+    },
+    {
+      "ref": 78,
+      "tag": "circle",
+      "depth": 15,
+      "box": {
+        "x": 223,
+        "y": 220,
+        "width": 3,
+        "height": 3
+      }
+    },
+    {
+      "ref": 79,
+      "tag": "circle",
+      "depth": 15,
+      "box": {
+        "x": 218,
+        "y": 226,
+        "width": 3,
+        "height": 3
+      }
+    },
+    {
+      "ref": 80,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "bhn1Oq_iconButton"
+      ],
+      "role": "button",
+      "name": "添加工作区",
+      "box": {
+        "x": 240,
+        "y": 210,
+        "width": 28,
+        "height": 28
+      }
+    },
+    {
+      "ref": 81,
+      "tag": "svg",
+      "depth": 13,
+      "box": {
+        "x": 246,
+        "y": 216,
+        "width": 16,
+        "height": 16
+      }
+    },
+    {
+      "ref": 82,
+      "tag": "path",
+      "depth": 14,
+      "box": {
+        "x": 247,
+        "y": 218,
+        "width": 13,
+        "height": 12
+      }
+    },
+    {
+      "ref": 83,
+      "tag": "div",
+      "depth": 10,
+      "classes": [
+        "bhn1Oq_listArea"
+      ],
+      "box": {
+        "x": 8,
+        "y": 246,
+        "width": 272,
+        "height": 498
+      }
+    },
+    {
+      "ref": 84,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "bhn1Oq_treeBody",
+        "bhn1Oq_wide"
+      ],
+      "box": {
+        "x": 12,
+        "y": 246,
+        "width": 268,
+        "height": 498
+      }
+    },
+    {
+      "ref": 85,
+      "tag": "div",
+      "depth": 12,
+      "classes": [
+        "bhn1Oq_list"
+      ],
+      "role": "tree",
+      "name": "会话",
+      "box": {
+        "x": 8,
+        "y": 246,
+        "width": 270,
+        "height": 498
+      }
+    },
+    {
+      "ref": 86,
+      "tag": "div",
+      "depth": 13,
+      "classes": [
+        "bhn1Oq_groupSection"
+      ],
+      "box": {
+        "x": 12,
+        "y": 246,
+        "width": 256,
+        "height": 68
+      }
+    },
+    {
+      "ref": 87,
+      "tag": "span",
+      "depth": 14,
+      "classes": [
+        "_root_38jqx_3"
+      ],
+      "box": {
+        "x": 12,
+        "y": 246,
+        "width": 256,
+        "height": 34
+      }
+    },
+    {
+      "ref": 88,
+      "tag": "div",
+      "depth": 15,
+      "classes": [
+        "YDXeBa_projectRow"
+      ],
+      "role": "treeitem",
+      "box": {
+        "x": 12,
+        "y": 246,
+        "width": 256,
+        "height": 34
+      }
+    },
+    {
+      "ref": 89,
+      "tag": "span",
+      "depth": 16,
+      "classes": [
+        "YDXeBa_slot",
+        "YDXeBa_folder",
+        "YDXeBa_folderActive"
+      ],
+      "box": {
+        "x": 20,
+        "y": 253,
+        "width": 16,
+        "height": 20
+      }
+    },
+    {
+      "ref": 90,
+      "tag": "svg",
+      "depth": 17,
+      "box": {
+        "x": 20,
+        "y": 255,
+        "width": 16,
+        "height": 16
+      }
+    },
+    {
+      "ref": 91,
+      "tag": "path",
+      "depth": 18,
+      "box": {
+        "x": 21,
+        "y": 262,
+        "width": 13,
+        "height": 6
+      }
+    },
+    {
+      "ref": 92,
+      "tag": "path",
+      "depth": 18,
+      "box": {
+        "x": 21,
+        "y": 262,
+        "width": 14,
+        "height": 7
+      }
+    },
+    {
+      "ref": 93,
+      "tag": "path",
+      "depth": 18,
+      "box": {
+        "x": 21,
+        "y": 257,
+        "width": 13,
+        "height": 12
+      }
+    },
+    {
+      "ref": 94,
+      "tag": "span",
+      "depth": 16,
+      "classes": [
+        "YDXeBa_projectText"
+      ],
+      "box": {
+        "x": 42,
+        "y": 253,
+        "width": 218,
+        "height": 20
+      }
+    },
+    {
+      "ref": 95,
+      "tag": "span",
+      "depth": 17,
+      "classes": [
+        "YDXeBa_title"
+      ],
+      "name": "默认工作区",
+      "text": "默认工作区",
+      "box": {
+        "x": 42,
+        "y": 253,
+        "width": 218,
+        "height": 20
+      }
+    },
+    {
+      "ref": 96,
+      "tag": "span",
+      "depth": 14,
+      "classes": [
+        "_root_38jqx_3"
+      ],
+      "box": {
+        "x": 12,
+        "y": 282,
+        "width": 256,
+        "height": 32
+      }
+    },
+    {
+      "ref": 97,
+      "tag": "div",
+      "depth": 15,
+      "classes": [
+        "YDXeBa_sessionRow"
+      ],
+      "role": "treeitem",
+      "box": {
+        "x": 12,
+        "y": 282,
+        "width": 256,
+        "height": 32
+      }
+    },
+    {
+      "ref": 98,
+      "tag": "span",
+      "depth": 16,
+      "classes": [
+        "YDXeBa_slot"
+      ],
+      "box": {
+        "x": 20,
+        "y": 288,
+        "width": 16,
+        "height": 20
+      }
+    },
+    {
+      "ref": 99,
+      "tag": "span",
+      "depth": 16,
+      "classes": [
+        "YDXeBa_title"
+      ],
+      "name": "新会话",
+      "text": "新会话",
+      "box": {
+        "x": 40,
+        "y": 288,
+        "width": 214,
+        "height": 20
+      }
+    },
+    {
+      "ref": 100,
+      "tag": "div",
+      "depth": 12,
+      "classes": [
+        "Qg_5Eq_exits"
+      ],
+      "box": {
+        "x": 12,
+        "y": 246,
+        "width": 268,
+        "height": 498
+      }
+    },
+    {
+      "ref": 101,
+      "tag": "span",
+      "depth": 12,
+      "classes": [
+        "bhn1Oq_fade"
+      ],
+      "box": {
+        "x": 12,
+        "y": 720,
+        "width": 256,
+        "height": 24
+      }
+    },
+    {
+      "ref": 102,
+      "tag": "div",
+      "depth": 7,
+      "classes": [
+        "hHd-Xa_footArea"
+      ],
+      "box": {
+        "x": 12,
+        "y": 744,
+        "width": 256,
+        "height": 50
+      }
+    },
+    {
+      "ref": 103,
+      "tag": "div",
+      "depth": 8,
+      "classes": [
+        "hHd-Xa_settingsArea"
+      ],
+      "box": {
+        "x": 12,
+        "y": 744,
+        "width": 256,
+        "height": 50
+      }
+    },
+    {
+      "ref": 104,
+      "tag": "div",
+      "depth": 10,
+      "classes": [
+        "VOzbGW_triggerRow"
+      ],
+      "box": {
+        "x": 10,
+        "y": 748,
+        "width": 260,
+        "height": 42
+      }
+    },
+    {
+      "ref": 105,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "VOzbGW_trigger"
+      ],
+      "role": "button",
+      "name": "设置",
+      "box": {
+        "x": 10,
+        "y": 748,
+        "width": 260,
+        "height": 42
+      }
+    },
+    {
+      "ref": 106,
+      "tag": "svg",
+      "depth": 14,
+      "box": {
+        "x": 18,
+        "y": 761,
+        "width": 16,
+        "height": 16
+      }
+    },
+    {
+      "ref": 107,
+      "tag": "path",
+      "depth": 15,
+      "box": {
+        "x": 24,
+        "y": 767,
+        "width": 4,
+        "height": 4
+      }
+    },
+    {
+      "ref": 108,
+      "tag": "path",
+      "depth": 15,
+      "box": {
+        "x": 20,
+        "y": 763,
+        "width": 12,
+        "height": 12
+      }
+    },
+    {
+      "ref": 109,
+      "tag": "span",
+      "depth": 14,
+      "classes": [
+        "UQsH_q_triggerLabel"
+      ],
+      "name": "设置",
+      "text": "设置",
+      "box": {
+        "x": 42,
+        "y": 758,
+        "width": 29,
+        "height": 22
+      }
+    },
+    {
+      "ref": 110,
+      "tag": "div",
+      "depth": 4,
+      "classes": [
+        "pI_x6G_centerCol"
+      ],
+      "box": {
+        "x": 280,
+        "y": 0,
+        "width": 1000,
+        "height": 800
+      }
+    },
+    {
+      "ref": 111,
+      "tag": "div",
+      "depth": 6,
+      "classes": [
+        "wb-root",
+        "wb-scroll"
+      ],
+      "box": {
+        "x": 280,
+        "y": 0,
+        "width": 1000,
+        "height": 800
+      }
+    },
+    {
+      "ref": 112,
+      "tag": "div",
+      "depth": 7,
+      "classes": [
+        "wb-top"
+      ],
+      "box": {
+        "x": 280,
+        "y": 0,
+        "width": 1000,
+        "height": 77
+      }
+    },
+    {
+      "ref": 113,
+      "tag": "h1",
+      "depth": 8,
+      "classes": [
+        "wb-title"
+      ],
+      "role": "heading",
+      "name": "鲸鱼待办",
+      "text": "鲸鱼待办",
+      "box": {
+        "x": 296,
+        "y": 23,
+        "width": 97,
+        "height": 30
+      }
+    },
+    {
+      "ref": 114,
+      "tag": "div",
+      "depth": 8,
+      "classes": [
+        "wb-tabs"
+      ],
+      "role": "tablist",
+      "name": "View",
+      "box": {
+        "x": 401,
+        "y": 16,
+        "width": 137,
+        "height": 44
+      }
+    },
+    {
+      "ref": 115,
+      "tag": "button",
+      "depth": 9,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "tab",
+      "name": "日历",
+      "text": "日历",
+      "box": {
+        "x": 401,
+        "y": 16,
+        "width": 67,
+        "height": 44
+      }
+    },
+    {
+      "ref": 116,
+      "tag": "button",
+      "depth": 9,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "tab",
+      "name": "待办",
+      "text": "待办",
+      "box": {
+        "x": 472,
+        "y": 16,
+        "width": 67,
+        "height": 44
+      }
+    },
+    {
+      "ref": 117,
+      "tag": "input",
+      "depth": 8,
+      "classes": [
+        "wb-input",
+        "wb-search"
+      ],
+      "role": "textbox",
+      "name": "搜索",
+      "box": {
+        "x": 706,
+        "y": 16,
+        "width": 320,
+        "height": 44
+      }
+    },
+    {
+      "ref": 118,
+      "tag": "button",
+      "depth": 8,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "刷新",
+      "text": "刷新",
+      "box": {
+        "x": 1034,
+        "y": 16,
+        "width": 67,
+        "height": 44
+      }
+    },
+    {
+      "ref": 119,
+      "tag": "button",
+      "depth": 8,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "导入数据",
+      "text": "导入",
+      "box": {
+        "x": 1109,
+        "y": 16,
+        "width": 67,
+        "height": 44
+      }
+    },
+    {
+      "ref": 120,
+      "tag": "button",
+      "depth": 8,
+      "classes": [
+        "wb-btn",
+        "wb-btn-primary"
+      ],
+      "role": "button",
+      "name": "+ 新建",
+      "text": "+ 新建",
+      "box": {
+        "x": 1183,
+        "y": 16,
+        "width": 81,
+        "height": 44
+      }
+    },
+    {
+      "ref": 121,
+      "tag": "div",
+      "depth": 7,
+      "classes": [
+        "wb-status"
+      ],
+      "role": "status",
+      "name": "Ready",
+      "text": "Ready",
+      "box": {
+        "x": 280,
+        "y": 77,
+        "width": 1000,
+        "height": 44
+      }
+    },
+    {
+      "ref": 122,
+      "tag": "div",
+      "depth": 7,
+      "classes": [
+        "wb-status"
+      ],
+      "role": "status",
+      "name": "Loaded from Host Service",
+      "text": "Loaded from Host Service",
+      "box": {
+        "x": 280,
+        "y": 121,
+        "width": 1000,
+        "height": 44
+      }
+    },
+    {
+      "ref": 123,
+      "tag": "div",
+      "depth": 7,
+      "classes": [
+        "wb-status",
+        "wb-reminders"
+      ],
+      "role": "status",
+      "box": {
+        "x": 280,
+        "y": 165,
+        "width": 1000,
+        "height": 44
+      }
+    },
+    {
+      "ref": 124,
+      "tag": "span",
+      "depth": 8,
+      "classes": [
+        "wb-reminder-label"
+      ],
+      "name": "⏰ 提醒",
+      "text": "⏰ 提醒",
+      "box": {
+        "x": 296,
+        "y": 178,
+        "width": 57,
+        "height": 24
+      }
+    },
+    {
+      "ref": 125,
+      "tag": "span",
+      "depth": 8,
+      "classes": [
+        "wb-reminder-chip"
+      ],
+      "name": "任务「今晚要提醒我开会」到期（提醒时刻 2026-11-06T15:15:00.000Z，提前 15 分钟）",
+      "text": "23:15 今晚要提醒我开会",
+      "box": {
+        "x": 361,
+        "y": 173,
+        "width": 193,
+        "height": 34
+      }
+    },
+    {
+      "ref": 126,
+      "tag": "span",
+      "depth": 8,
+      "classes": [
+        "wb-reminder-chip"
+      ],
+      "name": "日程「周会」即将开始（提醒时刻 2026-11-09T01:45:00.000Z，提前 15 分钟）",
+      "text": "11-09 09:45 周会",
+      "box": {
+        "x": 562,
+        "y": 173,
+        "width": 144,
+        "height": 34
+      }
+    },
+    {
+      "ref": 127,
+      "tag": "span",
+      "depth": 8,
+      "classes": [
+        "wb-reminder-chip"
+      ],
+      "name": "日程「版本发布」即将开始（提醒时刻 2026-11-12T07:45:00.000Z，提前 15 分钟）",
+      "text": "11-12 15:45 版本发布",
+      "box": {
+        "x": 714,
+        "y": 173,
+        "width": 170,
+        "height": 34
+      }
+    },
+    {
+      "ref": 128,
+      "tag": "div",
+      "depth": 7,
+      "classes": [
+        "wb-body"
+      ],
+      "box": {
+        "x": 280,
+        "y": 209,
+        "width": 1000,
+        "height": 591
+      }
+    },
+    {
+      "ref": 129,
+      "tag": "div",
+      "depth": 8,
+      "classes": [
+        "wb-main",
+        "wb-scroll"
+      ],
+      "box": {
+        "x": 280,
+        "y": 209,
+        "width": 680,
+        "height": 591
+      }
+    },
+    {
+      "ref": 130,
+      "tag": "div",
+      "depth": 9,
+      "box": {
+        "x": 296,
+        "y": 225,
+        "width": 648,
+        "height": 832
+      }
+    },
+    {
+      "ref": 131,
+      "tag": "div",
+      "depth": 10,
+      "classes": [
+        "wb-section"
+      ],
+      "box": {
+        "x": 296,
+        "y": 225,
+        "width": 648,
+        "height": 96
+      }
+    },
+    {
+      "ref": 132,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-tabs"
+      ],
+      "role": "tablist",
+      "name": "View",
+      "box": {
+        "x": 296,
+        "y": 225,
+        "width": 648,
+        "height": 44
+      }
+    },
+    {
+      "ref": 133,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "tab",
+      "name": "月",
+      "text": "月",
+      "box": {
+        "x": 296,
+        "y": 225,
+        "width": 50,
+        "height": 44
+      }
+    },
+    {
+      "ref": 134,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "tab",
+      "name": "周",
+      "text": "周",
+      "box": {
+        "x": 350,
+        "y": 225,
+        "width": 50,
+        "height": 44
+      }
+    },
+    {
+      "ref": 135,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "tab",
+      "name": "日",
+      "text": "日",
+      "box": {
+        "x": 405,
+        "y": 225,
+        "width": 50,
+        "height": 44
+      }
+    },
+    {
+      "ref": 136,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "tab",
+      "name": "议程",
+      "text": "议程",
+      "box": {
+        "x": 459,
+        "y": 225,
+        "width": 67,
+        "height": 44
+      }
+    },
+    {
+      "ref": 137,
+      "tag": "div",
+      "depth": 11,
+      "box": {
+        "x": 296,
+        "y": 277,
+        "width": 648,
+        "height": 44
+      }
+    },
+    {
+      "ref": 138,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "Previous",
+      "text": "‹",
+      "box": {
+        "x": 296,
+        "y": 277,
+        "width": 44,
+        "height": 44
+      }
+    },
+    {
+      "ref": 139,
+      "tag": "span",
+      "depth": 12,
+      "classes": [
+        "wb-muted"
+      ],
+      "name": "Fri Nov 06 2026",
+      "text": "Fri Nov 06 2026",
+      "box": {
+        "x": 348,
+        "y": 287,
+        "width": 118,
+        "height": 24
+      }
+    },
+    {
+      "ref": 140,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "Next",
+      "text": "›",
+      "box": {
+        "x": 474,
+        "y": 277,
+        "width": 44,
+        "height": 44
+      }
+    },
+    {
+      "ref": 141,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "Today",
+      "text": "Today",
+      "box": {
+        "x": 526,
+        "y": 277,
+        "width": 78,
+        "height": 44
+      }
+    },
+    {
+      "ref": 142,
+      "tag": "div",
+      "depth": 10,
+      "classes": [
+        "wb-grid",
+        "wb-grid-7"
+      ],
+      "box": {
+        "x": 296,
+        "y": 337,
+        "width": 648,
+        "height": 414
+      }
+    },
+    {
+      "ref": 143,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "name": "Mon",
+      "text": "Mon",
+      "box": {
+        "x": 296,
+        "y": 337,
+        "width": 86,
+        "height": 34
+      }
+    },
+    {
+      "ref": 144,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "name": "Tue",
+      "text": "Tue",
+      "box": {
+        "x": 390,
+        "y": 337,
+        "width": 86,
+        "height": 34
+      }
+    },
+    {
+      "ref": 145,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "name": "Wed",
+      "text": "Wed",
+      "box": {
+        "x": 483,
+        "y": 337,
+        "width": 86,
+        "height": 34
+      }
+    },
+    {
+      "ref": 146,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "name": "Thu",
+      "text": "Thu",
+      "box": {
+        "x": 577,
+        "y": 337,
+        "width": 86,
+        "height": 34
+      }
+    },
+    {
+      "ref": 147,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "name": "Fri",
+      "text": "Fri",
+      "box": {
+        "x": 671,
+        "y": 337,
+        "width": 86,
+        "height": 34
+      }
+    },
+    {
+      "ref": 148,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "name": "Sat",
+      "text": "Sat",
+      "box": {
+        "x": 765,
+        "y": 337,
+        "width": 86,
+        "height": 34
+      }
+    },
+    {
+      "ref": 149,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "name": "Sun",
+      "text": "Sun",
+      "box": {
+        "x": 858,
+        "y": 337,
+        "width": 86,
+        "height": 34
+      }
+    },
+    {
+      "ref": 150,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-10-26，0 个事件；拖放可改期",
+      "box": {
+        "x": 296,
+        "y": 379,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 151,
+      "tag": "div",
+      "depth": 12,
+      "name": "26",
+      "text": "26",
+      "box": {
+        "x": 305,
+        "y": 388,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 152,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-10-27，0 个事件；拖放可改期",
+      "box": {
+        "x": 390,
+        "y": 379,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 153,
+      "tag": "div",
+      "depth": 12,
+      "name": "27",
+      "text": "27",
+      "box": {
+        "x": 399,
+        "y": 388,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 154,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-10-28，0 个事件；拖放可改期",
+      "box": {
+        "x": 483,
+        "y": 379,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 155,
+      "tag": "div",
+      "depth": 12,
+      "name": "28",
+      "text": "28",
+      "box": {
+        "x": 492,
+        "y": 388,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 156,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-10-29，0 个事件；拖放可改期",
+      "box": {
+        "x": 577,
+        "y": 379,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 157,
+      "tag": "div",
+      "depth": 12,
+      "name": "29",
+      "text": "29",
+      "box": {
+        "x": 586,
+        "y": 388,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 158,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-10-30，0 个事件；拖放可改期",
+      "box": {
+        "x": 671,
+        "y": 379,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 159,
+      "tag": "div",
+      "depth": 12,
+      "name": "30",
+      "text": "30",
+      "box": {
+        "x": 680,
+        "y": 388,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 160,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-10-31，0 个事件；拖放可改期",
+      "box": {
+        "x": 765,
+        "y": 379,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 161,
+      "tag": "div",
+      "depth": 12,
+      "name": "31",
+      "text": "31",
+      "box": {
+        "x": 774,
+        "y": 388,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 162,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-01，0 个事件；拖放可改期",
+      "box": {
+        "x": 858,
+        "y": 379,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 163,
+      "tag": "div",
+      "depth": 12,
+      "name": "1",
+      "text": "1",
+      "box": {
+        "x": 867,
+        "y": 388,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 164,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-02，0 个事件；拖放可改期",
+      "box": {
+        "x": 296,
+        "y": 431,
+        "width": 86,
+        "height": 90
+      }
+    },
+    {
+      "ref": 165,
+      "tag": "div",
+      "depth": 12,
+      "name": "2",
+      "text": "2",
+      "box": {
+        "x": 305,
+        "y": 440,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 166,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-03，0 个事件；拖放可改期",
+      "box": {
+        "x": 390,
+        "y": 431,
+        "width": 86,
+        "height": 90
+      }
+    },
+    {
+      "ref": 167,
+      "tag": "div",
+      "depth": 12,
+      "name": "3",
+      "text": "3",
+      "box": {
+        "x": 399,
+        "y": 440,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 168,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-04，0 个事件；拖放可改期",
+      "box": {
+        "x": 483,
+        "y": 431,
+        "width": 86,
+        "height": 90
+      }
+    },
+    {
+      "ref": 169,
+      "tag": "div",
+      "depth": 12,
+      "name": "4",
+      "text": "4",
+      "box": {
+        "x": 492,
+        "y": 440,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 170,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-05，0 个事件；拖放可改期",
+      "box": {
+        "x": 577,
+        "y": 431,
+        "width": 86,
+        "height": 90
+      }
+    },
+    {
+      "ref": 171,
+      "tag": "div",
+      "depth": 12,
+      "name": "5",
+      "text": "5",
+      "box": {
+        "x": 586,
+        "y": 440,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 172,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell",
+        "wb-cell-today"
+      ],
+      "role": "button",
+      "name": "2026-11-06，2 个事件；拖放可改期",
+      "box": {
+        "x": 671,
+        "y": 431,
+        "width": 86,
+        "height": 90
+      }
+    },
+    {
+      "ref": 173,
+      "tag": "div",
+      "depth": 12,
+      "name": "6",
+      "text": "6",
+      "box": {
+        "x": 680,
+        "y": 440,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 174,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "role": "button",
+      "name": "需求评审会，拖动可改期",
+      "text": "09:30 · 需求评审会",
+      "box": {
+        "x": 680,
+        "y": 469,
+        "width": 68,
+        "height": 17
+      }
+    },
+    {
+      "ref": 175,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "role": "button",
+      "name": "与设计师对齐，拖动可改期",
+      "text": "14:00 · 与设计师对齐",
+      "box": {
+        "x": 680,
+        "y": 493,
+        "width": 68,
+        "height": 17
+      }
+    },
+    {
+      "ref": 176,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-07，0 个事件；拖放可改期",
+      "box": {
+        "x": 765,
+        "y": 431,
+        "width": 86,
+        "height": 90
+      }
+    },
+    {
+      "ref": 177,
+      "tag": "div",
+      "depth": 12,
+      "name": "7",
+      "text": "7",
+      "box": {
+        "x": 774,
+        "y": 440,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 178,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-08，0 个事件；拖放可改期",
+      "box": {
+        "x": 858,
+        "y": 431,
+        "width": 86,
+        "height": 90
+      }
+    },
+    {
+      "ref": 179,
+      "tag": "div",
+      "depth": 12,
+      "name": "8",
+      "text": "8",
+      "box": {
+        "x": 867,
+        "y": 440,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 180,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-09，1 个事件；拖放可改期",
+      "box": {
+        "x": 296,
+        "y": 529,
+        "width": 86,
+        "height": 66
+      }
+    },
+    {
+      "ref": 181,
+      "tag": "div",
+      "depth": 12,
+      "name": "9",
+      "text": "9",
+      "box": {
+        "x": 305,
+        "y": 538,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 182,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "role": "button",
+      "name": "周会，拖动可改期",
+      "text": "10:00 · 周会",
+      "box": {
+        "x": 305,
+        "y": 567,
+        "width": 67,
+        "height": 17
+      }
+    },
+    {
+      "ref": 183,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-10，0 个事件；拖放可改期",
+      "box": {
+        "x": 390,
+        "y": 529,
+        "width": 86,
+        "height": 66
+      }
+    },
+    {
+      "ref": 184,
+      "tag": "div",
+      "depth": 12,
+      "name": "10",
+      "text": "10",
+      "box": {
+        "x": 399,
+        "y": 538,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 185,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-11，0 个事件；拖放可改期",
+      "box": {
+        "x": 483,
+        "y": 529,
+        "width": 86,
+        "height": 66
+      }
+    },
+    {
+      "ref": 186,
+      "tag": "div",
+      "depth": 12,
+      "name": "11",
+      "text": "11",
+      "box": {
+        "x": 492,
+        "y": 538,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 187,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-12，1 个事件；拖放可改期",
+      "box": {
+        "x": 577,
+        "y": 529,
+        "width": 86,
+        "height": 66
+      }
+    },
+    {
+      "ref": 188,
+      "tag": "div",
+      "depth": 12,
+      "name": "12",
+      "text": "12",
+      "box": {
+        "x": 586,
+        "y": 538,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 189,
+      "tag": "button",
+      "depth": 12,
+      "classes": [
+        "wb-tertiary"
+      ],
+      "role": "button",
+      "name": "版本发布，拖动可改期",
+      "text": "16:00 · 版本发布",
+      "box": {
+        "x": 586,
+        "y": 567,
+        "width": 68,
+        "height": 17
+      }
+    },
+    {
+      "ref": 190,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-13，0 个事件；拖放可改期",
+      "box": {
+        "x": 671,
+        "y": 529,
+        "width": 86,
+        "height": 66
+      }
+    },
+    {
+      "ref": 191,
+      "tag": "div",
+      "depth": 12,
+      "name": "13",
+      "text": "13",
+      "box": {
+        "x": 680,
+        "y": 538,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 192,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-14，0 个事件；拖放可改期",
+      "box": {
+        "x": 765,
+        "y": 529,
+        "width": 86,
+        "height": 66
+      }
+    },
+    {
+      "ref": 193,
+      "tag": "div",
+      "depth": 12,
+      "name": "14",
+      "text": "14",
+      "box": {
+        "x": 774,
+        "y": 538,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 194,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-15，0 个事件；拖放可改期",
+      "box": {
+        "x": 858,
+        "y": 529,
+        "width": 86,
+        "height": 66
+      }
+    },
+    {
+      "ref": 195,
+      "tag": "div",
+      "depth": 12,
+      "name": "15",
+      "text": "15",
+      "box": {
+        "x": 867,
+        "y": 538,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 196,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-16，0 个事件；拖放可改期",
+      "box": {
+        "x": 296,
+        "y": 603,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 197,
+      "tag": "div",
+      "depth": 12,
+      "name": "16",
+      "text": "16",
+      "box": {
+        "x": 305,
+        "y": 612,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 198,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-17，0 个事件；拖放可改期",
+      "box": {
+        "x": 390,
+        "y": 603,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 199,
+      "tag": "div",
+      "depth": 12,
+      "name": "17",
+      "text": "17",
+      "box": {
+        "x": 399,
+        "y": 612,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 200,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-18，0 个事件；拖放可改期",
+      "box": {
+        "x": 483,
+        "y": 603,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 201,
+      "tag": "div",
+      "depth": 12,
+      "name": "18",
+      "text": "18",
+      "box": {
+        "x": 492,
+        "y": 612,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 202,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-19，0 个事件；拖放可改期",
+      "box": {
+        "x": 577,
+        "y": 603,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 203,
+      "tag": "div",
+      "depth": 12,
+      "name": "19",
+      "text": "19",
+      "box": {
+        "x": 586,
+        "y": 612,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 204,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-20，0 个事件；拖放可改期",
+      "box": {
+        "x": 671,
+        "y": 603,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 205,
+      "tag": "div",
+      "depth": 12,
+      "name": "20",
+      "text": "20",
+      "box": {
+        "x": 680,
+        "y": 612,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 206,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-21，0 个事件；拖放可改期",
+      "box": {
+        "x": 765,
+        "y": 603,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 207,
+      "tag": "div",
+      "depth": 12,
+      "name": "21",
+      "text": "21",
+      "box": {
+        "x": 774,
+        "y": 612,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 208,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-22，0 个事件；拖放可改期",
+      "box": {
+        "x": 858,
+        "y": 603,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 209,
+      "tag": "div",
+      "depth": 12,
+      "name": "22",
+      "text": "22",
+      "box": {
+        "x": 867,
+        "y": 612,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 210,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-23，0 个事件；拖放可改期",
+      "box": {
+        "x": 296,
+        "y": 655,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 211,
+      "tag": "div",
+      "depth": 12,
+      "name": "23",
+      "text": "23",
+      "box": {
+        "x": 305,
+        "y": 664,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 212,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-24，0 个事件；拖放可改期",
+      "box": {
+        "x": 390,
+        "y": 655,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 213,
+      "tag": "div",
+      "depth": 12,
+      "name": "24",
+      "text": "24",
+      "box": {
+        "x": 399,
+        "y": 664,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 214,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-25，0 个事件；拖放可改期",
+      "box": {
+        "x": 483,
+        "y": 655,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 215,
+      "tag": "div",
+      "depth": 12,
+      "name": "25",
+      "text": "25",
+      "box": {
+        "x": 492,
+        "y": 664,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 216,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-26，0 个事件；拖放可改期",
+      "box": {
+        "x": 577,
+        "y": 655,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 217,
+      "tag": "div",
+      "depth": 12,
+      "name": "26",
+      "text": "26",
+      "box": {
+        "x": 586,
+        "y": 664,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 218,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-27，0 个事件；拖放可改期",
+      "box": {
+        "x": 671,
+        "y": 655,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 219,
+      "tag": "div",
+      "depth": 12,
+      "name": "27",
+      "text": "27",
+      "box": {
+        "x": 680,
+        "y": 664,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 220,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-28，0 个事件；拖放可改期",
+      "box": {
+        "x": 765,
+        "y": 655,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 221,
+      "tag": "div",
+      "depth": 12,
+      "name": "28",
+      "text": "28",
+      "box": {
+        "x": 774,
+        "y": 664,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 222,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-29，0 个事件；拖放可改期",
+      "box": {
+        "x": 858,
+        "y": 655,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 223,
+      "tag": "div",
+      "depth": 12,
+      "name": "29",
+      "text": "29",
+      "box": {
+        "x": 867,
+        "y": 664,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 224,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-11-30，0 个事件；拖放可改期",
+      "box": {
+        "x": 296,
+        "y": 707,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 225,
+      "tag": "div",
+      "depth": 12,
+      "name": "30",
+      "text": "30",
+      "box": {
+        "x": 305,
+        "y": 716,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 226,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-12-01，0 个事件；拖放可改期",
+      "box": {
+        "x": 390,
+        "y": 707,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 227,
+      "tag": "div",
+      "depth": 12,
+      "name": "1",
+      "text": "1",
+      "box": {
+        "x": 399,
+        "y": 716,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 228,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-12-02，0 个事件；拖放可改期",
+      "box": {
+        "x": 483,
+        "y": 707,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 229,
+      "tag": "div",
+      "depth": 12,
+      "name": "2",
+      "text": "2",
+      "box": {
+        "x": 492,
+        "y": 716,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 230,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-12-03，0 个事件；拖放可改期",
+      "box": {
+        "x": 577,
+        "y": 707,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 231,
+      "tag": "div",
+      "depth": 12,
+      "name": "3",
+      "text": "3",
+      "box": {
+        "x": 586,
+        "y": 716,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 232,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-12-04，0 个事件；拖放可改期",
+      "box": {
+        "x": 671,
+        "y": 707,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 233,
+      "tag": "div",
+      "depth": 12,
+      "name": "4",
+      "text": "4",
+      "box": {
+        "x": 680,
+        "y": 716,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 234,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-12-05，0 个事件；拖放可改期",
+      "box": {
+        "x": 765,
+        "y": 707,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 235,
+      "tag": "div",
+      "depth": 12,
+      "name": "5",
+      "text": "5",
+      "box": {
+        "x": 774,
+        "y": 716,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 236,
+      "tag": "div",
+      "depth": 11,
+      "classes": [
+        "wb-cell"
+      ],
+      "role": "button",
+      "name": "2026-12-06，0 个事件；拖放可改期",
+      "box": {
+        "x": 858,
+        "y": 707,
+        "width": 86,
+        "height": 44
+      }
+    },
+    {
+      "ref": 237,
+      "tag": "div",
+      "depth": 12,
+      "name": "6",
+      "text": "6",
+      "box": {
+        "x": 867,
+        "y": 716,
+        "width": 68,
+        "height": 24
+      }
+    },
+    {
+      "ref": 238,
+      "tag": "div",
+      "depth": 10,
+      "classes": [
+        "wb-section"
+      ],
+      "box": {
+        "x": 296,
+        "y": 775,
+        "width": 648,
+        "height": 282
+      }
+    },
+    {
+      "ref": 239,
+      "tag": "h2",
+      "depth": 11,
+      "role": "heading",
+      "name": "今日 & next 7 days",
+      "text": "今日 & next 7 days",
+      "box": {
+        "x": 296,
+        "y": 775,
+        "width": 648,
+        "height": 30
+      }
+    },
+    {
+      "ref": 240,
+      "tag": "div",
+      "depth": 11,
+      "box": {
+        "x": 296,
+        "y": 813,
+        "width": 648,
+        "height": 244
+      }
+    },
+    {
+      "ref": 241,
+      "tag": "div",
+      "depth": 12,
+      "classes": [
+        "wb-row"
+      ],
+      "box": {
+        "x": 296,
+        "y": 813,
+        "width": 648,
+        "height": 61
+      }
+    },
+    {
+      "ref": 242,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "wb-row-main"
+      ],
+      "role": "button",
+      "name": "需求评审会，拖动可改期",
+      "box": {
+        "x": 304,
+        "y": 821,
+        "width": 577,
+        "height": 44
+      }
+    },
+    {
+      "ref": 243,
+      "tag": "span",
+      "depth": 14,
+      "name": "09:30",
+      "text": "09:30",
+      "box": {
+        "x": 310,
+        "y": 831,
+        "width": 43,
+        "height": 24
+      }
+    },
+    {
+      "ref": 244,
+      "tag": "span",
+      "depth": 14,
+      "name": "需求评审会",
+      "text": "需求评审会",
+      "box": {
+        "x": 361,
+        "y": 831,
+        "width": 514,
+        "height": 24
+      }
+    },
+    {
+      "ref": 245,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "Open 需求评审会",
+      "text": "…",
+      "box": {
+        "x": 889,
+        "y": 821,
+        "width": 47,
+        "height": 44
+      }
+    },
+    {
+      "ref": 246,
+      "tag": "div",
+      "depth": 12,
+      "classes": [
+        "wb-row"
+      ],
+      "box": {
+        "x": 296,
+        "y": 874,
+        "width": 648,
+        "height": 61
+      }
+    },
+    {
+      "ref": 247,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "wb-row-main"
+      ],
+      "role": "button",
+      "name": "与设计师对齐，拖动可改期",
+      "box": {
+        "x": 304,
+        "y": 882,
+        "width": 577,
+        "height": 44
+      }
+    },
+    {
+      "ref": 248,
+      "tag": "span",
+      "depth": 14,
+      "name": "14:00",
+      "text": "14:00",
+      "box": {
+        "x": 310,
+        "y": 892,
+        "width": 41,
+        "height": 24
+      }
+    },
+    {
+      "ref": 249,
+      "tag": "span",
+      "depth": 14,
+      "name": "与设计师对齐",
+      "text": "与设计师对齐",
+      "box": {
+        "x": 359,
+        "y": 892,
+        "width": 516,
+        "height": 24
+      }
+    },
+    {
+      "ref": 250,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "Open 与设计师对齐",
+      "text": "…",
+      "box": {
+        "x": 889,
+        "y": 882,
+        "width": 47,
+        "height": 44
+      }
+    },
+    {
+      "ref": 251,
+      "tag": "div",
+      "depth": 12,
+      "classes": [
+        "wb-row"
+      ],
+      "box": {
+        "x": 296,
+        "y": 935,
+        "width": 648,
+        "height": 61
+      }
+    },
+    {
+      "ref": 252,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "wb-row-main"
+      ],
+      "role": "button",
+      "name": "周会，拖动可改期",
+      "box": {
+        "x": 304,
+        "y": 943,
+        "width": 577,
+        "height": 44
+      }
+    },
+    {
+      "ref": 253,
+      "tag": "span",
+      "depth": 14,
+      "name": "10:00",
+      "text": "10:00",
+      "box": {
+        "x": 310,
+        "y": 953,
+        "width": 41,
+        "height": 24
+      }
+    },
+    {
+      "ref": 254,
+      "tag": "span",
+      "depth": 14,
+      "name": "周会",
+      "text": "周会",
+      "box": {
+        "x": 359,
+        "y": 953,
+        "width": 453,
+        "height": 24
+      }
+    },
+    {
+      "ref": 255,
+      "tag": "span",
+      "depth": 14,
+      "classes": [
+        "wb-badge"
+      ],
+      "name": "Repeat",
+      "text": "Repeat",
+      "box": {
+        "x": 820,
+        "y": 952,
+        "width": 56,
+        "height": 26
+      }
+    },
+    {
+      "ref": 256,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "Open 周会",
+      "text": "…",
+      "box": {
+        "x": 889,
+        "y": 943,
+        "width": 47,
+        "height": 44
+      }
+    },
+    {
+      "ref": 257,
+      "tag": "div",
+      "depth": 12,
+      "classes": [
+        "wb-row"
+      ],
+      "box": {
+        "x": 296,
+        "y": 996,
+        "width": 648,
+        "height": 61
+      }
+    },
+    {
+      "ref": 258,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "wb-row-main"
+      ],
+      "role": "button",
+      "name": "版本发布，拖动可改期",
+      "box": {
+        "x": 304,
+        "y": 1004,
+        "width": 577,
+        "height": 44
+      }
+    },
+    {
+      "ref": 259,
+      "tag": "span",
+      "depth": 14,
+      "name": "16:00",
+      "text": "16:00",
+      "box": {
+        "x": 310,
+        "y": 1014,
+        "width": 41,
+        "height": 24
+      }
+    },
+    {
+      "ref": 260,
+      "tag": "span",
+      "depth": 14,
+      "name": "版本发布",
+      "text": "版本发布",
+      "box": {
+        "x": 359,
+        "y": 1014,
+        "width": 516,
+        "height": 24
+      }
+    },
+    {
+      "ref": 261,
+      "tag": "button",
+      "depth": 13,
+      "classes": [
+        "wb-btn"
+      ],
+      "role": "button",
+      "name": "Open 版本发布",
+      "text": "…",
+      "box": {
+        "x": 889,
+        "y": 1004,
+        "width": 47,
+        "height": 44
+      }
+    },
+    {
+      "ref": 262,
+      "tag": "div",
+      "depth": 8,
+      "classes": [
+        "wb-side",
+        "wb-scroll"
+      ],
+      "box": {
+        "x": 960,
+        "y": 209,
+        "width": 320,
+        "height": 591
+      }
+    },
+    {
+      "ref": 263,
+      "tag": "div",
+      "depth": 9,
+      "classes": [
+        "wb-empty"
+      ],
+      "name": "Select an event or task to see details",
+      "text": "Select an event or task to see details",
+      "box": {
+        "x": 977,
+        "y": 225,
+        "width": 287,
+        "height": 112
+      }
+    },
+    {
+      "ref": 264,
+      "tag": "div",
+      "depth": 4,
+      "classes": [
+        "pI_x6G_overlayLayer"
+      ],
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "ref": 265,
+      "tag": "div",
+      "depth": 4,
+      "classes": [
+        "pI_x6G_handle"
+      ],
+      "box": {
+        "x": 276,
+        "y": 0,
+        "width": 8,
+        "height": 800
+      }
+    }
+  ]
+}

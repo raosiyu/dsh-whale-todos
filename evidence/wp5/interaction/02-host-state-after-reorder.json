@@ -1,0 +1,1762 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-06T14:44:18.939Z",
+  "events": [
+    {
+      "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+      "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+      "title": "需求评审会",
+      "description": "",
+      "location": "",
+      "allDay": false,
+      "importance": "normal",
+      "tags": [],
+      "source": "local",
+      "status": "confirmed",
+      "timeZone": "Asia/Shanghai",
+      "start": "2026-11-06T09:30:00",
+      "end": null,
+      "startDate": null,
+      "endDate": null,
+      "recurrence": null,
+      "excludeDates": [],
+      "createdAt": "2026-11-06T13:41:33.411Z",
+      "updatedAt": "2026-11-06T13:41:33.411Z",
+      "deletedAt": null
+    },
+    {
+      "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+      "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+      "title": "与设计师对齐",
+      "description": "",
+      "location": "",
+      "allDay": false,
+      "importance": "normal",
+      "tags": [],
+      "source": "local",
+      "status": "confirmed",
+      "timeZone": "Asia/Shanghai",
+      "start": "2026-11-06T14:00:00",
+      "end": null,
+      "startDate": null,
+      "endDate": null,
+      "recurrence": null,
+      "excludeDates": [],
+      "createdAt": "2026-11-06T13:41:33.426Z",
+      "updatedAt": "2026-11-06T13:41:33.426Z",
+      "deletedAt": null
+    },
+    {
+      "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+      "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+      "title": "周会",
+      "description": "",
+      "location": "",
+      "allDay": false,
+      "importance": "normal",
+      "tags": [],
+      "source": "local",
+      "status": "confirmed",
+      "timeZone": "Asia/Shanghai",
+      "start": "2026-11-09T10:00:00",
+      "end": null,
+      "startDate": null,
+      "endDate": null,
+      "recurrence": {
+        "freq": "WEEKLY",
+        "interval": 1,
+        "count": 4
+      },
+      "excludeDates": [],
+      "createdAt": "2026-11-06T13:41:33.442Z",
+      "updatedAt": "2026-11-06T13:41:33.442Z",
+      "deletedAt": null
+    },
+    {
+      "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+      "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+      "title": "版本发布",
+      "description": "",
+      "location": "",
+      "allDay": false,
+      "importance": "normal",
+      "tags": [],
+      "source": "local",
+      "status": "confirmed",
+      "timeZone": "Asia/Shanghai",
+      "start": "2026-11-12T16:00:00",
+      "end": null,
+      "startDate": null,
+      "endDate": null,
+      "recurrence": null,
+      "excludeDates": [],
+      "createdAt": "2026-11-06T13:41:33.456Z",
+      "updatedAt": "2026-11-06T13:41:33.456Z",
+      "deletedAt": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "写 WP5 交付报告",
+      "dueAt": "2026-11-06T10:00:00.000Z",
+      "priority": "high",
+      "project": "WP5",
+      "subtasks": [
+        "单元测试",
+        "变异测试"
+      ],
+      "done": true,
+      "order": 0
+    },
+    {
+      "id": "t2",
+      "title": "整理变异测试日志",
+      "dueAt": "2026-11-06T10:00:00.000Z",
+      "status": "doing",
+      "project": "WP5",
+      "done": true,
+      "order": 1
+    },
+    {
+      "id": "t3",
+      "title": "复审数据导入",
+      "status": "planned",
+      "project": "WP5",
+      "order": 2
+    },
+    {
+      "id": "t4",
+      "title": "归档旧版验收文档",
+      "done": true,
+      "project": "WP4"
+    },
+    {
+      "id": "t-1793972875181-kg90lb",
+      "title": "从界面新建的待办",
+      "dueAt": "",
+      "priority": "normal",
+      "done": false,
+      "status": "planned"
+    },
+    {
+      "id": "t-reminder-demo",
+      "title": "今晚要提醒我开会",
+      "dueAt": "2026-11-06T15:30:00.000Z",
+      "done": false,
+      "priority": "high",
+      "status": "planned",
+      "project": "WP5",
+      "subtasks": [],
+      "deleted": false,
+      "deletedAt": null,
+      "archived": true
+    },
+    {
+      "id": "t-sort-0",
+      "title": "排序测试 A",
+      "done": false,
+      "status": "planned",
+      "priority": "normal",
+      "project": "WP5",
+      "subtasks": [],
+      "order": 3
+    },
+    {
+      "id": "t-sort-1",
+      "title": "排序测试 B",
+      "done": false,
+      "status": "planned",
+      "priority": "normal",
+      "project": "WP5",
+      "subtasks": [],
+      "order": 5
+    },
+    {
+      "id": "t-sort-2",
+      "title": "排序测试 C",
+      "done": false,
+      "status": "planned",
+      "priority": "normal",
+      "project": "WP5",
+      "subtasks": [],
+      "order": 4
+    }
+  ],
+  "audit": [
+    {
+      "id": "91ded759-49b5-4641-a2ce-969033a7207f",
+      "at": "2026-11-06T13:41:33.411Z",
+      "action": "event.create",
+      "entity": "event",
+      "entityId": "31a60a20-93f7-41ad-aebe-5596b554a064",
+      "actor": "ui",
+      "after": {
+        "title": "需求评审会",
+        "allDay": false,
+        "startDate": null,
+        "endDate": null,
+        "start": "2026-11-06T09:30:00",
+        "end": null,
+        "timeZone": "Asia/Shanghai",
+        "recurrence": null,
+        "importance": "normal"
+      }
+    },
+    {
+      "id": "bc7cc879-645d-49ea-9215-f061fa3b275a",
+      "at": "2026-11-06T13:41:33.426Z",
+      "action": "event.create",
+      "entity": "event",
+      "entityId": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+      "actor": "ui",
+      "after": {
+        "title": "与设计师对齐",
+        "allDay": false,
+        "startDate": null,
+        "endDate": null,
+        "start": "2026-11-06T14:00:00",
+        "end": null,
+        "timeZone": "Asia/Shanghai",
+        "recurrence": null,
+        "importance": "normal"
+      }
+    },
+    {
+      "id": "0ee9930a-f227-4557-9ec7-383ef0d56fbf",
+      "at": "2026-11-06T13:41:33.442Z",
+      "action": "event.create",
+      "entity": "event",
+      "entityId": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+      "actor": "ui",
+      "after": {
+        "title": "周会",
+        "allDay": false,
+        "startDate": null,
+        "endDate": null,
+        "start": "2026-11-09T10:00:00",
+        "end": null,
+        "timeZone": "Asia/Shanghai",
+        "recurrence": {
+          "freq": "WEEKLY",
+          "interval": 1,
+          "count": 4
+        },
+        "importance": "normal"
+      }
+    },
+    {
+      "id": "057919c2-4780-425e-a44e-e022583cdd72",
+      "at": "2026-11-06T13:41:33.456Z",
+      "action": "event.create",
+      "entity": "event",
+      "entityId": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+      "actor": "ui",
+      "after": {
+        "title": "版本发布",
+        "allDay": false,
+        "startDate": null,
+        "endDate": null,
+        "start": "2026-11-12T16:00:00",
+        "end": null,
+        "timeZone": "Asia/Shanghai",
+        "recurrence": null,
+        "importance": "normal"
+      }
+    },
+    {
+      "id": "b05ba572-fa6d-4881-8a0d-f3b9ef7e37f5",
+      "at": "2026-11-06T13:41:33.473Z",
+      "action": "task.create",
+      "entity": "task",
+      "entityId": "t1",
+      "actor": "ui"
+    },
+    {
+      "id": "7f01e3ab-abc9-4b6f-8dc8-da0fe9e3abcf",
+      "at": "2026-11-06T13:41:33.487Z",
+      "action": "task.create",
+      "entity": "task",
+      "entityId": "t2",
+      "actor": "ui"
+    },
+    {
+      "id": "896845df-a9af-464d-8886-860011671f55",
+      "at": "2026-11-06T13:41:33.501Z",
+      "action": "task.create",
+      "entity": "task",
+      "entityId": "t3",
+      "actor": "ui"
+    },
+    {
+      "id": "f89cf154-a471-41bd-b529-133369ba6edf",
+      "at": "2026-11-06T13:41:33.517Z",
+      "action": "task.create",
+      "entity": "task",
+      "entityId": "t4",
+      "actor": "ui"
+    },
+    {
+      "id": "b0a52747-f204-4a4e-a487-15232084eb04",
+      "at": "2026-11-06T13:42:20.195Z",
+      "action": "task.update",
+      "entity": "task",
+      "entityId": "t1",
+      "actor": "ui"
+    },
+    {
+      "id": "8d2e1ce4-ba65-4444-b5b8-4c10a3f25f37",
+      "at": "2026-11-06T13:47:55.188Z",
+      "action": "task.create",
+      "entity": "task",
+      "entityId": "t-1793972875181-kg90lb",
+      "actor": "ui"
+    },
+    {
+      "id": "33c13ef4-5542-459c-b2cf-81d626166eb1",
+      "at": "2026-11-06T13:52:52.047Z",
+      "action": "task.update",
+      "entity": "task",
+      "entityId": "t2",
+      "actor": "ui"
+    },
+    {
+      "id": "5ca2b83b-493b-44c3-9725-f7c9f92f413c",
+      "at": "2026-11-06T14:42:33.589Z",
+      "action": "task.archive",
+      "entity": "task",
+      "entityId": "t-reminder-demo",
+      "actor": "ui",
+      "after": {
+        "count": 1,
+        "archived": true
+      }
+    },
+    {
+      "id": "659f33ec-642b-4dac-a4e7-e690032685a2",
+      "at": "2026-11-06T14:42:59.104Z",
+      "action": "history.undo",
+      "entity": "store",
+      "entityId": "5941e32a-f9c7-4bca-b2fb-4b17db01c585",
+      "actor": "ui",
+      "after": {
+        "label": "task.archive"
+      }
+    },
+    {
+      "id": "7e8c3f7a-51d9-4e24-88ee-4b41784ae587",
+      "at": "2026-11-06T14:43:05.918Z",
+      "action": "history.redo",
+      "entity": "store",
+      "entityId": "5683e5f2-f8e1-4670-a088-80b51b4da39d",
+      "actor": "ui",
+      "after": {
+        "label": "task.archive"
+      }
+    },
+    {
+      "id": "c54a1fbe-93dc-4a6b-a62c-6c687f68bad5",
+      "at": "2026-11-06T14:44:18.938Z",
+      "action": "task.reorder",
+      "entity": "task",
+      "entityId": null,
+      "actor": "ui",
+      "after": {
+        "count": 6,
+        "project": "WP5"
+      }
+    }
+  ],
+  "undo": [
+    {
+      "id": "24f35d20-f90a-4ff9-91ac-0cc78a77f710",
+      "label": "event.create",
+      "at": "2026-11-06T13:41:33.411Z",
+      "before": {
+        "events": [],
+        "tasks": []
+      }
+    },
+    {
+      "id": "236b3bcd-b0ea-458e-bf83-5c5cbe16c4f3",
+      "label": "event.create",
+      "at": "2026-11-06T13:41:33.426Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": []
+      }
+    },
+    {
+      "id": "9e00050a-5bf0-481c-83fc-fd5b800e8501",
+      "label": "event.create",
+      "at": "2026-11-06T13:41:33.442Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": []
+      }
+    },
+    {
+      "id": "33a5cef6-6fc4-426e-8f6d-7dd2ae8d7245",
+      "label": "event.create",
+      "at": "2026-11-06T13:41:33.456Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": []
+      }
+    },
+    {
+      "id": "99fc554a-1c6b-4095-984a-72c7263eec24",
+      "label": "task.upsert",
+      "at": "2026-11-06T13:41:33.473Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": []
+      }
+    },
+    {
+      "id": "403fe56d-96d1-447d-9909-2cd05633e6dd",
+      "label": "task.upsert",
+      "at": "2026-11-06T13:41:33.487Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": [
+          {
+            "id": "t1",
+            "title": "写 WP5 交付报告",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "priority": "high",
+            "project": "WP5",
+            "subtasks": [
+              "单元测试",
+              "变异测试"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "03eba648-8240-41f7-9acc-a279b8f43ffa",
+      "label": "task.upsert",
+      "at": "2026-11-06T13:41:33.501Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": [
+          {
+            "id": "t1",
+            "title": "写 WP5 交付报告",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "priority": "high",
+            "project": "WP5",
+            "subtasks": [
+              "单元测试",
+              "变异测试"
+            ]
+          },
+          {
+            "id": "t2",
+            "title": "整理变异测试日志",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "status": "doing",
+            "project": "WP5"
+          }
+        ]
+      }
+    },
+    {
+      "id": "897c12ba-54f4-46cc-89bf-97e0b44fab4b",
+      "label": "task.upsert",
+      "at": "2026-11-06T13:41:33.517Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": [
+          {
+            "id": "t1",
+            "title": "写 WP5 交付报告",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "priority": "high",
+            "project": "WP5",
+            "subtasks": [
+              "单元测试",
+              "变异测试"
+            ]
+          },
+          {
+            "id": "t2",
+            "title": "整理变异测试日志",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "status": "doing",
+            "project": "WP5"
+          },
+          {
+            "id": "t3",
+            "title": "复审数据导入",
+            "status": "planned",
+            "project": "WP5"
+          }
+        ]
+      }
+    },
+    {
+      "id": "053fe0b4-ac50-4659-869b-604c627a2325",
+      "label": "task.upsert",
+      "at": "2026-11-06T13:42:20.195Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": [
+          {
+            "id": "t1",
+            "title": "写 WP5 交付报告",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "priority": "high",
+            "project": "WP5",
+            "subtasks": [
+              "单元测试",
+              "变异测试"
+            ]
+          },
+          {
+            "id": "t2",
+            "title": "整理变异测试日志",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "status": "doing",
+            "project": "WP5"
+          },
+          {
+            "id": "t3",
+            "title": "复审数据导入",
+            "status": "planned",
+            "project": "WP5"
+          },
+          {
+            "id": "t4",
+            "title": "归档旧版验收文档",
+            "done": true,
+            "project": "WP4"
+          }
+        ]
+      }
+    },
+    {
+      "id": "d0409f7e-eced-4353-8377-c1932bc85fcb",
+      "label": "task.upsert",
+      "at": "2026-11-06T13:47:55.188Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": [
+          {
+            "id": "t1",
+            "title": "写 WP5 交付报告",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "priority": "high",
+            "project": "WP5",
+            "subtasks": [
+              "单元测试",
+              "变异测试"
+            ],
+            "done": true
+          },
+          {
+            "id": "t2",
+            "title": "整理变异测试日志",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "status": "doing",
+            "project": "WP5"
+          },
+          {
+            "id": "t3",
+            "title": "复审数据导入",
+            "status": "planned",
+            "project": "WP5"
+          },
+          {
+            "id": "t4",
+            "title": "归档旧版验收文档",
+            "done": true,
+            "project": "WP4"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bd0e0257-3067-4a12-8858-fce3bfc4d685",
+      "label": "task.upsert",
+      "at": "2026-11-06T13:52:52.047Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": [
+          {
+            "id": "t1",
+            "title": "写 WP5 交付报告",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "priority": "high",
+            "project": "WP5",
+            "subtasks": [
+              "单元测试",
+              "变异测试"
+            ],
+            "done": true
+          },
+          {
+            "id": "t2",
+            "title": "整理变异测试日志",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "status": "doing",
+            "project": "WP5"
+          },
+          {
+            "id": "t3",
+            "title": "复审数据导入",
+            "status": "planned",
+            "project": "WP5"
+          },
+          {
+            "id": "t4",
+            "title": "归档旧版验收文档",
+            "done": true,
+            "project": "WP4"
+          },
+          {
+            "id": "t-1793972875181-kg90lb",
+            "title": "从界面新建的待办",
+            "dueAt": "",
+            "priority": "normal",
+            "done": false,
+            "status": "planned"
+          }
+        ]
+      }
+    },
+    {
+      "id": "98f1935c-38c4-4a63-b9fe-adef57b77525",
+      "label": "task.archive",
+      "at": "2026-11-06T14:43:05.918Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": [
+          {
+            "id": "t1",
+            "title": "写 WP5 交付报告",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "priority": "high",
+            "project": "WP5",
+            "subtasks": [
+              "单元测试",
+              "变异测试"
+            ],
+            "done": true
+          },
+          {
+            "id": "t2",
+            "title": "整理变异测试日志",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "status": "doing",
+            "project": "WP5",
+            "done": true
+          },
+          {
+            "id": "t3",
+            "title": "复审数据导入",
+            "status": "planned",
+            "project": "WP5"
+          },
+          {
+            "id": "t4",
+            "title": "归档旧版验收文档",
+            "done": true,
+            "project": "WP4"
+          },
+          {
+            "id": "t-1793972875181-kg90lb",
+            "title": "从界面新建的待办",
+            "dueAt": "",
+            "priority": "normal",
+            "done": false,
+            "status": "planned"
+          },
+          {
+            "id": "t-reminder-demo",
+            "title": "今晚要提醒我开会",
+            "dueAt": "2026-11-06T15:30:00.000Z",
+            "done": false,
+            "priority": "high",
+            "status": "planned",
+            "project": "WP5",
+            "subtasks": [],
+            "deleted": false,
+            "deletedAt": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "0484cd60-3a5f-4e34-b436-144e9a5368f8",
+      "label": "task.reorder",
+      "at": "2026-11-06T14:44:18.939Z",
+      "before": {
+        "events": [
+          {
+            "id": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "uid": "31a60a20-93f7-41ad-aebe-5596b554a064",
+            "title": "需求评审会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T09:30:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.411Z",
+            "updatedAt": "2026-11-06T13:41:33.411Z",
+            "deletedAt": null
+          },
+          {
+            "id": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "uid": "2fd83ae0-b5f4-4681-980c-2d39b3b04aaf",
+            "title": "与设计师对齐",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-06T14:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.426Z",
+            "updatedAt": "2026-11-06T13:41:33.426Z",
+            "deletedAt": null
+          },
+          {
+            "id": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "uid": "c9722e13-d8c8-4c80-a047-4b45c243c1c4",
+            "title": "周会",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-09T10:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": {
+              "freq": "WEEKLY",
+              "interval": 1,
+              "count": 4
+            },
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.442Z",
+            "updatedAt": "2026-11-06T13:41:33.442Z",
+            "deletedAt": null
+          },
+          {
+            "id": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "uid": "81e0534d-3694-44d6-b326-c04622ac9ab1",
+            "title": "版本发布",
+            "description": "",
+            "location": "",
+            "allDay": false,
+            "importance": "normal",
+            "tags": [],
+            "source": "local",
+            "status": "confirmed",
+            "timeZone": "Asia/Shanghai",
+            "start": "2026-11-12T16:00:00",
+            "end": null,
+            "startDate": null,
+            "endDate": null,
+            "recurrence": null,
+            "excludeDates": [],
+            "createdAt": "2026-11-06T13:41:33.456Z",
+            "updatedAt": "2026-11-06T13:41:33.456Z",
+            "deletedAt": null
+          }
+        ],
+        "tasks": [
+          {
+            "id": "t1",
+            "title": "写 WP5 交付报告",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "priority": "high",
+            "project": "WP5",
+            "subtasks": [
+              "单元测试",
+              "变异测试"
+            ],
+            "done": true
+          },
+          {
+            "id": "t2",
+            "title": "整理变异测试日志",
+            "dueAt": "2026-11-06T10:00:00.000Z",
+            "status": "doing",
+            "project": "WP5",
+            "done": true
+          },
+          {
+            "id": "t3",
+            "title": "复审数据导入",
+            "status": "planned",
+            "project": "WP5"
+          },
+          {
+            "id": "t4",
+            "title": "归档旧版验收文档",
+            "done": true,
+            "project": "WP4"
+          },
+          {
+            "id": "t-1793972875181-kg90lb",
+            "title": "从界面新建的待办",
+            "dueAt": "",
+            "priority": "normal",
+            "done": false,
+            "status": "planned"
+          },
+          {
+            "id": "t-reminder-demo",
+            "title": "今晚要提醒我开会",
+            "dueAt": "2026-11-06T15:30:00.000Z",
+            "done": false,
+            "priority": "high",
+            "status": "planned",
+            "project": "WP5",
+            "subtasks": [],
+            "deleted": false,
+            "deletedAt": null,
+            "archived": true
+          },
+          {
+            "id": "t-sort-0",
+            "title": "排序测试 A",
+            "done": false,
+            "status": "planned",
+            "priority": "normal",
+            "project": "WP5",
+            "subtasks": [],
+            "order": 10
+          },
+          {
+            "id": "t-sort-1",
+            "title": "排序测试 B",
+            "done": false,
+            "status": "planned",
+            "priority": "normal",
+            "project": "WP5",
+            "subtasks": [],
+            "order": 11
+          },
+          {
+            "id": "t-sort-2",
+            "title": "排序测试 C",
+            "done": false,
+            "status": "planned",
+            "priority": "normal",
+            "project": "WP5",
+            "subtasks": [],
+            "order": 12
+          }
+        ]
+      }
+    }
+  ],
+  "redo": []
+}
