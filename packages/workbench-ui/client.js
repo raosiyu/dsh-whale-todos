@@ -160,6 +160,13 @@ window.__ModuleLoader__.load({
 .wb-status{min-height:44px;padding:8px 16px;display:flex;align-items:center;gap:8px;
   border-bottom:1px solid var(--dsw-alias-border-l1);font-size:16px}
 .wb-status-error{color:var(--dsw-alias-state-warn-label)}
+/* 提醒条：提示性质，视觉上比状态栏更轻，不与「错误」抢注意力 */
+.wb-reminders{flex-wrap:wrap;background:var(--dsw-alias-interactive-bg-hover)}
+.wb-reminder-label{color:var(--dsw-alias-label-secondary);flex:none}
+.wb-reminder-chip{padding:4px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);
+  color:var(--dsw-alias-label-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.wb-reminder-more{color:var(--dsw-alias-label-tertiary);flex:none}
+.wb-reminder-warn{color:var(--dsw-alias-state-warn-label);flex:none}
 .wb-empty{padding:32px 16px;text-align:center;color:var(--dsw-alias-label-secondary)}
 .wb-form{display:grid;gap:8px}
 .wb-form label{display:grid;gap:4px;font-size:16px;color:var(--dsw-alias-label-secondary)}
@@ -199,7 +206,25 @@ window.__ModuleLoader__.load({
       return Number.isNaN(d.getTime()) ? null : d
     }
 
-    function taskBucket(t, now) {
+    /**
+ * 提醒时刻的紧凑显示：同一天只显示时刻，跨天带日期。
+ * 用本地时区——用户看到的应该是自己的钟点，不是 UTC。
+ */
+function formatReminderTime(ms) {
+  const d = new Date(ms)
+  const now = new Date()
+  const sameDay = d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  if (sameDay) return `${hh}:${mm}`
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${month}-${day} ${hh}:${mm}`
+}
+
+function taskBucket(t, now) {
       // 已软删的待办不进任何桶（复审 MAJOR：删除后仍出现在列表里）
       if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return 'deleted'
       if (t.done === true) return 'done'
@@ -467,6 +492,12 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState(null)
       const [notice, setNotice] = useState('')
       const [conflictCount, setConflictCount] = useState(0)
+      /**
+       * 提醒：只读计算结果。UI 只负责「显示」，不负责「投递」——
+       * 投递是宿主 ctx.schedule 的职责（WP3 契约）。
+       */
+      const [reminders, setReminders] = useState([])
+      const [reminderSkipped, setReminderSkipped] = useState(0)
       const [search, setSearch] = useState('')
       const [cursor, setCursor] = useState(() => new Date())
       const [selected, setSelected] = useState(null)
@@ -497,11 +528,14 @@ window.__ModuleLoader__.load({
           // 全部来自真实 Host Service（event.list / task.list / event.conflicts /
           // event.expand），无任何本地假数据。
           // 各命令**独立降级**：任一失败不应让整页变空白（其余数据仍可用）。
-          const [ev, tk, cf, ex] = await Promise.all([
+          const [ev, tk, cf, ex, rm] = await Promise.all([
             request({ op: 'event.list', payload: { includeDeleted: false } }),
             request({ op: 'task.list', payload: {} }),
             request({ op: 'event.conflicts', payload: { windowStart, windowEnd } }),
             request({ op: 'event.expand', payload: { windowStart, windowEnd } }),
+            // 提醒：只读计算（该提醒什么、什么时候提醒）。
+            // 真实投递由宿主 ctx.schedule 负责，UI 只负责显示，不负责投递。
+            request({ op: 'reminder.plan', payload: { nowMs: now, windowDays: 7 } }),
           ])
           // 主数据（事件/待办）失败才算整体失败；冲突与展开失败只降级为「无」。
           // 两条错误**合并成一条**，避免后一条覆盖前一条（第三轮 nit N3）。
@@ -511,6 +545,7 @@ window.__ModuleLoader__.load({
           // 辅助命令失败也提示（第三轮 nit N4：原先完全静默）
           if (cf.ok !== true) problems.push(`冲突检测：${cf.error?.message ?? '不可用'}`)
           if (ex.ok !== true) problems.push(`重复展开：${ex.error?.message ?? '不可用'}`)
+          if (rm.ok !== true) problems.push(`提醒：${rm.error?.message ?? '不可用'}`)
           if (problems.length > 0) setError(problems.join('；'))
           const conflictIds = new Set(
             (cf.ok === true && Array.isArray(cf.value) ? cf.value : [])
@@ -528,6 +563,17 @@ window.__ModuleLoader__.load({
             ...(recurrenceCount.has(e.id) ? { recurrenceOccurrences: recurrenceCount.get(e.id) } : {}),
           })))
           setTasks(Array.isArray(tk.value) ? tk.value : [])
+          /**
+           * 提醒只保留「未来 7 天内、按触发时刻升序」的部分。
+           * skipped 不静默丢弃——算不出提醒的条目单独计数，状态栏里如实显示。
+           */
+          const rmPlans = (rm.ok === true && Array.isArray(rm.value?.plans) ? rm.value.plans : [])
+            .filter((p2) => Number.isFinite(p2?.fireAtMs))
+            .sort((a, b) => a.fireAtMs - b.fireAtMs)
+          setReminders(rmPlans)
+          setReminderSkipped(
+            rm.ok === true && Array.isArray(rm.value?.skipped) ? rm.value.skipped.length : 0,
+          )
           setConflictCount(conflictIds.size)
           setNotice('Loaded from Host Service')
         } catch (e) {
@@ -715,6 +761,36 @@ window.__ModuleLoader__.load({
           h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ ', t('new'))),
         h(StatusBar, { loading, error, onRetry: load }),
         notice ? h('div', { className: 'wb-status', role: 'status' }, notice) : null,
+        /**
+         * 提醒条：显示「接下来 7 天要提醒什么」。
+         *
+         * 三条硬纪律：
+         * 1. **只显示未来的**——过去的提醒不该在界面上继续占位。
+         * 2. **最多 3 条**——提醒是提示，不是列表，超过就折叠成计数。
+         * 3. **skipped 必须可见**——「算不出提醒」不等于「没有提醒」，
+         *    静默吞掉会让用户以为一切正常，实际有日程根本不会提醒。
+         */
+        (() => {
+          const upcoming = reminders.filter((r) => r.fireAtMs > Date.now())
+          if (upcoming.length === 0 && reminderSkipped === 0) return null
+          const shown = upcoming.slice(0, 3)
+          return h('div', { className: 'wb-status wb-reminders', role: 'status', 'aria-live': 'polite' },
+            h('span', { className: 'wb-reminder-label' }, '⏰ 提醒'),
+            shown.length === 0
+              ? h('span', null, '接下来 7 天没有到点的提醒')
+              : shown.map((r) => h('span', {
+                  key: r.reminderKey,
+                  className: 'wb-reminder-chip',
+                  title: r.prompt,
+                }, `${formatReminderTime(r.fireAtMs)} ${r.title}`)),
+            upcoming.length > shown.length
+              ? h('span', { className: 'wb-reminder-more' }, `+${upcoming.length - shown.length}`)
+              : null,
+            reminderSkipped > 0
+              ? h('span', { className: 'wb-reminder-warn' },
+                  `${reminderSkipped} 条算不出提醒时刻（数据有问题，不会响）`)
+              : null)
+        })(),
         conflictCount > 0
           ? h('div', { className: 'wb-status wb-status-error', role: 'status' },
               `${conflictCount} event(s) have scheduling conflicts in the next 7 days`)

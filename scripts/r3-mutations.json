@@ -1,71 +1,457 @@
-=== 变异验证（删保护代码，测试应失败）===
-变异定义：61 项（scripts/r3-mutations.json）
-
-CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 315 fail 2
-CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 316 fail 1
-CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 286 fail 31
-CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 315 fail 2
-CAUGHT M5 恢复层不传 scope  → pass 315 fail 2
-CAUGHT M6 已投递判定失效（无视 history）  → pass 314 fail 3
-CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 310 fail 7
-CAUGHT M8 审批门放行（不校验 token）  → pass 291 fail 26
-CAUGHT M9 service 重新暴露 store 写方法  → pass 314 fail 3
-CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 314 fail 3
-CAUGHT M11 hostMap 不持久化（只写内存）  → pass 310 fail 7
-CAUGHT M12 hostMap 允许 hostId 重复  → pass 316 fail 1
-CAUGHT M13 损坏映射静默重建为空  → pass 316 fail 1
-CAUGHT M14 compileReminder 不再滤过期  → pass 316 fail 1
-CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 308 fail 9
-CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 316 fail 1
-CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 316 fail 1
-CAUGHT X11 UNKNOWN 纳入 future  → pass 310 fail 7
-CAUGHT X12 删除失败不计入 failed  → pass 316 fail 1
-CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 313 fail 4
-CAUGHT X14 hostMap 保留上限失效  → pass 311 fail 6
-CAUGHT X15 N-05 deny 模式不拦  → pass 316 fail 1
-CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 316 fail 1
-CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 316 fail 1
-CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 315 fail 2
-CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 313 fail 4
-CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 314 fail 3
-CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 313 fail 4
-CAUGHT X22 裁剪不生效（条目数无上限）  → pass 311 fail 6
-CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 316 fail 1
-CAUGHT X24 catalog 不用身份索引（认不出宿主行 → 重复创建）  → pass 306 fail 11
-CAUGHT X25 N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）  → pass 313 fail 4
-CAUGHT X26 去掉同 key 创建锁（并发重复投递回归）  → pass 316 fail 1
-CAUGHT X27 不识别宿主 status 形状（unknown 被判未投递 → 二次投递）  → pass 316 fail 1
-CAUGHT X28 B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）  → pass 315 fail 2
-CAUGHT X29 B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）  → pass 316 fail 1
-CAUGHT W1 WP4：callHost 退回扁平解码（真信封下静默空列表）  → pass 307 fail 10
-CAUGHT W2 WP4：approval.request 丢 receiver（真审批永不签发 token）  → pass 316 fail 1
-CAUGHT W3 WP4：初始 sessionId 不从 sessions store 取（UI 拿不到会话）  → pass 316 fail 1
-CAUGHT W4 WP4：已软删待办仍进列表（删除对用户无效）  → pass 316 fail 1
-CAUGHT W5 WP4：service task.list 不过滤已删除（删除后仍可见）  → pass 314 fail 3
-CAUGHT W6 WP4：软删待办不需审批（删除绕过审批门）  → pass 314 fail 3
-CAUGHT W7 WP4：TaskForm 编辑丢字段（subtasks/sourceSessionId 消失）  → pass 316 fail 1
-CAUGHT W8 WP4：UI 文案退回硬编码英文（中文用户看不到翻译）  → pass 316 fail 1
-CAUGHT W9 WP4：t 退回 WorkbenchPage 内部（三个弹窗渲染即崩 → 整页白屏）  → pass 315 fail 2
-CAUGHT W10 WP4：三个弹窗组件不渲染（主路径静默消失）  → pass 314 fail 3
-CAUGHT W11 WP4：event.restore 不校验凭证（审批旁路 → 已删事件被悄悄恢复）  → pass 315 fail 2
-CAUGHT W12 WP4：ConfirmDelete 不传 t（中文界面确认弹窗变英文）  → pass 316 fail 1
-CAUGHT W13 WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）  → pass 316 fail 1
-CAUGHT W14 WP4：task.upsert 整行替换（AI 工具更新既有待办 → 字段被抹掉）  → pass 315 fail 2
-CAUGHT W15 WP4：软删审批不判库中既有行（无凭证复活已删待办）  → pass 316 fail 1
-CAUGHT W16 WP4：AI 工具 task.list 不透传 includeDeleted（AI 看不到已删待办）  → pass 316 fail 1
-CAUGHT W17 WP4：AI 工具 event.update 不带 patch（编辑不生效）  → pass 316 fail 1
-CAUGHT W18 WP5：excludeDates 不进 PATCHABLE（单次移动被静默丢弃，排除的实例复活）  → pass 315 fail 2
-CAUGHT W19 WP5：mergePatch 基准不带 excludeDates（任何 update 复活所有排除实例）  → pass 316 fail 1
-CAUGHT W20 WP5：MOVABLE_MODES 放行 thisAndFuture（假装支持 RRULE 分段）  → pass 316 fail 1
-CAUGHT W21 WP5：预览把冲突当成可创建（用户看不到冲突）  → pass 316 fail 1
-CAUGHT W22 WP5：预览把重复项当成可创建（重复导入同一日历）  → pass 315 fail 2
-CAUGHT W23 WP5：task.reorder 不校验未知 id（部分写入，顺序被算错）  → pass 316 fail 1
-CAUGHT W24 WP5：撤销不清空重做栈（重做跨越新操作，历史错乱）  → pass 316 fail 1
-CAUGHT W25 WP5：store.rollback 不清空撤销栈（半截导入数据可被撤销复活）  → pass 316 fail 1
-
-=== 汇总 ===
-CAUGHT: 61
-VACUUM: 0
-SKIP:   0
-
-结论：全部保护点都有测试约束（0 真空，0 跳过）
+[
+  {
+    "id": "M1",
+    "name": "catalog 改为只读 active（退化为 list 语义）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": ".filter((row) => row.sessionId === undefined || row.sessionId === sessionId)",
+    "to": ".filter((row) => (row.sessionId === undefined || row.sessionId === sessionId) && row.status === 'active')"
+  },
+  {
+    "id": "M2",
+    "name": "reconcile 恢复删除 inactive（缺陷回归）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": ".filter((r) => (r.status ?? 'active') === 'active')",
+    "to": ""
+  },
+  {
+    "id": "M3",
+    "name": "host create 退回单参（丢掉 sessionId 参数）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "created = await hostSchedule.create(sessionId, {",
+    "to": "created = await hostSchedule.create({"
+  },
+  {
+    "id": "M4",
+    "name": "catalog 失败时静默当空（不降级）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "return { status: HOST_READ.UNAVAILABLE, error: read.error, rows: [], degraded: true }",
+    "to": "return { status: HOST_READ.OK, rows: [], degraded: false }"
+  },
+  {
+    "id": "M5",
+    "name": "恢复层不传 scope",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "      const res = await adapter.reconcile(future, {\n        scope: input.scope,",
+    "to": "      const res = await adapter.reconcile(future, {"
+  },
+  {
+    "id": "M6",
+    "name": "已投递判定失效（无视 history）",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "if (delivery.state === DELIVERY_STATE.DELIVERED) {",
+    "to": "if (false) {"
+  },
+  {
+    "id": "M7",
+    "name": "UNKNOWN 也去重建（不保守）",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "if (delivery.state === DELIVERY_STATE.UNKNOWN) {",
+    "to": "if (false) {"
+  },
+  {
+    "id": "M8",
+    "name": "审批门放行（不校验 token）",
+    "file": "workbench-core/src/service.js",
+    "from": "const check = gate.verify(",
+    "to": "const check = { ok: true }; const __unused = gate.verify("
+  },
+  {
+    "id": "M9",
+    "name": "service 重新暴露 store 写方法",
+    "file": "workbench-core/src/service.js",
+    "from": "store: Object.freeze({\n      listBackups: () => store.listBackups(),\n      listPreBackups: () => store.listPreBackups(),\n    }),",
+    "to": "store,"
+  },
+  {
+    "id": "M10",
+    "name": "bulkDelete target 退回逗号拼接",
+    "file": "workbench-core/src/service.js",
+    "from": "target: JSON.stringify([...ids].map(String).sort()),",
+    "to": "target: [...ids].map(String).sort().join(','),"
+  },
+  {
+    "id": "M11",
+    "name": "hostMap 不持久化（只写内存）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      prune()\n      persist()\n      return { ...state.entries[entry.reminderKey] }",
+    "to": "      prune()\n      return { ...state.entries[entry.reminderKey] }"
+  },
+  {
+    "id": "M12",
+    "name": "hostMap 允许 hostId 重复",
+    "file": "workbench-core/src/host-map.js",
+    "from": "if (key !== entry.reminderKey && value.hostId === entry.hostId) {",
+    "to": "if (false) {"
+  },
+  {
+    "id": "M13",
+    "name": "损坏映射静默重建为空",
+    "file": "workbench-core/src/host-map.js",
+    "from": "    } catch (error) {\n      throw storeCorruptError(`宿主映射不是合法 JSON：${String(error?.message ?? error)}`, { filePath })\n    }",
+    "to": "    } catch (error) {\n      state = emptyState()\n      return\n    }"
+  },
+  {
+    "id": "M14",
+    "name": "compileReminder 不再滤过期",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "if (fireAtMs <= nowMs) return null",
+    "to": ""
+  },
+  {
+    "id": "M15",
+    "name": "hostMap 不裁剪（无界增长）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      prune()\n      persist()",
+    "to": "      persist()"
+  },
+  {
+    "id": "M16",
+    "name": "prune 按错误方向裁剪（保留最旧）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      return fb - fa",
+    "to": "      return fa - fb"
+  },
+  {
+    "id": "X6",
+    "name": "degraded 时 upsert 仍强行 create（不检查宿主状态）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      if (current.status !== HOST_READ.OK) {\n        return { ok: false, reason: 'host-unavailable', error: current.error }\n      }",
+    "to": "      if (false) {\n        return { ok: false, reason: 'host-unavailable', error: current.error }\n      }"
+  },
+  {
+    "id": "X11",
+    "name": "UNKNOWN 纳入 future",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "        if (delivery.state === DELIVERY_STATE.UNKNOWN) {\n          // 投递状态未知：**不删不建**，只记录。宁可留着，不可误删误建。\n          unknown.push({ reminderKey: plan.reminderKey, reason: delivery.reason })\n          continue\n        }",
+    "to": "        if (delivery.state === DELIVERY_STATE.UNKNOWN) {\n          future.push(plan)\n          continue\n        }"
+  },
+  {
+    "id": "X12",
+    "name": "删除失败不计入 failed",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "          if (res.ok === true) removed.push(key)\n          else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })",
+    "to": "          if (res.ok === true) removed.push(key)"
+  },
+  {
+    "id": "X13",
+    "name": "回执裁剪判 not-delivered（N-02 回归）",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "    if (records.length === 0 && res.earlierRecordsUnavailable === true) {\n      return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-pruned' }\n    }",
+    "to": ""
+  },
+  {
+    "id": "X14",
+    "name": "hostMap 保留上限失效",
+    "file": "workbench-core/src/host-map.js",
+    "from": "    if (all.length <= maxEntries) return []",
+    "to": "    return []"
+  },
+  {
+    "id": "X15",
+    "name": "N-05 deny 模式不拦",
+    "file": "workbench-core/src/service.js",
+    "from": "if (gate.mode === 'deny' && WRITE_OPS.includes(op)) {",
+    "to": "if (false) {"
+  },
+  {
+    "id": "X16",
+    "name": "N-03 unmapped 不报告（回到静默 continue）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "          unmapped.push({ id: row.id, scheduledAt: row.scheduledAt, title: row.title })\n          continue",
+    "to": "          continue"
+  },
+  {
+    "id": "X17",
+    "name": "N-04 create 失败抛穿（中断整轮）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      } catch (error) {\n        return {\n          ok: false,\n          reason: 'host-create-rejected',",
+    "to": "      } catch (error) {\n        throw error\n        return {\n          ok: false,\n          reason: 'host-create-rejected',"
+  },
+  {
+    "id": "X18",
+    "name": "scope 退回前缀匹配（M3' 原样回归）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "const inScopeRow = (row) => (scope === undefined ? true : row.scope === scope)",
+    "to": "const inScopeRow = (row) => (scope === undefined ? true : String(row.reminderKey).startsWith(scope + ':'))"
+  },
+  {
+    "id": "X19",
+    "name": "N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "          if (protect.has(key)) continue   // UNKNOWN：保留不动",
+    "to": "          if (false) continue"
+  },
+  {
+    "id": "X20",
+    "name": "N-17 回归：recover 不把 UNKNOWN 传给 protect",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "        protect: unknown.map((u) => u.reminderKey),",
+    "to": "        protect: [],"
+  },
+  {
+    "id": "X21",
+    "name": "身份反查完全失效（裁剪后认不出宿主行 → 重复创建）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "      const direct = state.index[hostId]\n      if (direct !== undefined) return direct\n      const hit = Object.entries(state.entries).find(([, v]) => v.hostId === hostId)\n      return hit === undefined ? undefined : hit[0]",
+    "to": "      return undefined"
+  },
+  {
+    "id": "X22",
+    "name": "裁剪不生效（条目数无上限）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "    if (all.length <= maxEntries) return []",
+    "to": "    return []"
+  },
+  {
+    "id": "X23",
+    "name": "history 非法形状不再判不可用（P2 缺陷回归）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      if (res === null || typeof res !== 'object' || Array.isArray(res)) {\n        return { status: HOST_READ.UNAVAILABLE, error: 'history-invalid-shape' }\n      }",
+    "to": ""
+  },
+  {
+    "id": "X24",
+    "name": "catalog 不用身份索引（认不出宿主行 → 重复创建）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "        const reminderKey = lookup !== null\n          ? lookup.get(row.id)\n          : (typeof hostMap.reminderKeyByHostId === 'function'\n            ? hostMap.reminderKeyByHostId(row.id)\n            : undefined)",
+    "to": "        const reminderKey = undefined"
+  },
+  {
+    "id": "X25",
+    "name": "N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）",
+    "file": "workbench-core/src/reminder-recovery.js",
+    "from": "    if (records.length === 0 && res.earlierRecordsUnavailable === true) {\n      return { state: DELIVERY_STATE.UNKNOWN, reason: 'history-pruned' }\n    }",
+    "to": ""
+  },
+  {
+    "id": "X26",
+    "name": "去掉同 key 创建锁（并发重复投递回归）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      const previous = createLocks.get(record.reminderKey) ?? Promise.resolve()",
+    "to": "      const previous = Promise.resolve()"
+  },
+  {
+    "id": "X27",
+    "name": "不识别宿主 status 形状（unknown 被判未投递 → 二次投递）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      if (\n        (typeof res.status === 'string' && res.status !== 'ok')\n        || (res.error !== undefined && res.records === undefined)\n      ) {",
+    "to": "      if (false) {"
+  },
+  {
+    "id": "X28",
+    "name": "B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "      const mapped = typeof hostMap.describe === 'function'\n        ? hostMap.describe(reminderKey)\n        : hostMap.get(reminderKey)",
+    "to": "      const mapped = hostMap.get(reminderKey)"
+  },
+  {
+    "id": "X29",
+    "name": "B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）",
+    "file": "workbench-core/src/host-map.js",
+    "from": "        scope: state.indexMeta?.[hostId]?.scope ?? '',",
+    "to": "        scope: '',"
+  },
+  {
+    "id": "W1",
+    "name": "WP4：callHost 退回扁平解码（真信封下静默空列表）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "      const envelope = result.value\n      const command = envelope !== null && typeof envelope === 'object' ? envelope.result : undefined\n      const text = command !== null && typeof command === 'object' && typeof command.text === 'string'\n        ? command.text\n        : (typeof envelope === 'string' ? envelope : undefined)",
+    "to": "      const text = result.value !== undefined ? result.value : result.text"
+  },
+  {
+    "id": "W2",
+    "name": "WP4：approval.request 丢 receiver（真审批永不签发 token）",
+    "file": "packages/workbench-ui/index.js",
+    "from": "    ? (req) => approval.request(req)",
+    "to": "    ? (req) => approval.request.call(undefined, req)"
+  },
+  {
+    "id": "W3",
+    "name": "WP4：初始 sessionId 不从 sessions store 取（UI 拿不到会话）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          const row = snap?.byId\n            ? Object.values(snap.byId).find((r) => (r?.retainedBy?.mainView ?? 0) > 0)\n            : undefined\n          return row?.id ?? props.sessionId ?? undefined",
+    "to": "          return undefined"
+  },
+  {
+    "id": "W4",
+    "name": "WP4：已软删待办仍进列表（删除对用户无效）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return false\n          if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false",
+    "to": "          if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false"
+  },
+  {
+    "id": "W5",
+    "name": "WP4：service task.list 不过滤已删除（删除后仍可见）",
+    "file": "workbench-core/src/service.js",
+    "from": "      return store.collection('tasks')\n        .filter((task) => includeDeleted || !isTaskDeleted(task))",
+    "to": "      return store.collection('tasks')"
+  },
+  {
+    "id": "W6",
+    "name": "WP4：软删待办不需审批（删除绕过审批门）",
+    "file": "workbench-core/src/service.js",
+    "from": "      if (declaredSoftDelete || existingSoftDelete) {\n        requireConfirmation('task.upsert', meta, { target: task.id })\n      }",
+    "to": ""
+  },
+  {
+    "id": "W7",
+    "name": "WP4：TaskForm 编辑丢字段（subtasks/sourceSessionId 消失）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          ...(initial ?? {}),\n          id: initial?.id ?? `t-${Date.now()}",
+    "to": "          id: initial?.id ?? `t-${Date.now()}"
+  },
+  {
+    "id": "W8",
+    "name": "WP4：UI 文案退回硬编码英文（中文用户看不到翻译）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "            inject: () => ({ ctx, t: ctx.locale.bind(NS) }),",
+    "to": "            inject: () => ({ ctx }),"
+  },
+  {
+    "id": "W9",
+    "name": "WP4：t 退回 WorkbenchPage 内部（三个弹窗渲染即崩 → 整页白屏）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    function EventForm({ initial, onSave, onCancel, saving, t = defaultT }) {",
+    "to": "    function EventForm({ initial, onSave, onCancel, saving }) {"
+  },
+  {
+    "id": "W10",
+    "name": "WP4：三个弹窗组件不渲染（主路径静默消失）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "      EventForm,\n      TaskForm,\n      ConfirmDelete,\n      WorkbenchPage,",
+    "to": "      callHost,"
+  },
+  {
+    "id": "W11",
+    "name": "WP4：event.restore 不校验凭证（审批旁路 → 已删事件被悄悄恢复）",
+    "file": "workbench-core/src/service.js",
+    "from": "      requireConfirmation('event.restore', meta, { target: id })\n      return events.restore(id, { actor: meta?.actor })",
+    "to": "      return events.restore(id, { actor: meta?.actor })"
+  },
+  {
+    "id": "W12",
+    "name": "WP4：ConfirmDelete 不传 t（中文界面确认弹窗变英文）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "              label: confirming.label, approving, t,",
+    "to": "              label: confirming.label, approving,"
+  },
+  {
+    "id": "W13",
+    "name": "WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）",
+    "file": "workbench-core/src/approval-gate.js",
+    "from": "      const fingerprint = approvalFingerprint({ op, target, digest: '' })\n      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }",
+    "to": "      const fingerprint = approvalFingerprint({ op, target, digest: detail.digest })\n      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }"
+  },
+  {
+    "id": "W14",
+    "name": "WP4：task.upsert 整行替换（AI 工具更新既有待办 → 字段被抹掉）",
+    "file": "workbench-core/src/service.js",
+    "from": "          const merged = { ...draft.tasks[index] }\n          for (const [k, v] of Object.entries(task)) {\n            if (v !== undefined) merged[k] = v\n          }\n          draft.tasks[index] = merged",
+    "to": "          draft.tasks[index] = { ...task }"
+  },
+  {
+    "id": "W15",
+    "name": "WP4：软删审批不判库中既有行（无凭证复活已删待办）",
+    "file": "workbench-core/src/service.js",
+    "from": "      if (declaredSoftDelete || existingSoftDelete) {",
+    "to": "      if (declaredSoftDelete) {"
+  },
+  {
+    "id": "W16",
+    "name": "WP4：AI 工具 task.list 不透传 includeDeleted（AI 看不到已删待办）",
+    "file": "workbench-core/src/host-tools.js",
+    "from": "      // 与 event.list 对称：能透传 includeDeleted，AI 才能看到已删项\n      payload: (args) => ({ includeDeleted: args.includeDeleted === true }),",
+    "to": "      payload: () => ({}),"
+  },
+  {
+    "id": "W17",
+    "name": "WP4：AI 工具 event.update 不带 patch（编辑不生效）",
+    "file": "workbench-core/src/host-tools.js",
+    "from": "      payload: (args) => {\n        const { id, ...patch } = args\n        return { id, patch }\n      },",
+    "to": "      payload: (args) => ({ ...args }),"
+  },
+  {
+    "id": "W18",
+    "name": "WP5：excludeDates 不进 PATCHABLE（单次移动被静默丢弃，排除的实例复活）",
+    "file": "workbench-core/src/event-repo.js",
+    "from": "'recurrence', 'excludeDates', 'importance', 'tags', 'source', 'status',",
+    "to": "'recurrence', 'importance', 'tags', 'source', 'status',"
+  },
+  {
+    "id": "W19",
+    "name": "WP5：mergePatch 基准不带 excludeDates（任何 update 复活所有排除实例）",
+    "file": "workbench-core/src/event-repo.js",
+    "from": "    excludeDates: current.excludeDates ?? [],",
+    "to": "    excludeDates: [],"
+  },
+  {
+    "id": "W20",
+    "name": "WP5：MOVABLE_MODES 放行 thisAndFuture（假装支持 RRULE 分段）",
+    "file": "workbench-core/src/service.js",
+    "from": "export const MOVABLE_MODES = Object.freeze(['single', 'series'])",
+    "to": "export const MOVABLE_MODES = Object.freeze(['single', 'series', 'thisAndFuture'])"
+  },
+  {
+    "id": "W21",
+    "name": "WP5：预览把冲突当成可创建（用户看不到冲突）",
+    "file": "workbench-core/src/service.js",
+    "from": "          action: conflictWith.length > 0 ? 'conflict' : 'create',",
+    "to": "          action: 'create',"
+  },
+  {
+    "id": "W22",
+    "name": "WP5：预览把重复项当成可创建（重复导入同一日历）",
+    "file": "workbench-core/src/service.js",
+    "from": "            action: 'skip-duplicate-uid',",
+    "to": "            action: 'create',"
+  },
+  {
+    "id": "W23",
+    "name": "WP5：task.reorder 不校验未知 id（部分写入，顺序被算错）",
+    "file": "workbench-core/src/service.js",
+    "from": "      const missing = normalized.filter((id) => !rows.some((row) => row.id === id))",
+    "to": "      const missing = []"
+  },
+  {
+    "id": "W24",
+    "name": "WP5：撤销不清空重做栈（重做跨越新操作，历史错乱）",
+    "file": "workbench-core/src/store.js",
+    "from": "      stamped.redo = []",
+    "to": "      stamped.redo = Array.isArray(stamped.redo) ? stamped.redo : []"
+  },
+  {
+    "id": "W25",
+    "name": "WP5：store.rollback 不清空撤销栈（半截导入数据可被撤销复活）",
+    "file": "workbench-core/src/store.js",
+    "from": "      if (Array.isArray(state.undo) || Array.isArray(state.redo)) {",
+    "to": "      if (false) {"
+  },
+  {
+    "id": "W26",
+    "name": "WP5：提醒不按触发时刻排序（UI 顺序错乱，最近的不在最前）",
+    "file": "workbench-core/src/service.js",
+    "from": "      const plans = [...evPlan.plans, ...tkPlan.plans]\n        .sort((a, b) => a.fireAtMs - b.fireAtMs)",
+    "to": "      const plans = [...evPlan.plans, ...tkPlan.plans]"
+  },
+  {
+    "id": "W27",
+    "name": "WP5：空 dueAt 当坏数据（新建待办就报「数据有问题」假警报）",
+    "file": "workbench-core/src/schedule-adapter.js",
+    "from": "        const dueIsBlank = dueRaw === undefined || dueRaw === null\n          || (typeof dueRaw === 'string' && dueRaw.trim() === '')",
+    "to": "        const dueIsBlank = dueRaw === undefined || dueRaw === null"
+  },
+  {
+    "id": "W28",
+    "name": "WP5：skipped 被静默吞掉（算不出提醒伪装成没有提醒）",
+    "file": "workbench-core/src/service.js",
+    "from": "        skipped: [...evPlan.skipped, ...tkPlan.skipped],",
+    "to": "        skipped: [],"
+  },
+  {
+    "id": "W29",
+    "name": "WP5：reminder.plan 混进 WRITE_OPS（deny 模式下只读也被拦）",
+    "file": "workbench-core/src/service.js",
+    "from": "  'event.move', 'task.reorder', 'task.archive',",
+    "to": "  'event.move', 'task.reorder', 'task.archive', 'reminder.plan',"
+  }
+]

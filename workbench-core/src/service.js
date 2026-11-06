@@ -28,6 +28,7 @@ import { expandEvent, expandEvents } from './recurrence.js'
 import { buildIcs, exportJson, parseIcs, parseJsonSnapshot } from './ics.js'
 import { approvalFingerprint, createHostApprovalGate } from './approval-gate.js'
 import { createHistoryOps } from './history.js'
+import { createScheduleAdapter, DEFAULT_LEAD_MINUTES } from './schedule-adapter.js'
 import { openStore } from './store.js'
 import { validateEventInput } from './event.js'
 
@@ -696,6 +697,53 @@ export function createWorkbenchService(options) {
      *
      * 复审发现：软删后待办仍出现在列表里 → 删除功能对用户完全无效。
      */
+    /**
+     * **只读**：把「接下来要提醒什么」算出来给 UI 显示。
+     *
+     * 为什么是只读：真实投递必须由宿主 `ctx.schedule` 负责（WP3 契约），
+     * 服务层只负责「该提醒哪些、什么时候提醒」的计算。让 UI 显示提醒
+     * 不等于让 UI 能投递——这是两件事，不能混。
+     *
+     * 不写数据、不触发审批、不进 WRITE_OPS。
+     */
+    'reminder.plan': (payload = {}) => {
+      const leadMinutes = payload.leadMinutes ?? DEFAULT_LEAD_MINUTES
+      if (!Number.isInteger(leadMinutes) || leadMinutes < 0) {
+        throw validationError('leadMinutes 必须是非负整数', { leadMinutes })
+      }
+      const nowMs = payload.nowMs ?? now().getTime()
+      if (!Number.isFinite(nowMs)) {
+        throw validationError('nowMs 非法', { nowMs })
+      }
+      const windowDays = payload.windowDays ?? 7
+      const adapter = createScheduleAdapter({
+        backend: 'memory',
+        now: () => nowMs,
+        defaultLeadMinutes: leadMinutes,
+        windowDays,
+      })
+      const ev = store.collection('events')
+      const tk = store.collection('tasks')
+      const evPlan = adapter.planForEvents(ev, {
+        leadMinutes,
+        windowStart: nowMs,
+        windowEnd: nowMs + windowDays * 86400000,
+      })
+      const tkPlan = adapter.planForTasks(tk, { leadMinutes })
+      const plans = [...evPlan.plans, ...tkPlan.plans]
+        .sort((a, b) => a.fireAtMs - b.fireAtMs)
+      /**
+       * skipped 必须原样上抛，不能静默吞掉——「算不出提醒」和
+       * 「没有提醒」是两回事，前者要让人看见。
+       */
+      return {
+        plans,
+        skipped: [...evPlan.skipped, ...tkPlan.skipped],
+        leadMinutes,
+        windowDays,
+        nowMs,
+      }
+    },
     'task.list': (payload = {}) => {
       const includeDeleted = payload.includeDeleted === true
       return store.collection('tasks')

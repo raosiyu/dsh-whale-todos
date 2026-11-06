@@ -15,13 +15,30 @@
  */
 import { readFileSync, writeFileSync, copyFileSync, existsSync, unlinkSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const CORE = join(ROOT, 'workbench-core')
 const MUTATIONS = join(ROOT, 'scripts', 'r3-mutations.json')
-const OUT = process.argv[2] ?? join(ROOT, 'evidence', 'wp2-r3', '01-mutation.log')
+/**
+ * 日志输出路径。**必须归一化成绝对路径**再比较，否则相对路径与绝对路径
+ * 永不相等，下面那道防护会形同虚设（实测就是因此没拦住一次覆盖）。
+ */
+const OUT = resolve(process.argv[2] ?? join(ROOT, 'evidence', 'wp2-r3', '01-mutation.log'))
+
+/**
+ * **防护**：日志绝不允许写到变异定义文件上。
+ *
+ * 实测踩过：多传一个参数把 r3-mutations.json 当成了日志路径，
+ * 61 项定义被一段日志文本整体覆盖，而且因为紧接着就 git add -A，
+ * 坏文件直接被提交进历史。定义文件是"测试的测试"，被日志覆盖
+ * 等于整套变异验证静默失效——必须先拦住。
+ */
+if (OUT === resolve(MUTATIONS)) {
+  console.error(`拒绝执行：日志输出路径与变异定义文件相同（${MUTATIONS}）`)
+  process.exit(2)
+}
 
 const lines = []
 const say = (s) => { console.log(s); lines.push(s) }

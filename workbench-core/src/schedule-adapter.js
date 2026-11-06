@@ -585,8 +585,17 @@ export function createScheduleAdapter(options) {
       const plans = []
       const skipped = []
       for (const task of tasks) {
-        if (task.done === true || task.dueAt === undefined || task.dueAt === null) continue
-        const dueMs = Date.parse(task.dueAt)
+        /**
+         * 「没填截止时间」与「填了但解析不了」是两件事，不能混为一谈：
+         * - 空串 / 空白串 / null / undefined = **没填** → 不提醒，也不报警。
+         *   界面新建待办时 dueAt 就是空串，把它当坏数据报警等于对正常操作报假警。
+         * - 非空但 Date.parse 得 NaN = **填错** → 进 skipped，必须让人看见。
+         */
+        const dueRaw = task.dueAt
+        const dueIsBlank = dueRaw === undefined || dueRaw === null
+          || (typeof dueRaw === 'string' && dueRaw.trim() === '')
+        if (task.done === true || dueIsBlank) continue
+        const dueMs = Date.parse(dueRaw)
         if (!Number.isFinite(dueMs)) {
           skipped.push({ taskId: String(task.id), reason: 'invalid-dueAt' })
           continue

@@ -91,6 +91,7 @@ export {
 
 export {
   DANGEROUS_OPS,
+  WRITE_OPS,
   createWorkbenchService,
 } from './service.js'
 
