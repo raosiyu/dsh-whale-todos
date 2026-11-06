@@ -167,7 +167,7 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
 | `event.conflicts` 窗口 | 设计 | UI 用「今天起 7 天」固定窗口，未做成用户可选（授权未要求） |
 | 子任务创建 | 设计 | 授权只要求「子任务展示」；Host `task.upsert` 存任意字段，UI 展示但不提供子任务编辑（不属本包范围） |
 
-## 八、独立 Review（四轮）
+## 八、独立 Review（六轮）
 
 | 轮次 | 基准 | 结论 | 处理 |
 | --- | --- | --- | --- |
@@ -178,7 +178,7 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
 | 5 | `595d1d0` | 两路冲突：子 Agent APPROVE WITH NITS / workflow REQUEST CHANGES（3 blocker：`event.restore` 审批旁路、文档假断言、`ConfirmDelete` 漏传 `t` + 提交信息谎报） | 三条全部修复 → `dd99ae6` |
 | 收口 | `dd99ae6` | 见 `evidence/wp4/final-review/REVIEW-closing.md` | — |
 
-### 三轮抓到的实质缺陷（不粉饰）
+### 各轮抓到的实质缺陷（不粉饰）
 
 - **第 1 轮 5 blocker**：真 Remote 信封解码（`result.value` 是对象不是文本，真浏览器里 UI 静默空列表）；
   `main` 是 root-scope keyed slot，inject **零参**（拿不到 sessionId）；
@@ -211,6 +211,8 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
 **「源码长什么样」全绿 ≠ 「跑起来对不对」**。
 第 3 轮起补了**真实执行工厂 + 真实调用组件**的渲染测试，
 并用变异验证：退回旧写法即变红、还原即全绿。
+（`host-call.mjs` 曾在第 3 轮内联回 `client.js` 并删除 —— 浏览器的模块表只解析包名，
+相对 require 会直接挂掉整个 Client 半边；测试改为从 `client.js` 源码提取真实现来测。）
 
 第 1 轮 5 个 blocker：真 Remote 信封解码、main root-scope inject 零参、
 不存在的 `task.delete`、approval.request 丢 `this`、TaskForm 编辑丢字段。

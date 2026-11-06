@@ -32,8 +32,12 @@ DSH_HOME=/tmp/dsh-iso-Jv2UeM dsh --profile rescue \
 | 文件 | 轮次 | 结论 |
 | --- | --- | --- |
 | `final-review/VERDICT.md` | 第 1 轮（基准 `1a2c7ef`） | 🔴 REQUEST CHANGES（5 blocker） |
+| `final-review/REVIEW-round2.md` | 第 2 轮（基准 `836ce52`） | 🔴 REQUEST CHANGES（1 MAJOR + 4 MINOR） |
 | `final-review/REVIEW-round3.md` | 第 3 轮（基准 `548be95`） | 🔴 REQUEST CHANGES（1 blocker + 1 MAJOR） |
-| `final-review/REVIEW-round4.md` | 第 4 轮（基准 `bf1c657`） | 见文件末尾结论 |
+| `final-review/REVIEW-round4.md` | 第 4 轮（基准 `bf1c657`） | 两路冲突：子 Agent APPROVE WITH NITS / workflow REQUEST CHANGES（BLOCKER-4 回合外审批） |
+| `final-review/REVIEW-round5.md` | 第 5 轮（基准 `595d1d0`） | 两路冲突：子 Agent APPROVE WITH NITS / workflow REQUEST CHANGES（3 blocker） |
+| `final-review/REVIEW-closing.md` | 收口（基准 `dd99ae6`） | 🔴 REQUEST CHANGES（2 个 task 侧 blocker） |
+| 终审复核（workflow，基准 `6ffaac6`） | 终审 | ✅ **APPROVE，0 blocker** |
 | `06-review-response.md` | 第 1–2 轮响应 | 逐条修复记录 |
 
 ## 4. 测试与变异
