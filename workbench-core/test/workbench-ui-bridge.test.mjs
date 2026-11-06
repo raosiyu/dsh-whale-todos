@@ -73,25 +73,43 @@ function makeHost(rootDir) {
       signal,
     })
     const result = await def.handler(invocation)
-    // 真 commands.execute 把 command result 放进 Remote 的 value；
-    // Client 的 callHost 再从 text(JSON) 解出业务 {ok,value,error}。
-    // 错误 kind 也走同一通道，让业务错误码（如 confirmation-required）可见。
-    return { ok: true, value: result.text }
+    // **真 Remote 信封**（最终 Review 实锤，不再是 mock 扁平信封）：
+    //   { ok: true, value: { commandId, result: { kind, text } } }
+    // 证据：dsh-client-ui-commands:1718-1724 访问 result.value.result；
+    // dsh-commands/lib/typert.remote-client.js 的 commands/execute result schema；
+    // gateway encodeRpcResult 原样透传 {ok:true,value:<原样>}。
+    // 之前测试用 {ok:true,value:result.text} 是假信封，8/8 全绿却掩盖了
+    // 真浏览器里 UI 静默空数据 —— 这正是「不得用模拟接口冒充真实宿主」。
+    return {
+      ok: true,
+      value: {
+        commandId: 'c1',
+        result: Object.freeze({ kind: result.kind, text: result.text }),
+      },
+    }
   }
 
   return { ctx, execute, getService: () => provided }
 }
 
-/** Client 侧 callHost 的解码（与 client.js 的 callHost 同语义）。 */
+/**
+ * Client 侧 callHost 的解码（与 client.js 的 callHost **同语义**）：
+ * 真 Remote 信封 → value.result.text → JSON 业务对象。
+ */
 function decode(result) {
   if (result.ok === false) return { ok: false, error: result.error }
-  const text = result.value
+  const envelope = result.value
+  const command = envelope !== null && typeof envelope === 'object' ? envelope.result : undefined
+  const text = command !== null && typeof command === 'object' && typeof command.text === 'string'
+    ? command.text
+    : (typeof envelope === 'string' ? envelope : undefined)
   if (typeof text === 'string' && text !== '') {
     try {
       const v = JSON.parse(text)
       if (v !== null && typeof v === 'object') return v
     } catch { /* 原样返回 */ }
   }
+  if (command?.kind === 'error') return { ok: false, error: { code: 'command_error', message: text } }
   return { ok: true, value: text }
 }
 
@@ -327,4 +345,68 @@ test('WP4：子任务与 AI 会话关联数据可经 Host Service 往返', async
     assert.deepEqual(saved.subtasks, ['订会议室', '发议程'])
     assert.equal(saved.sourceSessionId, 'session-origin')
   })
+})
+
+test('WP4：真 Remote 信封必须解出业务数据（旧扁平解码会失败）', async () => {
+  // 真形状：{ok:true, value:{commandId, result:{kind:'success', text:'<json>'}}}
+  const realEnvelope = {
+    ok: true,
+    value: { commandId: 'c1', result: { kind: 'success', text: '{"ok":true,"value":[1,2,3]}' } },
+  }
+  const decoded = decode(realEnvelope)
+  assert.equal(decoded.ok, true)
+  assert.deepEqual(decoded.value, [1, 2, 3], '必须解出数组而不是整个 envelope')
+
+  // 反证：旧实现把 result.value 当文本，真信封下会得到对象 → 不是数组
+  const naive = realEnvelope.value
+  assert.equal(Array.isArray(naive), false, '旧解码在真信封下会静默产生空列表')
+
+  // 命令级 error kind 也必须有明确出口
+  const errEnvelope = {
+    ok: true,
+    value: { commandId: 'c2', result: { kind: 'error', text: 'boom' } },
+  }
+  const errDecoded = decode(errEnvelope)
+  assert.equal(errDecoded.ok, false, 'kind:error 不得被当成成功')
+})
+
+test('WP4：main 是 root-scope keyed slot，inject 零参时 UI 不依赖注入的 sessionId', () => {
+  // 真 renderer runInject(entry, void 0, actions) → inject() 零参
+  // （dsh-client-ui-renderer:435-441、dsh-client-ui-layout:631-633）。
+  // 因此 sessionId 必须来自 ctx.sessions.list.getSnapshot().byId 中
+  // retainedBy.mainView > 0 的行，而不是 inject 首参。
+  const snapshot = {
+    byId: {
+      'other-session': { id: 'other-session', retainedBy: {} },
+      'active-session': { id: 'active-session', retainedBy: { mainView: 1 } },
+    },
+  }
+  const row = Object.values(snapshot.byId).find((r) => (r?.retainedBy?.mainView ?? 0) > 0)
+  assert.equal(row?.id, 'active-session', '真实 store 能给出当前会话')
+
+  // 模拟 zero-arg inject：不传 sessionId 时，页面应从 sessions store 取，
+  // 而不是拿到 undefined 就抛 "No active session"。
+  const injectProps = (() => ({ ctx: {} }))()   // 真 main 注册的形状
+  assert.equal(injectProps.sessionId, undefined, 'main inject 确实不提供 sessionId')
+
+  // 断言 client.js 已改为从 ctx.sessions 取，且 inject 依赖已声明
+  const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
+  assert.match(client, /ctx\.sessions\?\.list\?\.getSnapshot/, '必须从真 sessions store 取会话')
+  assert.match(client, /inject: \['slots', 'remote', 'sessions'\]/, '必须声明 sessions 依赖')
+  assert.doesNotMatch(client, /inject: \(sessionId\) => \(\{ sessionId, ctx \}\)/, '不得再依赖 inject 首参')
+})
+
+test('WP4：待办删除不再调用不存在的 task.delete；审批保留 receiver', () => {
+  const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
+  const host = readFileSync(new URL('../../packages/workbench-ui/index.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(client, /'task\.delete'/, '不得自造未实现的 op')
+  assert.match(client, /task\.upsert[\s\S]{0,200}deleted: true/, '待办删除用软删标记')
+  // approval.request 必须绑定 receiver，不能裸抽出
+  assert.match(host, /\(req\) => approval\.request\(req\)/, 'approval.request 保留 this')
+  assert.doesNotMatch(host, /requestApproval: approval\?\.request/, '不得裸传 request 方法')
+})
+
+test('WP4：TaskForm 编辑保留 subtasks / sourceSessionId（不丢字段）', () => {
+  const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
+  assert.match(client, /\.\.\.\(initial \?\? \{\}\),/, '编辑必须展开原字段')
 })

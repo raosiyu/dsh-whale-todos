@@ -148,14 +148,32 @@ window.__ModuleLoader__.load({
       if (result === undefined || result === null) {
         return { ok: false, error: { code: 'no_result', message: 'command returned no result' } }
       }
-      // 真 commands.execute 的 Remote 结果形状：{ok, value} / {ok:false,error}
-      if (result.ok === false) return { ok: false, error: result.error ?? { code: 'command_failed', message: 'command failed' } }
-      const text = result.value !== undefined ? result.value : result.text
+      // 真 `ctx.remote.commands.execute` 的 Remote 信封（最终 Review 实锤）：
+      //   { ok: true, value: { commandId, result: { kind: 'success'|'error', text } } }
+      // 证据：dsh-client-ui-commands/lib/client.js:1718-1724 访问
+      // `result.value.result`；dsh-commands/lib/typert.remote-client.js 的
+      // commands/execute result schema；gateway encodeRpcResult 原样透传。
+      // 旧实现把 result.value 当业务 JSON 字符串，真形状下它是对象 →
+      // UI 静默空列表、命令级错误被吞。
+      if (result.ok === false) {
+        return { ok: false, error: result.error ?? { code: 'command_failed', message: 'command failed' } }
+      }
+      const envelope = result.value
+      const command = envelope !== null && typeof envelope === 'object'
+        ? envelope.result
+        : undefined
+      const text = command !== null && typeof command === 'object' && typeof command.text === 'string'
+        ? command.text
+        : (typeof envelope === 'string' ? envelope : undefined)
       if (typeof text === 'string' && text !== '') {
         try {
           const decoded = JSON.parse(text)
           if (decoded !== null && typeof decoded === 'object') return decoded
         } catch { /* 非 JSON 文本按原样返回 */ }
+      }
+      // 命令级 error kind 也必须有明确出口，不能静默当成成功
+      if (command?.kind === 'error') {
+        return { ok: false, error: { code: 'command_error', message: text ?? 'command failed' } }
       }
       return { ok: true, value: text }
     }
@@ -277,7 +295,10 @@ window.__ModuleLoader__.load({
       const submit = (ev) => {
         ev.preventDefault()
         if (title.trim() === '') return
+        // **最终 Review BLOCKER 修复**：整行替换会丢 subtasks/sourceSessionId
+        // 等字段，故展开 initial 全量字段再覆盖表单值。
         onSave({
+          ...(initial ?? {}),
           id: initial?.id ?? `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           title: title.trim(), dueAt, priority,
           done: initial?.done === true,
@@ -311,9 +332,39 @@ window.__ModuleLoader__.load({
 
     // --------------------------------------------------------------- 主页面
     function WorkbenchPage(props) {
-      // 真 slot props：sessionId 来自 main keyed slot 的 inject
-      const sessionId = props.sessionId ?? props.activeSessionId
+      // **最终 Review BLOCKER 修复**：`main` 是 root-scope keyed slot，
+      // `ctx.slots.inject('main', ...)` 的 inject 在真 renderer 里是**零参**
+      // （dsh-client-ui-renderer:435-441，binding=void 0 时不 push 参数），
+      // 所以不能靠 `props.sessionId`。
+      // 真实来源（dsh-client-ui-workspace/lib/client.js:89）：
+      //   ctx.sessions.list.getSnapshot().byId 中 retainedBy.mainView > 0 的行。
       const ctx = props.ctx
+      const [currentSessionId, setCurrentSessionId] = useState(() => {
+        try {
+          const snap = ctx.sessions?.list?.getSnapshot?.()
+          const row = snap?.byId
+            ? Object.values(snap.byId).find((r) => (r?.retainedBy?.mainView ?? 0) > 0)
+            : undefined
+          return row?.id ?? props.sessionId ?? undefined
+        } catch { return props.sessionId ?? undefined }
+      })
+      // 会话切换时跟随真实 store（订阅在 effect 内，返回清理）
+      useEffect(() => {
+        const list = ctx.sessions?.list
+        if (typeof list?.subscribe !== 'function') return undefined
+        const read = () => {
+          try {
+            const snap = list.getSnapshot?.()
+            const row = snap?.byId
+              ? Object.values(snap.byId).find((r) => (r?.retainedBy?.mainView ?? 0) > 0)
+              : undefined
+            if (row?.id !== undefined) setCurrentSessionId(row.id)
+          } catch { /* 保留上一次已知会话 */ }
+        }
+        read()
+        return list.subscribe(read)
+      }, [ctx])
+      const sessionId = currentSessionId
       const [tab, setTab] = useState('calendar')
       const [view, setView] = useState('month')
       const [taskFilter, setTaskFilter] = useState('today')
@@ -489,7 +540,11 @@ window.__ModuleLoader__.load({
         setApproving(true)
         setError(null)
         try {
-          const op = kind === 'event' ? 'event.delete' : 'task.delete'
+          // **最终 Review BLOCKER 修复**：service.listOps() 没有 task.delete
+          // （只有 task.list/task.upsert）。待办删除改为 task.upsert 打软删
+          // 标记（业务层整行替换但保留任意字段），并用 event.delete 的真实
+          // 审批指纹；不臆造未实现的 op。
+          const op = 'event.delete'   // 审批只认 DANGEROUS_OPS 里的真实 op
           const detail = { target: id, summary: `Delete ${kind} ${id}` }
           const approval = await request({
             op: 'requestApproval',
@@ -502,8 +557,18 @@ window.__ModuleLoader__.load({
           if (typeof token !== 'string' || token === '') {
             throw new Error(approval?.error?.message ?? 'Host approval was not granted')
           }
-          const r = await request({ op, payload: { id }, approvalToken: token })
-          if (r.ok !== true) throw new Error(r.error?.message ?? `${op} failed`)
+          let r
+          if (kind === 'task') {
+            const t = tasks.find((x) => x.id === id) ?? { id }
+            r = await request({
+              op: 'task.upsert',
+              payload: { task: { ...t, deleted: true, deletedAt: new Date().toISOString() } },
+              approvalToken: token,
+            })
+          } else {
+            r = await request({ op: 'event.delete', payload: { id }, approvalToken: token })
+          }
+          if (r.ok !== true) throw new Error(r.error?.message ?? `delete failed`)
           setConfirming(null)
           setSelected(null)
           setNotice('Deleted after Host approval')
@@ -645,7 +710,7 @@ window.__ModuleLoader__.load({
 
     // --------------------------------------------------------------- 注册
     return {
-      inject: ['slots', 'remote'],
+      inject: ['slots', 'remote', 'sessions'],
       apply(ctx) {
         // factory 内不产生副作用；注册都在 apply 里，ctx.effect 负责清理
         ctx.effect(() => {
@@ -654,7 +719,7 @@ window.__ModuleLoader__.load({
             key: PANEL_ID,
             id: PANEL_ID,
             locale: NS,
-            inject: (sessionId) => ({ sessionId, ctx }),
+            inject: () => ({ ctx }),
           }, WorkbenchPage))
           const d2 = ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
             name: 'sidebar.panellist',
