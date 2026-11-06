@@ -57,8 +57,11 @@ test('WP3：工具定义齐全且每个都有 name/description/parameters/output
       'workbench_event_create',
       'workbench_event_get',
       'workbench_event_list',
+      'workbench_event_move',
       'workbench_event_update',
+      'workbench_export',
       'workbench_help',
+      'workbench_import_preview',
       'workbench_task_archive',
       'workbench_task_list',
       'workbench_task_reorder',
@@ -102,10 +105,18 @@ test('WP3：payload 里的 confirmed 不能绕过审批（危险 op 不在工具
   await withTmp(async (dir) => {
     const defs = createWorkbenchToolDefinitions({ service: mkService(dir) })
     const names = defs.map((d) => d.name)
-    // 危险操作（delete/bulkDelete/import/replace/rollback）不注册为 AI 工具
-    for (const dangerous of ['event.delete', 'event.bulkDelete', 'event.import', 'snapshot.replace', 'store.rollback']) {
-      assert.equal(names.some((n) => n.includes(dangerous.split('.')[1])), false,
-        `${dangerous} 不应暴露给模型`)
+    /**
+     * 危险操作不注册为 AI 工具。
+     *
+     * 这里必须**精确比对**，不能用子串：WP5 新增的 `workbench_import_preview`
+     * 名字里含 "import"，子串判断会把它误判成危险 op —— 而它恰恰是只读预览，
+     * 正是要求模型先调用的那个。`workbench_export` 同理。
+     *
+     * 真正要守住的是：**导入/覆盖/删除/回滚的执行动作**不在工具面。
+     */
+    assert.equal(names.includes('workbench_import_apply'), false, '导入执行（批量写/覆盖）不得暴露给模型')
+    for (const forbidden of ['workbench_event_delete', 'workbench_event_bulk_delete', 'workbench_store_rollback', 'workbench_snapshot_replace']) {
+      assert.equal(names.includes(forbidden), false, `${forbidden} 不应暴露给模型`)
     }
     // 工具定义里不读取 args.confirmed
     const createSrc = defs.find((d) => d.name === 'workbench_event_create').execute.toString()
@@ -142,8 +153,8 @@ test('WP3：applyWorkbenchTools 注册全部工具并返回精确 disposer', asy
     // 用「与真 defineTool 同形」的注入函数（本测试不 import DSH 包）
     const defineTool = (d) => ({ ...d, __wrapped: true })
     const disposers = applyWorkbenchTools(ctx, { defineTool, service: mkService(dir) })
-    assert.equal(registered.length, 10)
-    assert.equal(disposers.length, 10)
+    assert.equal(registered.length, 13)
+    assert.equal(disposers.length, 13)
     for (const dispose of disposers) dispose()
     assert.equal(registered.length, 0, 'disposer 必须精确反注册')
   })
@@ -240,7 +251,7 @@ test('WP3：workbench_help 列出工具与参数，供自然语言映射', async
     const out = await help.execute({}, execFor('s1'))
     assert.equal(out.ok, true)
     assert.equal(Array.isArray(out.result.tools), true)
-    assert.equal(out.result.tools.length, 10)
+    assert.equal(out.result.tools.length, 13)
     // 不泄露 sessionId 原文
     assert.equal(JSON.stringify(out).includes('s1'), false)
   })

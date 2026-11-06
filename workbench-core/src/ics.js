@@ -100,7 +100,16 @@ function parseRRule(value) {
       return [kv.slice(0, eq).toUpperCase(), kv.slice(eq + 1)]
     }),
   )
-  const out = { freq: parts.FREQ }
+  /**
+   * FREQ 必须合法。原实现不校验，`RRULE:FREQ=BOGUS` 会静默产出
+   * `{freq:'BOGUS'}`，导入后展开时抛 unsupported 或干脆不重复 —— 用户看不到原因。
+   * 这里显式抛，由 buildEvent 收进结构化 unsupported。
+   */
+  const VALID_FREQ = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']
+  if (typeof parts.FREQ !== 'string' || !VALID_FREQ.includes(parts.FREQ.toUpperCase())) {
+    throw validationError(`RRULE 的 FREQ 非法：${String(parts.FREQ)}`, { freq: parts.FREQ })
+  }
+  const out = { freq: parts.FREQ.toUpperCase() }
   if (parts.INTERVAL !== undefined) out.interval = Number(parts.INTERVAL)
   if (parts.COUNT !== undefined) out.count = Number(parts.COUNT)
   if (parts.UNTIL !== undefined) {
@@ -126,6 +135,14 @@ export function parseIcs(text, options = {}) {
   const events = []
   const warnings = []
   const errors = []
+  /**
+   * **结构化「不支持」清单（WP5）**。
+   *
+   * 授权明令：不支持的 ICS 规则必须明确报告，**不得静默丢弃**。
+   * warnings 是给人看的自由文本，机器没法逐条核对；这里额外给机器一份，
+   * 每条带 kind + 可定位信息，导入预览据此逐条展示。
+   */
+  const unsupported = []
 
   let inEvent = false
   let current = null
@@ -139,18 +156,27 @@ export function parseIcs(text, options = {}) {
     if (line === 'BEGIN:VEVENT') { inEvent = true; current = { props: {} }; continue }
     if (line === 'END:VEVENT') {
       if (current !== null) {
-        const built = buildEvent(current, { defaultTimeZone, warnings, errors })
+        const built = buildEvent(current, { defaultTimeZone, warnings, errors, unsupported })
         if (built !== null) events.push(built)
       }
       inEvent = false
       current = null
       continue
     }
-    if (!inEvent || current === null) continue
+    /**
+     * 不支持的组件检测必须在 `!inEvent` 之前。
+     *
+     * 原顺序把 `!inEvent` 的判断放在前面，而 VTODO 永远出现在 VEVENT 之外
+     * → 这段检测**从来没有执行过**，用户导入含 VTODO 的日历会静默丢任务。
+     * （实测复现：含 BEGIN:VTODO 的 ICS，unsupported 为空。）
+     */
     if (line.startsWith('BEGIN:VTODO') || line.startsWith('BEGIN:VJOURNAL') || line.startsWith('BEGIN:VFREEBUSY')) {
-      warnings.push(`跳过不支持的组件：${line.slice(6)}`)
+      const kind = line.slice(6)
+      warnings.push(`跳过不支持的组件：${kind}`)
+      unsupported.push({ kind: 'component', detail: kind, reason: '该组件类型本版本不导入' })
       continue
     }
+    if (!inEvent || current === null) continue
     const { head, value } = splitProperty(line)
     const { name, params } = parseHead(head)
     current.props[name] = { value, params }
@@ -160,14 +186,16 @@ export function parseIcs(text, options = {}) {
   if (events.length === 0 && errors.length === 0) {
     warnings.push('文件里没有可导入的 VEVENT')
   }
-  return { events, warnings, errors }
+  return { events, warnings, errors, unsupported }
 }
 
-function buildEvent(holder, { defaultTimeZone, warnings, errors }) {
+function buildEvent(holder, { defaultTimeZone, warnings, errors, unsupported }) {
   const p = holder.props
   const summary = p.SUMMARY === undefined ? '' : unescapeText(p.SUMMARY.value).trim()
   if (p['RECURRENCE-ID'] !== undefined) {
-    warnings.push(`忽略 RECURRENCE-ID 例外实例：${summary || p.UID?.value || '(无标题)'}`)
+    const label = summary || p.UID?.value || '(无标题)'
+    warnings.push(`忽略 RECURRENCE-ID 例外实例：${label}`)
+    unsupported.push({ kind: 'recurrence-exception', detail: label, reason: '单次例外实例暂不导入' })
     return null
   }
   const dtstart = p.DTSTART === undefined ? null : parseDateTime(p.DTSTART.value)
@@ -215,7 +243,11 @@ function buildEvent(holder, { defaultTimeZone, warnings, errors }) {
     try {
       base.recurrence = parseRRule(p.RRULE.value)
     } catch (error) {
-      warnings.push(`RRULE 解析失败已忽略：${String(error?.message ?? error)}`)
+      const message = String(error?.message ?? error)
+      warnings.push(`RRULE 解析失败已忽略：${message}`)
+      unsupported.push({ kind: 'rrule', detail: p.RRULE.value, reason: message })
+      // 该事件本身仍可导入，但重复规则被丢弃 —— 必须让用户看到「降级」
+      base.degraded = true
     }
   }
   if (p.STATUS !== undefined && p.STATUS.value.toUpperCase() === 'CANCELLED') {

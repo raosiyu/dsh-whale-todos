@@ -102,7 +102,20 @@ async function runTool({ service, exec, args, op, payload, meta = {} }) {
   if (typeof sessionId !== 'string' || sessionId === '') return TOOL_ERRORS.noAgent
 
   try {
-    const result = service.invoke(sessionId, op, payload(args), {
+    /**
+     * 少数工具要**按参数决定调用哪个 op**（导入/导出按 format 分流）。
+     * payload 返回 `{ op, payload }` 时以它为准；否则用定义上的 op。
+     * 这只改变「调哪个方法」，不改变审批：危险 op 仍然要 Host 签发的凭证。
+     */
+    const resolved = payload(args)
+    const isRouted = resolved !== null && typeof resolved === 'object'
+      && typeof resolved.op === 'string'
+    const opName = isRouted ? resolved.op : op
+    const opPayload = isRouted ? resolved.payload : resolved
+    if (opName === null || opName === undefined) {
+      return operationError(new Error(`未知的导入/导出格式：${String(args.format)}`))
+    }
+    const result = service.invoke(sessionId, opName, opPayload, {
       ...meta,
       actor: 'agent-tool',
       // 真 ApprovalService.request 需要 req.agent.session；
@@ -112,7 +125,7 @@ async function runTool({ service, exec, args, op, payload, meta = {} }) {
       approvalToken: meta.approvalToken,
     })
     // 统一包装成 object；service 的原始返回值放进 `result`，避免 schema 歧义
-    return { ok: true, op, result }
+    return { ok: true, op: opName, result }
   } catch (error) {
     return operationError(error)
   }
@@ -259,6 +272,60 @@ export function createWorkbenchToolDefinitions(deps = {}) {
         return out
       },
     }),
+    // ---- 拖拽移动（WP5）----
+    simpleTool({
+      name: 'workbench_event_move',
+      description: 'Move an event to a new date/time. For a recurring event you MUST say whether you mean a single occurrence or the whole series; "this and future" is not supported and will be refused.',
+      parameters: {
+        id: { type: 'string', required: true, description: 'Event id.' },
+        mode: { type: 'string', required: true, description: 'single (one occurrence only) or series (the whole recurring series).' },
+        startDate: { type: 'string', description: 'New date YYYY-MM-DD for all-day events.' },
+        start: { type: 'string', description: 'New wall-clock start YYYY-MM-DDTHH:mm for timed events.' },
+        timeZone: { type: 'string', description: 'New IANA time zone, if changing it.' },
+        occurrenceDate: { type: 'string', description: 'Required with mode=single: the date of the occurrence being moved.' },
+      },
+      op: 'event.move',
+      payload: (args) => {
+        const target = {}
+        if (args.startDate !== undefined) target.startDate = args.startDate
+        if (args.start !== undefined) target.start = args.start
+        if (args.timeZone !== undefined) target.timeZone = args.timeZone
+        const out = { id: args.id, mode: args.mode, target }
+        if (args.occurrenceDate !== undefined) out.occurrenceDate = args.occurrenceDate
+        return out
+      },
+    }),
+
+    // ---- 导入导出（WP5）----
+    simpleTool({
+      name: 'workbench_import_preview',
+      description: 'Preview an import without writing anything: reports added / duplicate / conflicting / unsupported items. Always call this before workbench_import_apply.',
+      parameters: {
+        format: { type: 'string', required: true, description: 'ics or json.' },
+        text: { type: 'string', required: true, description: 'Raw file content.' },
+        defaultTimeZone: { type: 'string', description: 'Time zone for ICS entries without TZID.' },
+      },
+      op: null,
+      payload: (args) => {
+        if (args.format === 'ics') return { op: 'event.previewIcs', payload: { text: args.text, defaultTimeZone: args.defaultTimeZone } }
+        if (args.format === 'json') return { op: 'snapshot.preview', payload: { text: args.text } }
+        return { op: null, payload: {} }
+      },
+    }),
+    simpleTool({
+      name: 'workbench_export',
+      description: 'Export everything as JSON, or events as ICS.',
+      parameters: {
+        format: { type: 'string', required: true, description: 'ics or json.' },
+      },
+      op: null,
+      payload: (args) => {
+        if (args.format === 'ics') return { op: 'event.exportIcs', payload: {} }
+        if (args.format === 'json') return { op: 'snapshot.export', payload: {} }
+        return { op: null, payload: {} }
+      },
+    }),
+
     // ---- 错误反馈 / 操作审计 ----
     {
       name: 'workbench_help',

@@ -412,28 +412,75 @@ export function createWorkbenchService(options) {
     },
 
     // ---- 导入导出 ---------------------------------------------------------
+    /**
+     * **ICS 导入预览（WP5 增强）**。
+     *
+     * 授权要求预览必须显示：新增 / 重复 / 冲突 / 不支持 四类。
+     * 原实现只给 create 与 skip，冲突与不支持都不体现 —— 用户看不到风险就点了导入。
+     *
+     * 逐条 plan 带 `action`：
+     *   - `create`：新增
+     *   - `skip-duplicate-uid`：同 UID 已存在（重复）
+     *   - `conflict`：与既有日程时间重叠（仍可导入，但必须让用户看到）
+     * 另附 `unsupported` 清单（结构化，逐条可定位）。
+     */
     'event.previewIcs': (payload) => {
       const text = requireString(payload, 'text')
       const parsed = parseIcs(text, { defaultTimeZone: payload.defaultTimeZone })
       const existing = events.listActive()
       const plan = parsed.events.map((incoming) => {
         const sameUid = existing.find((row) => (row.uid ?? row.id) === (incoming.uid ?? incoming.id))
+        if (sameUid !== undefined) {
+          return {
+            action: 'skip-duplicate-uid',
+            uid: incoming.uid ?? null,
+            title: incoming.title,
+            allDay: incoming.allDay === true,
+            startDate: incoming.startDate ?? null,
+            start: incoming.start ?? null,
+            timeZone: incoming.timeZone ?? null,
+            conflictWith: [],
+          }
+        }
+        // 冲突检测：只对能通过校验的条目做，避免把非法输入当成冲突
+        let conflictWith = []
+        try {
+          const validated = validateEventInput(withDefaultZone(incoming))
+          const preview = checkEventConflicts(existing, {
+            id: '__candidate__',
+            ...validated,
+            uid: '__candidate__',
+            status: 'confirmed',
+            tags: validated.tags ?? [],
+          }, { allDayBlocks: payload?.allDayBlocks === true })
+          conflictWith = preview.conflicts.map((c) => c.a.eventId)
+        } catch {
+          conflictWith = []
+        }
         return {
-          action: sameUid === undefined ? 'create' : 'skip-duplicate-uid',
+          action: conflictWith.length > 0 ? 'conflict' : 'create',
           uid: incoming.uid ?? null,
           title: incoming.title,
           allDay: incoming.allDay === true,
           startDate: incoming.startDate ?? null,
           start: incoming.start ?? null,
           timeZone: incoming.timeZone ?? null,
+          conflictWith,
+          degraded: incoming.degraded === true,
         }
       })
       return {
         plan,
         counts: {
           create: plan.filter((x) => x.action === 'create').length,
+          duplicate: plan.filter((x) => x.action === 'skip-duplicate-uid').length,
+          conflict: plan.filter((x) => x.action === 'conflict').length,
+          degraded: plan.filter((x) => x.degraded === true).length,
+          unsupported: (parsed.unsupported ?? []).length,
+          // 兼容既有调用方
           skip: plan.filter((x) => x.action !== 'create').length,
         },
+        unsupported: parsed.unsupported ?? [],
         warnings: parsed.warnings,
         errors: parsed.errors,
       }
@@ -487,14 +534,57 @@ export function createWorkbenchService(options) {
       return { text, fingerprint: store.fingerprint() }
     },
 
+    /**
+     * **JSON 快照预览（WP5 增强）**。
+     *
+     * 与 ICS 预览同构：新增 / 重复 / 不支持 三类必须逐条可见。
+     * `replace` 是**覆盖式**导入，所以「会被删掉的既有条目」也必须算出来 ——
+     * 用户点确认前有权知道这一下会丢多少东西。
+     */
     'snapshot.preview': (payload) => {
       const text = requireString(payload, 'text')
       const parsed = parseJsonSnapshot(text)
-      const currentIds = new Set(events.list().map((row) => row.id))
+      const currentEvents = events.list()
+      const currentTasks = store.collection('tasks')
+      const currentEventIds = new Set(currentEvents.map((row) => row.id))
+      const currentTaskIds = new Set(currentTasks.map((row) => row.id))
+      const incomingEventIds = new Set(parsed.events.map((row) => row.id))
+      const incomingTaskIds = new Set(parsed.tasks.map((row) => row.id))
+
+      // 覆盖式导入会移除「库里有、快照里没有」的条目
+      const removedEvents = currentEvents.filter((row) => !incomingEventIds.has(row.id)).map((row) => row.id)
+      const removedTasks = currentTasks.filter((row) => !incomingTaskIds.has(row.id)).map((row) => row.id)
+
+      const unsupported = []
+      for (const row of parsed.events) {
+        if (typeof row.id !== 'string' || row.id === '') {
+          unsupported.push({ kind: 'event', detail: String(row.title ?? '(无标题)'), reason: '缺少合法 id' })
+        }
+      }
+      for (const row of parsed.tasks) {
+        if (typeof row.id !== 'string' || row.id === '') {
+          unsupported.push({ kind: 'task', detail: String(row.title ?? '(无标题)'), reason: '缺少合法 id' })
+        }
+      }
+
       return {
         events: parsed.events.length,
         tasks: parsed.tasks.length,
-        newEvents: parsed.events.filter((row) => !currentIds.has(row.id)).length,
+        newEvents: parsed.events.filter((row) => !currentEventIds.has(row.id)).length,
+        newTasks: parsed.tasks.filter((row) => !currentTaskIds.has(row.id)).length,
+        duplicateEvents: parsed.events.filter((row) => currentEventIds.has(row.id)).length,
+        duplicateTasks: parsed.tasks.filter((row) => currentTaskIds.has(row.id)).length,
+        removedEvents,
+        removedTasks,
+        counts: {
+          create: parsed.events.filter((row) => !currentEventIds.has(row.id)).length
+            + parsed.tasks.filter((row) => !currentTaskIds.has(row.id)).length,
+          duplicate: parsed.events.filter((row) => currentEventIds.has(row.id)).length
+            + parsed.tasks.filter((row) => currentTaskIds.has(row.id)).length,
+          removed: removedEvents.length + removedTasks.length,
+          unsupported: unsupported.length,
+        },
+        unsupported,
         warnings: parsed.warnings,
       }
     },
