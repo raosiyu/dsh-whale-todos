@@ -63,7 +63,7 @@ W29 `reminder.plan` 混进写闸。W23 锚点对齐真实代码。
 - 地址：https://github.com/raosiyu/dsh-whale-todos
 - 可见性：**public**
 - 默认分支：`main`，与本地 HEAD 一致
-- 发布前处理：文档与本机路径脱敏（`/Users/sylas/...` → `<repo>` / `~`），
+- 发布前处理：文档与本机路径脱敏（`/Users/<user>/...` → `<repo>` / `~`），
   全历史密钥扫描仅 2 处命中，经复核均为文档里的 grep 模式串，非真实凭据。
 
 ## 5. 未验证项（如实记录，不冒充）
