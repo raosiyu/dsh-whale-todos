@@ -2,9 +2,9 @@
 
 - 状态：**已完成（结论：REQUEST CHANGES）**
 - 审查对象：`/tmp/wp3-final2-freeze-17f79e8`（基准 commit `17f79e8`，829 文件）
-- 主仓库：`/Users/sylas/Developer/dsh-workbench`（任务给 HEAD=`17f79e8`；只读未改。实测当前 HEAD 已前进到 `d3c79d5`/830 tracked，但 commit `17f79e8` 仍在且冻结快照与其逐字节一致，见检查 8）
+- 主仓库：`<repo>`（任务给 HEAD=`17f79e8`；只读未改。实测当前 HEAD 已前进到 `d3c79d5`/830 tracked，但 commit `17f79e8` 仍在且冻结快照与其逐字节一致，见检查 8）
 - 探针目录：`/tmp/wp3final2/`（直接 import 冻结目录 `workbench-core/src/index.js`）
-- 产物：`/Users/sylas/Developer/dsh-workbench/evidence/wp3/final-review/REVIEW-round2.md`
+- 产物：`<repo>/evidence/wp3/final-review/REVIEW-round2.md`
 - 开始时间：2026-11-05 23:26 (Asia/Shanghai)
 - 原则：只读审查冻结目录；除本产物与 `/tmp/wp3final2/` 外不写任何文件；不在冻结目录里跑会写日志的探针。
 

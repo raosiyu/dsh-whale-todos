@@ -109,7 +109,7 @@
 ## 复核命令（可复现）
 
 ```bash
-cd /Users/sylas/Developer/dsh-workbench
+cd <repo>
 git diff 368207b..d6cc887 -- workbench-core/src/host-map.js
 git show d6cc887:workbench-core/src/host-map.js | shasum   # f93b4b9e88e0edcfcf845c40cf46cc81e75e544d
 # 冻结（避免实时工作树干扰）

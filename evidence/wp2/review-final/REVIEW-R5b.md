@@ -2,7 +2,7 @@
 
 审查对象：冻结快照 `/tmp/wp2r5b-freeze-368207b`（基准 commit `368207b`，790 文件）
 审查人：WP2-R5 第二轮独立 Review 员（子会话）
-产出目录：`/Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final/`
+产出目录：`<repo>/evidence/wp2/review-final/`
 探针命名：`probe-R5b-<序号>.mjs` + 同名 `.log`
 纪律：全部探针**直接 import 冻结目录的 `workbench-core/src/index.js`**，不经任何 `REPO` 常量；
 不修改主仓库任何被跟踪文件（仅写本目录）。
@@ -13,7 +13,7 @@
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench && rm -rf /tmp/wp2r5b-verify && mkdir -p /tmp/wp2r5b-verify \
+cd <repo> && rm -rf /tmp/wp2r5b-verify && mkdir -p /tmp/wp2r5b-verify \
   && git archive 368207b | tar -x -C /tmp/wp2r5b-verify \
   && diff -rq /tmp/wp2r5b-verify /tmp/wp2r5b-freeze-368207b
 cd /tmp/wp2r5b-freeze-368207b/workbench-core && node --test test/*.test.mjs
@@ -57,7 +57,7 @@ SKIP:   0
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-01.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-01.mjs
 ```
 
 **实际输出**
@@ -150,7 +150,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-02.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-02.mjs
 ```
 
 **实际输出**
@@ -200,7 +200,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-06.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-06.mjs
 ```
 
 **实际输出（判据表）**
@@ -247,7 +247,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-07.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-07.mjs
 ```
 
 **实际输出**
@@ -363,8 +363,8 @@ await this.commit({
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-09.mjs
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-10.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-09.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-10.mjs
 ```
 
 **源码机制**（`workbench-core/src/host-map.js` `prune()` L194-203）：
@@ -492,7 +492,7 @@ mutations: 36
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-08.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-08.mjs
 ```
 
 **实际输出**
@@ -528,7 +528,7 @@ flush() {
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-08.mjs   # 第 4 段
+cd <repo>/evidence/wp2/review-final && node probe-R5b-08.mjs   # 第 4 段
 node --expose-gc /tmp/r5b13.mjs
 ```
 
@@ -571,7 +571,7 @@ async upsert(record) {
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-11.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-11.mjs
 ```
 
 **实际输出**
@@ -716,7 +716,7 @@ N=1000: 5568ms
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-R5b-12.mjs
+cd <repo>/evidence/wp2/review-final && node probe-R5b-12.mjs
 ```
 
 **实际输出**
@@ -781,7 +781,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final
+cd <repo>/evidence/wp2/review-final
 for i in 01 02 06 07 11 12; do node probe-R5b-$i.mjs >/dev/null 2>&1; echo "probe-R5b-$i exit=$?"; done
 for i in 03 04 05 08 09 10; do node probe-R5b-$i.mjs >/dev/null 2>&1; echo "probe-R5b-$i exit=$?"; done
 ```
@@ -810,7 +810,7 @@ exit=1 的探针是**故意**报告已定位的问题（M-1 的墓碑老化缺�
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench && git status --short && git log --oneline -1
+cd <repo> && git status --short && git log --oneline -1
 diff -rq /tmp/wp2r5b-verify/workbench-core/src /tmp/wp2r5b-freeze-368207b/workbench-core/src
 ```
 

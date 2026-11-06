@@ -16,7 +16,7 @@
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench
+cd <repo>
 rm -rf /tmp/wp4close/archive-dd99ae6 && mkdir -p /tmp/wp4close/archive-dd99ae6
 git archive dd99ae6 | tar -x -C /tmp/wp4close/archive-dd99ae6
 diff -rq /tmp/wp4close/archive-dd99ae6 /tmp/wp4-final6-freeze-dd99ae6
@@ -273,22 +273,22 @@ $ DSH_HOME=/tmp/dsh-iso-Jv2UeM dsh --profile rescue --patch /tmp/wp4-isolated-pa
 **命令与实际输出**
 ```bash
 $ grep -c "workbench" ~/.dsh/profiles/desktop/package.json ~/.dsh/profiles/desktop/cordis.patch.yml
-/Users/sylas/.dsh/profiles/desktop/package.json:0
-/Users/sylas/.dsh/profiles/desktop/cordis.patch.yml:0
+~/.dsh/profiles/desktop/package.json:0
+~/.dsh/profiles/desktop/cordis.patch.yml:0
 $ stat -f "%Sm %N" ~/.dsh/profiles/desktop/package.json ~/.dsh/profiles/desktop/cordis.patch.yml
-Nov  6 15:11:41 2026 /Users/sylas/.dsh/profiles/desktop/package.json
-Nov  6 15:09:10 2026 /Users/sylas/.dsh/profiles/desktop/cordis.patch.yml
-$ git -C /Users/sylas/Developer/dsh-workbench remote -v      → 空
+Nov  6 15:11:41 2026 ~/.dsh/profiles/desktop/package.json
+Nov  6 15:09:10 2026 ~/.dsh/profiles/desktop/cordis.patch.yml
+$ git -C <repo> remote -v      → 空
 $ git -C ... remote | wc -l                                → 0
 $ git -C ... log --branches --not --remotes --oneline | wc -l → 66   （全部本地，无一推送）
-$ ls -d /Users/sylas/Developer/鲸鱼娘/.git                 → 不存在（该目录**不是 git 仓库**）
+$ ls -d <whale-workspace>/.git                 → 不存在（该目录**不是 git 仓库**）
 ```
 
 **判定：PASS（红线本身）** — 正式 profile 无 workbench-ui 行；0 remote；未 push。
 
 **但见 §8 NIT-4**：报告 §六 写的「鲸鱼娘 `79d7e24` dirty 0」**当场无法复核**——
-`/Users/sylas/Developer/鲸鱼娘` 现在根本没有 `.git` 目录，我在 `/Users/sylas/Developer/*/`
-与 `/Users/sylas/*/` 下所有 git 仓库里 `git cat-file -e 79d7e24` 全部无匹配。
+`<whale-workspace>` 现在根本没有 `.git` 目录，我在 `~/Developer/*/`
+与 `~/*/` 下所有 git 仓库里 `git cat-file -e 79d7e24` 全部无匹配。
 该表述不符合「当场可复核」的标准（详见 §9）。
 
 ---
@@ -574,16 +574,16 @@ plugin keys = ["__test","apply","inject"]
 
 **实际输出**
 ```
-$ ls -d /Users/sylas/Developer/鲸鱼娘/.git
-ls: /Users/sylas/Developer/鲸鱼娘/.git: No such file or directory
-$ for d in /Users/sylas/Developer/*/ /Users/sylas/*/; do git -C "$d" cat-file -e 79d7e24; done
+$ ls -d <whale-workspace>/.git
+ls: <whale-workspace>/.git: No such file or directory
+$ for d in ~/Developer/*/ ~/*/; do git -C "$d" cat-file -e 79d7e24; done
 （无任何匹配）
 ```
 该目录**不是 git 仓库**，`79d7e24` 这个 commit 在本机所有 git 仓库里都不存在。
 同一句表述在 `docs/wp2/11-WP2-R5-report.md:103`、`docs/wp3/04-final-report.md:90`
 也出现过 —— 属**跨包的沿袭**，不是 WP4 独有。
 该表述**不恰当**：红线核查的结论应当是「当场可复核」的事实。
-（可核实的替代写法：`ls -d /Users/sylas/Developer/鲸鱼娘/.git` 不存在 +
+（可核实的替代写法：`ls -d <whale-workspace>/.git` 不存在 +
 目录 mtime 未变 + `find` 无新文件。）
 
 ### 🟡 NIT-5 `evidence/wp4/00-evidence-index.md` 与报告 §五 的**分项测试数字过期**（23/23、4/4、27/27）

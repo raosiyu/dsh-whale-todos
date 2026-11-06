@@ -2,7 +2,7 @@
 
 状态：已完成（结论见文末）
 
-审查对象：`/Users/sylas/Developer/dsh-workbench`
+审查对象：`<repo>`
 增量范围：`git diff 368207b..d6cc887 -- workbench-core/src/host-map.js`（R5-8 7 处）
 + 工作树未提交的两条修复（load 旧格式置脏 / prune 老化置脏）
 + `test/contract.test.mjs` 末尾 WP3-P1 / WP3-P7 两条守卫测试
@@ -22,7 +22,7 @@
 
 ## 探针说明
 
-- 文件：`/tmp/wp3pre2/probe.mjs`，`import { openHostMap, createScheduleAdapter, createHostBackend, toHostInstant } from '/Users/sylas/Developer/dsh-workbench/workbench-core/src/index.js'`（直接 import 主仓库入口，符合机制要求）。
+- 文件：`/tmp/wp3pre2/probe.mjs`，`import { openHostMap, createScheduleAdapter, createHostBackend, toHostInstant } from '<repo>/workbench-core/src/index.js'`（直接 import 主仓库入口，符合机制要求）。
 - 运行：`node /tmp/wp3pre2/probe.mjs`，日志 `/tmp/wp3pre2/probe.log`，结构化结果 `/tmp/wp3pre2/probe-results.json`。
 - 结果：**11/11 PASS**（首轮 2 处 FAIL 均为探针自身写法错误：C4a 把 `put` 内部已跑的 `prune` 又判了一次 drop、C4b 误用 `createScheduleAdapter.upsert`（实际在 `createHostBackend` 上）且漏了 `flush` 就落盘；修正探针后全绿，**非被审代码缺陷**）。
 
@@ -100,7 +100,7 @@
 
 ### 5b `node scripts/r3-mutate.mjs /tmp/wp3pre2/mut.log`
 
-- 命令：`cd /Users/sylas/Developer/dsh-workbench && node scripts/r3-mutate.mjs /tmp/wp3pre2/mut.log`
+- 命令：`cd <repo> && node scripts/r3-mutate.mjs /tmp/wp3pre2/mut.log`
   （脚本位于仓库根 `scripts/`，其 `ROOT` 自解析到仓库根；按任务字面写的 `cd workbench-core && node scripts/r3-mutate.mjs`
   会 `MODULE_NOT_FOUND`，因 workbench-core 下无 scripts/，故从根运行，输出日志按任务指定写到 `/tmp/wp3pre2/mut.log`）
 - 输出：`变异定义：36 项`；逐项结果 36 行全部 `CAUGHT`（16 个 `M*` + 20 个 `X*`），

@@ -3,7 +3,7 @@
 ## 环境
 - `DSH_HOME=/tmp/dsh-iso-Jv2UeM`（隔离，`rescue` profile，web 模板）
 - 当前 GUI 正式 profile = `desktop`，**未修改**
-- 安装：`DSH_HOME=/tmp/dsh-iso-Jv2UeM dsh plugin --profile rescue add /Users/sylas/Developer/dsh-workbench/packages/workbench-ui`
+- 安装：`DSH_HOME=/tmp/dsh-iso-Jv2UeM dsh plugin --profile rescue add <repo>/packages/workbench-ui`
   → `@local/dsh-workbench-ui link:...`，pnpm 53ms，无构建脚本
 - 启动：`DSH_HOME=... dsh --profile rescue --patch /tmp/wp4-isolated-patch.yml --no-open --port 0`
   （`--patch` 把 `rootDir` 覆盖到 `/tmp/dsh-iso-Jv2UeM/workbench-data`，避免落用户数据）

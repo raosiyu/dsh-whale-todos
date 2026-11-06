@@ -42,10 +42,10 @@ window.__ModuleLoader__.load({
     const LOCALE = {
       en: {
       "meta": {
-            "title": "Workbench",
+            "title": "Whale Todos",
             "description": "A calendar and todo workbench backed by the Host Service."
       },
-      "panel": "Workbench",
+      "panel": "Whale Todos",
       "calendar": "Calendar",
       "todos": "Todos",
       "month": "Month",
@@ -69,10 +69,10 @@ window.__ModuleLoader__.load({
 },
       zh: {
       "meta": {
-            "title": "工作台",
-            "description": "由 Host Service 提供数据的日历与待办工作台。"
+            "title": "鲸鱼待办",
+            "description": "由 Host Service 提供数据的日历与待办面板。"
       },
-      "panel": "工作台",
+      "panel": "鲸鱼待办",
       "calendar": "日历",
       "todos": "待办",
       "month": "月",

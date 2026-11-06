@@ -52,8 +52,8 @@ LICENSES/                      # 上游许可证原文 + 第三方署名（逐�
 
 ## 红线（本项目全程适用）
 
-1. 不修改 `/Users/sylas/Developer/鲸鱼娘/plugin`（dsh-whale-gen）及鲸鱼娘工作区其他既有文件。
+1. 不修改本机其他项目的既有文件（例如鲸鱼娘工作区的 dsh-whale-gen 插件）。
 2. 不安装到正式 Desktop/Web profile；需要运行插件时只用独立隔离环境。
 3. 不修改、迁移、清空 `~/.dsh` 下任何现有用户数据。
-4. 不擅自 `git push` 到任何远程仓库；Git 仅本地基线。
+4. `git push` 只在明确授权下执行；日常开发以本地 commit 为基线。
 5. 每个工作包完成后 STOP，等下一包授权。

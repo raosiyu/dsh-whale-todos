@@ -1,6 +1,6 @@
 # WP4 第四轮独立复审（REVIEW-round4）
 
-- 审查对象：`/Users/sylas/Developer/dsh-workbench`，冻结 commit `bf1c657`
+- 审查对象：`<repo>`，冻结 commit `bf1c657`
 - 导出副本：`/tmp/wp4r4/repo`（`git archive bf1c657`）
 - 探针目录：`/tmp/wp4r4/probe/`
 - 审查员：WP4 第四轮独立复审员（只读主仓库；变异脚本只在 /tmp 副本里跑）
@@ -34,7 +34,7 @@ d64deab WP4-10: fix the remaining stale regression numbers in the report
 
 **命令**
 ```
-$ cd /Users/sylas/Developer/dsh-workbench && git rev-parse HEAD
+$ cd <repo> && git rev-parse HEAD
 bf1c657b348c3fbcc5dca7b109130408d90d15eb
 $ git archive bf1c657 | tar -x -C /tmp/wp4r4/repo
 $ git -c core.quotepath=false ls-tree -r bf1c657 --format='%(objectname) %(path)'   # 856 行
@@ -197,7 +197,7 @@ $ grep -n "workbench" ~/.dsh/profiles/desktop/package.json            → 无
 $ grep -n "workbench" ~/.dsh/profiles/desktop/cordis.patch.yml       → 无
 $ grep -l "workbench" ~/.dsh/profiles/desktop/package.json* ~/.dsh/profiles/desktop/cordis.patch.yml*
 NO workbench anywhere in desktop profile
-$ cd /Users/sylas/Developer/dsh-workbench && git remote -v            → 空
+$ cd <repo> && git remote -v            → 空
 $ git branch -vv
 * main bf1c657 WP4-10: fix round-3 BLOCKER-1 ...
 （无 [origin/...] 跟踪 → 未 push）
@@ -574,7 +574,7 @@ locale 字典定义 24 键，实际只用 16 键；未用：description/error/lo
 ## 13. 收口复核（结束时的 HEAD 与最终回归）
 
 ```
-$ cd /Users/sylas/Developer/dsh-workbench && git rev-parse HEAD
+$ cd <repo> && git rev-parse HEAD
 a860916de3e511d12b22a0d0f409a5ead9af5226
 
 $ git status --porcelain=v1 --untracked-files=all

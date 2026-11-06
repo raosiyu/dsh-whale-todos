@@ -1,9 +1,9 @@
 {
   "meta": {
-    "title": "Workbench",
-    "description": "A calendar and todo workbench backed by the Host Service."
+    "title": "Whale Todos",
+    "description": "A calendar and todo panel backed by the Host Service."
   },
-  "panel": "Workbench",
+  "panel": "Whale Todos",
   "calendar": "Calendar",
   "todos": "Todos",
   "month": "Month",

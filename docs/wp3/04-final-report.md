@@ -95,7 +95,7 @@
 ## 八、复核命令
 
 ```bash
-cd /Users/sylas/Developer/dsh-workbench
+cd <repo>
 git log --oneline d6cc887..280e073
 cd workbench-core && node --test test/*.test.mjs            # 240/240
 cd .. && node scripts/r3-mutate.mjs /tmp/mut.log           # 36/36

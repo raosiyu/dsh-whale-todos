@@ -32,6 +32,17 @@ const hostCode = codeOnly(host)
 const pkg = JSON.parse(read('package.json'))
 const patch = read('cordis.patch.yml')
 
+
+/**
+ * 读出 client.js 插件 inject 数组里的服务名。
+ * 与 workbench-ui-bridge.test.mjs 同口径：逐名检查，不钉整串字面量。
+ */
+function readInjectNames(source) {
+  const match = /inject:\s*\[([\s\S]*?)\]/.exec(source)
+  if (match === null) return []
+  return [...new Set([...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]))]
+}
+
 test('WP4：main 是 keyed slot，且不覆盖 conversation', () => {
   assert.match(client, /ctx\.slots\.inject\('main'/, '必须注入 main')
   assert.match(client, /key:\s*PANEL_ID/, 'main 必须带 key（keyed slot）')
@@ -149,7 +160,12 @@ test('WP4：UI 文案走真 Client locale 服务（不再是硬编码英文）',
   // 证据：dsh-client-ui-approval/lib/client.js:316
   assert.match(client, /ctx\.locale\.register\(NS, LOCALE\)/, '必须注册 locale 字典')
   assert.match(client, /ctx\.locale\.bind\(NS\)/, '必须用 bind 取文案')
-  assert.match(client, /inject: \['slots', 'remote', 'sessions', 'locale'\]/, '必须声明 locale 依赖')
+  // WP5 真机修复：inject 逐服务名精确匹配。按名逐个检查，不钉整串字面量——
+  // 补声明一个漏掉的服务是合法修复，不该把测试弄红。
+  const injects = readInjectNames(client)
+  for (const required of ['slots', 'remote', 'remote.commands', 'sessions', 'locale']) {
+    assert.ok(injects.includes(required), `必须声明 ${required} 依赖（实际: ${injects.join(', ')}）`)
+  }
   // 主要面板文案必须走 t()
   assert.match(client, /t\('panel'\)/, '面板标题必须走 locale')
   assert.match(client, /t\('calendar'\)/, '日历标签必须走 locale')

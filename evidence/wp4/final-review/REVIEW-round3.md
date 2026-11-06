@@ -17,8 +17,8 @@
 
 **命令**
 ```
-git -C /Users/sylas/Developer/dsh-workbench rev-parse HEAD
-git -C /Users/sylas/Developer/dsh-workbench archive 548be95 | tar -x -C /tmp/wp4r3/freeze-548be95
+git -C <repo> rev-parse HEAD
+git -C <repo> archive 548be95 | tar -x -C /tmp/wp4r3/freeze-548be95
 diff -rq /tmp/wp4-final3-freeze-d64deab /tmp/wp4r3/freeze-d64deab
 diff -rq /tmp/wp4-final3-freeze-d64deab /tmp/wp4r3/freeze-548be95
 ```
@@ -408,8 +408,8 @@ node --test test/*.test.mjs   →  # tests 267 / # pass 267 / # fail 0
 
 **命令**
 ```
-git -C /Users/sylas/Developer/dsh-workbench status --porcelain
-git -C /Users/sylas/Developer/dsh-workbench remote -v
+git -C <repo> status --porcelain
+git -C <repo> remote -v
 grep -c workbench-ui ~/.dsh/profiles/desktop/cordis.patch.yml
 ls -la ~/.dsh/profiles/desktop/package.json
 ```

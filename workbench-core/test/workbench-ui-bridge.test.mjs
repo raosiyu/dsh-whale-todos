@@ -145,6 +145,21 @@ async function decode(result) {
 const call = async (host, sessionId, req) =>
   decode(await host.execute(sessionId, `/workbench ${JSON.stringify(req)}`))
 
+
+/**
+ * 从 client.js 里读出插件 inject 数组的服务名（去重、去空白）。
+ *
+ * 为什么要解析而不是正则匹配整串：inject 是逐服务名精确匹配的依赖声明，
+ * 增删一个服务名是**合法修复**。把整串字面量钉进断言，会让修复把测试弄红。
+ */
+function readInjectNames(source) {
+  const match = /inject:\s*\[([\s\S]*?)\]/.exec(source)
+  if (match === null) return []
+  return [...new Set(
+    [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]),
+  )]
+}
+
 test('WP4：真 commands 形状解析 /workbench <json>', () => {
   const p = parseCommand('/workbench {"op":"event.list","payload":{}}')
   assert.equal(p.name, 'workbench')
@@ -421,7 +436,16 @@ test('WP4：main 是 root-scope keyed slot，inject 零参时 UI 不依赖注入
   // 断言 client.js 已改为从 ctx.sessions 取，且 inject 依赖已声明
   const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
   assert.match(client, /ctx\.sessions\?\.list\?\.getSnapshot/, '必须从真 sessions store 取会话')
-  assert.match(client, /inject: \['slots', 'remote', 'sessions', 'locale'\]/, '必须声明 sessions 与 locale 依赖')
+  // WP5 真机修复：inject 是**逐服务名精确匹配**，不递归。
+  // 断言必须按服务名逐个检查，不能钉死一个整串字面量——
+  // 钉死字面量会让「补声明一个漏掉的服务」这种正确修复反而把测试弄红。
+  const injects = readInjectNames(client)
+  for (const required of ['slots', 'remote', 'sessions', 'locale']) {
+    assert.ok(injects.includes(required), `必须声明 ${required} 依赖（实际: ${injects.join(', ')}）`)
+  }
+  // 真机 bug 的精确回归锚：只声明 remote 不够，commands 子服务要单独声明。
+  // 证据：dsh-client-ui-plan/lib/client.js:605 ['remote','remote.commands',...]
+  assert.ok(injects.includes('remote.commands'), '必须声明 remote.commands —— 否则真机报 cannot get property "remote.commands" without inject')
   assert.doesNotMatch(client, /inject: \(sessionId\) =>/, '不得再依赖 inject 首参')
   assert.match(client, /inject: \(\) => \(\{ ctx, t: ctx\.locale\.bind\(NS\) \}\)/, 'inject 应提供 ctx 与 locale 绑定的 t')
 })

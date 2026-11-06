@@ -1,6 +1,6 @@
 # WP4 第五轮（终审）独立复审
 
-- 审查对象：`/Users/sylas/Developer/dsh-workbench`，冻结 commit `9596b30`
+- 审查对象：`<repo>`，冻结 commit `9596b30`
 - 导出副本：`/tmp/wp4r5/`
 - 探针目录：`/tmp/wp4r5/probe/`
 - 状态：**进行中**
@@ -12,7 +12,7 @@
 
 **命令**
 ```
-$ cd /Users/sylas/Developer/dsh-workbench && git rev-parse HEAD
+$ cd <repo> && git rev-parse HEAD
 9596b30b5db02c69055692a23c87637db4335dce
 $ git archive 9596b30 | tar -x -C /tmp/wp4r5/export
 $ git ls-files -z | wc -l                       → 859
@@ -451,11 +451,11 @@ dsh web: http://127.0.0.1:50772/?token=qKubltIXx6O_o8Ix9JSFpahX_1aXHqFvxpMEZ5cex
 $ grep -n "workbench" ~/.dsh/profiles/desktop/package.json      → 无匹配
 $ grep -n "workbench" ~/.dsh/profiles/desktop/cordis.patch.yml  → 无匹配
 $ stat -f "%Sm %N" ~/.dsh/profiles/desktop/package.json ~/.dsh/profiles/desktop/cordis.patch.yml
-Nov  6 15:11:41 2026 /Users/sylas/.dsh/profiles/desktop/package.json
-Nov  6 15:09:10 2026 /Users/sylas/.dsh/profiles/desktop/cordis.patch.yml
+Nov  6 15:11:41 2026 ~/.dsh/profiles/desktop/package.json
+Nov  6 15:09:10 2026 ~/.dsh/profiles/desktop/cordis.patch.yml
 
 $ git remote -v                       → 空（remote 数 = 0）
-$ cd /Users/sylas/Developer/鲸鱼娘 && git status --porcelain  → 空（count = 0）
+$ cd <whale-workspace> && git status --porcelain  → 空（count = 0）
 ```
 **未 push**：`git log --branches --not --remotes --oneline | wc -l` = 64 —— 全部 64 个
 commit 都在本地、**没有任何一个推到远端**（因为没有远端）。

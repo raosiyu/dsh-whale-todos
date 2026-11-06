@@ -15,7 +15,7 @@
 - 命令：`git archive 1a2c7ef | tar -x -C /tmp/wp4rev/archive`；`diff -rq /tmp/wp4rev/archive /tmp/wp4-final-freeze-1a2c7ef`
 - 实际输出：archive 文件数 **846**，冻结目录文件数 **846**，`diff -rq` 无任何输出，`DIFF_EXIT=0`。
 - 判定：冻结副本与 commit `1a2c7ef` 逐字节一致。
-- 主仓库 HEAD（开始）：`1a2c7ef970f4efc5cc8f195203c80e87e8ba05bb`（`git -C /Users/sylas/Developer/dsh-workbench rev-parse HEAD`）。结束 hash 在文件末尾复核。
+- 主仓库 HEAD（开始）：`1a2c7ef970f4efc5cc8f195203c80e87e8ba05bb`（`git -C <repo> rev-parse HEAD`）。结束 hash 在文件末尾复核。
 
 ### 检查 2：真实 DSH 契约对齐（逐条核对 asar 源码）
 命令与输出（FULL=/tmp/dsh-asar-full/dsh/node_modules/@deepseek-ai）：

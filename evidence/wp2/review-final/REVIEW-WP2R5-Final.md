@@ -2,7 +2,7 @@
 
 审查对象：冻结快照 `/tmp/wp2r5-freeze-2b0aabb`（基准 commit `2b0aabb`，756 文件）
 审查人：WP2-R5 最终独立 Review 员（子会话）
-产出目录：`/Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final/`
+产出目录：`<repo>/evidence/wp2/review-final/`
 
 ---
 
@@ -41,15 +41,15 @@ DEMO EXIT=0
 **命令**
 ```bash
 cd /tmp/wp2r5-freeze-2b0aabb && grep -n "REPO\s*=" scripts/probes/*.mjs
-cd /Users/sylas/Developer/dsh-workbench && git status --short
+cd <repo> && git status --short
 diff -rq /tmp/wp2r5-freeze-2b0aabb/workbench-core/src workbench-core/src
 ```
 
 **实际输出摘录**
 ```
-scripts/probes/p1-real-storage-domain.mjs:22:const REPO = '/Users/sylas/Developer/dsh-workbench'
-scripts/probes/p2-protect.mjs:17:const REPO = '/Users/sylas/Developer/dsh-workbench'
-scripts/probes/p3-retention.mjs:20:const REPO = '/Users/sylas/Developer/dsh-workbench'
+scripts/probes/p1-real-storage-domain.mjs:22:const REPO = '<repo>'
+scripts/probes/p2-protect.mjs:17:const REPO = '<repo>'
+scripts/probes/p3-retention.mjs:20:const REPO = '<repo>'
 ```
 ```
  M evidence/wp2/review-final/mutation.log
@@ -69,7 +69,7 @@ Files /tmp/wp2r5-freeze-2b0aabb/workbench-core/src/host-map.js and workbench-cor
 **主仓库与冻结版的 src 差异（未提交）**：
 ```diff
 --- /tmp/wp2r5-freeze-2b0aabb/workbench-core/src/host-map.js
-+++ /Users/sylas/Developer/dsh-workbench/workbench-core/src/host-map.js
++++ <repo>/workbench-core/src/host-map.js
 @@ -154,6 +154,17 @@
        state.index[v.hostId] = k
        delete state.entries[k]
@@ -132,7 +132,7 @@ SKIP:   0
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-02.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-02.mjs
 ```
 
 **做法差异**：p1 手搓 `new Storage(pc)` + `new DomainFacility(pc, ...)`；
@@ -170,7 +170,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-01.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-01.mjs
 ```
 
 **实际输出摘录（判据表）**
@@ -207,7 +207,7 @@ REBUILT   | 宿主保留=Y | 未重建=N | history 返回 {status:unavailable}
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-11.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-11.mjs
 ```
 ```
 --- 1) 真实语义：投递后 inactive 的行不得被删 ---
@@ -265,8 +265,8 @@ async remove(reminderKey) {
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-05.mjs
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-12.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-05.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-12.mjs
 ```
 ```
 --- A) 全量对账：desired 只剩后 300 条（前半被用户取消）---
@@ -308,7 +308,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-13.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-13.mjs
 ```
 ```
   6626b8e（R5-1 之前，无 index 墓碑）:
@@ -372,7 +372,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-03.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-03.mjs
 ```
 ```
 --- A) 交错 scope 建 2000 条 ---
@@ -493,7 +493,7 @@ delete 抛错不被静默吞、history 抛错判 UNKNOWN 且不删不建。**无
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-09.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-09.mjs
 ```
 ```
   冻结版 2b0aabb:
@@ -545,7 +545,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-WP2R5-Final-10.mjs
+cd <repo>/evidence/wp2/review-final && node probe-WP2R5-Final-10.mjs
 ```
 
 ### 9.1 报告数字 vs 实测
@@ -613,7 +613,7 @@ cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final && node probe-
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final
+cd <repo>/evidence/wp2/review-final
 for i in 01 02 03 05 07 08 09 11 12 13 14; do node probe-WP2R5-Final-$i.mjs >/dev/null 2>&1; echo "probe-$i exit=$?"; done
 ```
 ```
@@ -633,7 +633,7 @@ probe-14 exit=1     ← 证明 p3 把缺陷固化为预期
 
 **冻结完整性独立复核**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench && mkdir -p /tmp/wp2r5-verify && git archive 2b0aabb | tar -x -C /tmp/wp2r5-verify
+cd <repo> && mkdir -p /tmp/wp2r5-verify && git archive 2b0aabb | tar -x -C /tmp/wp2r5-verify
 diff -rq /tmp/wp2r5-verify /tmp/wp2r5-freeze-2b0aabb
 # DIFF_EXIT=0，两边都是 756 个文件
 ```
@@ -761,7 +761,7 @@ check-then-act（TOCTOU）：`catalog()` 快照 → `upsert()`，两个 reconcil
 
 **命令**
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final
+cd <repo>/evidence/wp2/review-final
 node probe-WP2R5-Final-09.mjs   # B-2
 node probe-WP2R5-Final-05.mjs   # B-1
 ```

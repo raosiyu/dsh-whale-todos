@@ -68,7 +68,7 @@
 ## 复核命令
 
 ```bash
-cd /Users/sylas/Developer/dsh-workbench
+cd <repo>
 git diff --stat 368207b..d6cc887
 cat evidence/wp3/precheck/02-incremental-review.md | tail -12
 tail -3 evidence/wp3/precheck/03-review-verdict.md

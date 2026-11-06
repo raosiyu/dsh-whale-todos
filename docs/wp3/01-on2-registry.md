@@ -12,7 +12,7 @@
 ## 2. 代码事实（可复核）
 
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/workbench-core
+cd <repo>/workbench-core
 grep -n "await backend.catalog()" src/schedule-adapter.js
 # 341:      const current = await backend.catalog()   ← upsertLocked 第一行
 ```
@@ -29,7 +29,7 @@ host 后端 `upsertLocked()` 第一行是 `await backend.catalog()`，
 与现有 207 项测试**同一 `contract-stub`**，测量 `reconcile` 一次建 N 条的耗时：
 
 ```bash
-cd /Users/sylas/Developer/dsh-workbench
+cd <repo>
 node scripts/bench-reconcile.mjs
 # 日志：evidence/wp3/bench-reconcile.log
 ```

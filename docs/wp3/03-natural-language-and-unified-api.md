@@ -80,7 +80,7 @@ Agent┘        └─→ forSession(sessionId, scope).execute(op, payload, meta
 ## 7. 复核命令
 
 ```bash
-cd /Users/sylas/Developer/dsh-workbench/workbench-core
+cd <repo>/workbench-core
 node --test test/host-service.test.mjs
 node --test test/host-tools.test.mjs        # 含 2 项真 defineTool 验证
 node --test test/*.test.mjs                  # 240/240

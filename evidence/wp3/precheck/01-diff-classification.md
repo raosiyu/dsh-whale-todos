@@ -38,7 +38,7 @@
 ## 复核命令（可复现）
 
 ```bash
-cd /Users/sylas/Developer/dsh-workbench
+cd <repo>
 git diff 368207b..d6cc887 -- workbench-core/src/host-map.js
 git diff 368207b..d6cc887 -- scripts/r3-mutations.json
 ```

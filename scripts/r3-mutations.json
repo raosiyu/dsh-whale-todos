@@ -369,5 +369,61 @@
     "file": "workbench-core/src/host-tools.js",
     "from": "      payload: (args) => {\n        const { id, ...patch } = args\n        return { id, patch }\n      },",
     "to": "      payload: (args) => ({ ...args }),"
+  },
+  {
+    "id": "W18",
+    "name": "WP5：excludeDates 不进 PATCHABLE（单次移动被静默丢弃，排除的实例复活）",
+    "file": "workbench-core/src/event-repo.js",
+    "from": "'recurrence', 'excludeDates', 'importance', 'tags', 'source', 'status',",
+    "to": "'recurrence', 'importance', 'tags', 'source', 'status',"
+  },
+  {
+    "id": "W19",
+    "name": "WP5：mergePatch 基准不带 excludeDates（任何 update 复活所有排除实例）",
+    "file": "workbench-core/src/event-repo.js",
+    "from": "    excludeDates: current.excludeDates ?? [],",
+    "to": "    excludeDates: [],"
+  },
+  {
+    "id": "W20",
+    "name": "WP5：MOVABLE_MODES 放行 thisAndFuture（假装支持 RRULE 分段）",
+    "file": "workbench-core/src/service.js",
+    "from": "export const MOVABLE_MODES = Object.freeze(['single', 'series'])",
+    "to": "export const MOVABLE_MODES = Object.freeze(['single', 'series', 'thisAndFuture'])"
+  },
+  {
+    "id": "W21",
+    "name": "WP5：预览把冲突当成可创建（用户看不到冲突）",
+    "file": "workbench-core/src/service.js",
+    "from": "          action: conflictWith.length > 0 ? 'conflict' : 'create',",
+    "to": "          action: 'create',"
+  },
+  {
+    "id": "W22",
+    "name": "WP5：预览把重复项当成可创建（重复导入同一日历）",
+    "file": "workbench-core/src/service.js",
+    "from": "            action: 'skip-duplicate-uid',",
+    "to": "            action: 'create',"
+  },
+  {
+    "id": "W23",
+    "name": "WP5：task.reorder 不校验未知 id（部分写入，顺序被算错）",
+    "file": "workbench-core/src/service.js",
+    "from": "      const missing = normalized.filter((id) => !existing.has(id))",
+    "to": "      const missing = []"
+  },
+  {
+    "id": "W24",
+    "name": "WP5：撤销不清空重做栈（重做跨越新操作，历史错乱）",
+    "file": "workbench-core/src/store.js",
+    "from": "      stamped.redo = []",
+    "to": "      stamped.redo = Array.isArray(stamped.redo) ? stamped.redo : []"
+  },
+  {
+    "id": "W25",
+    "name": "WP5：store.rollback 不清空撤销栈（半截导入数据可被撤销复活）",
+    "file": "workbench-core/src/store.js",
+    "from": "      if (Array.isArray(state.undo) || Array.isArray(state.redo)) {",
+    "to": "      if (false) {"
   }
 ]
