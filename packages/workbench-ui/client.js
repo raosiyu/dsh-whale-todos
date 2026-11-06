@@ -241,9 +241,18 @@ function formatReminderTime(ms) {
   return `${month}-${day} ${hh}:${mm}`
 }
 
+/**
+ * 软删判定。**唯一实现**——原本这个条件在 client.js 里抄了 3 遍，
+ * 变异测试证明其中 2 处抄漏了也没人发现（W4 存活）。
+ * 抽成纯函数既去掉重复，也让它可以被直接测到。
+ */
+function isSoftDeleted(t) {
+  return t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')
+}
+
 function taskBucket(t, now) {
       // 已软删的待办不进任何桶（复审 MAJOR：删除后仍出现在列表里）
-      if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return 'deleted'
+      if (isSoftDeleted(t)) return 'deleted'
       if (t.done === true) return 'done'
       const due = typeof t.dueAt === 'string' && t.dueAt !== '' ? new Date(t.dueAt) : null
       if (due !== null && !Number.isNaN(due.getTime()) && sameDay(due, now)) return 'today'
@@ -304,6 +313,9 @@ function taskBucket(t, now) {
      */
     const __test = {
       callHost,
+      // 纯函数：软删判定与分桶。行为测试要能直接调，不能只靠正则看源码。
+      isSoftDeleted,
+      taskBucket,
       // 三个弹窗组件：渲染期异常的探针目标（第三轮 BLOCKER-1 就是它们）
       EventForm,
       TaskForm,
@@ -783,6 +795,7 @@ function taskBucket(t, now) {
       const undoRef = useRef(null)
       const redoRef = useRef(null)
       const importInputRef = useRef(null)
+      const nudgeRef = useRef(null)
 
       // Ctrl/Cmd+K 聚焦搜索；Ctrl/Cmd+Z 撤销；Ctrl/Cmd+Shift+Z 重做
       useEffect(() => {
@@ -804,6 +817,14 @@ function taskBucket(t, now) {
             ev.preventDefault()
             if (ev.shiftKey) redoRef.current?.()
             else undoRef.current?.()
+            return
+          }
+          // 事件改期的键盘替代：选中事件后 ←/→ 前后挪一天。
+          // 拖拽只有鼠标能用，不给键盘路径就等于把一部分用户挡在门外。
+          if (k === 'arrowleft' || k === 'arrowright') {
+            if (nudgeRef.current === null) return
+            ev.preventDefault()
+            nudgeRef.current(k === 'arrowright' ? 1 : -1)
           }
         }
         window.addEventListener('keydown', onKey)
@@ -819,7 +840,7 @@ function taskBucket(t, now) {
         const q = search.trim().toLowerCase()
         const now = new Date()
         return tasks.filter((t) => {
-          if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return false
+          if (isSoftDeleted(t)) return false
           if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false
           return taskBucket(t, now) === taskFilter
         })
@@ -862,7 +883,7 @@ function taskBucket(t, now) {
         return tasks.filter((t) => {
           if (t?.archived !== true) return false
           // deleted 优先：归档后又删掉的，不再显示在归档区
-          if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return false
+          if (isSoftDeleted(t)) return false
           return q === '' || String(t.title ?? '').toLowerCase().includes(q)
         })
       }, [tasks, search])
@@ -950,6 +971,32 @@ function taskBucket(t, now) {
       }
 
       /**
+       * 事件改期的**键盘替代**。
+       *
+       * 拖拽是 HTML5 draggable，键盘和读屏用户根本用不了。
+       * 只提供拖拽 = 把一部分用户挡在门外，所以这里给选中事件一个
+       * ←/→ 前后挪一天的操作，走的是同一条 moveEventToDate 路径。
+       * 日期用本地日计算，避免 UTC 跨日把「挪一天」变成「挪两天」。
+       */
+      const nudgeEventDay = (delta) => {
+        const sel = selected
+        if (sel === null || sel.kind !== 'event') return
+        const src = events.find((e) => e.id === sel.id)
+        if (src === undefined) return
+        // 复用模块级的 eventDay/isoDate，别再造一套日期解析（两套逻辑迟早分叉）
+        const day = eventDay(src)
+        if (day === null) return
+        const baseKey = isoDate(day)
+        const nextKey = isoDate(addDays(day, delta))
+        const recurring = src.recurrence !== null && src.recurrence !== undefined
+        moveEventToDate(
+          { kind: 'event', id: sel.id, occurrenceDate: baseKey },
+          nextKey,
+          recurring ? undefined : 'series',
+        )
+      }
+
+      /**
        * 待办拖拽排序。
        *
        * Host 的 task.reorder 要**完整的目标顺序**（幂等），所以这里算出
@@ -1014,6 +1061,7 @@ function taskBucket(t, now) {
       // 每次渲染把最新的 undo/redo 挂进 ref，供空依赖的 keydown effect 调用
       undoRef.current = undo
       redoRef.current = redo
+      nudgeRef.current = nudgeEventDay
 
       /**
        * 导入：预览 → 用户确认 → **真 Host 审批** → 执行。

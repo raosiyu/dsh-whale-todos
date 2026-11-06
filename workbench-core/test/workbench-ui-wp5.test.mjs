@@ -108,3 +108,108 @@ test('WP5-UI：中英文 locale 键必须对齐（防止只加一边）', () => 
     assert.ok(zk.includes(k), `WP5 新增文案缺 ${k}`)
   }
 })
+
+test('WP5-UI：事件改期必须有键盘替代路径（拖拽不是唯一入口）', () => {
+  // 拖拽是 HTML5 draggable，键盘/读屏用户用不了。只给拖拽 = 把一部分用户挡在门外。
+  assert.match(code, /nudgeEventDay/, '必须有键盘改期函数')
+  assert.match(code, /'arrowleft'/, '← 必须能改期')
+  assert.match(code, /'arrowright'/, '→ 必须能改期')
+  assert.match(code, /nudgeRef/, '键盘回调需 ref 转发，避免闭包过期')
+  assert.match(code, /nudgeRef\.current = nudgeEventDay/, '每次渲染必须刷新 ref')
+  // 必须复用模块级日期函数，不得另造一套解析
+  assert.match(code, /eventDay\(src\)/, '必须复用 eventDay')
+  assert.match(code, /isoDate\(addDays\(day, delta\)\)/, '必须复用 isoDate/addDays')
+})
+
+/** 最小 React：只够执行工厂拿 __test，不渲染。 */
+function makeReact() {
+  return {
+    createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat() }),
+    useState: (init) => [typeof init === 'function' ? init() : init, () => {}],
+    useEffect: () => {},
+    useCallback: (fn) => fn,
+    useMemo: (fn) => fn(),
+    useRef: () => ({ current: null }),
+  }
+}
+
+/**
+ * 真实执行 client.js 工厂，取出 `__test`。
+ * 不能直接 `import`——client.js 走 window.__ModuleLoader__ 注册，顶层会碰 window。
+ */
+function loadClient() {
+  const React = makeReact()
+  let plugin = null
+  const originalWindow = globalThis.window
+  try {
+    globalThis.window = {
+      __ModuleLoader__: {
+        load(def) {
+          plugin = def.factory((name) => {
+            if (name === 'react') return React
+            throw new Error(`unexpected require: ${name}`)
+          })
+        },
+      },
+    }
+    // eslint-disable-next-line no-new-func
+    new Function('window', client)(globalThis.window)
+    assert.ok(plugin !== null, 'client.js 应注册模块')
+    return plugin
+  } finally {
+    globalThis.window = originalWindow
+  }
+}
+
+test('WP5-UI：软删判定必须真的排除已删待办（W4 变异存活回归）', () => {
+  // W4 变异把「已软删不进列表」删掉后，337 个测试全绿 —— 说明这条保护
+  // 之前完全没被覆盖。根因是同一条件在 client.js 里抄了 3 遍，只测了 1 处。
+  // 现在抽成唯一的 isSoftDeleted，并直接做行为断言。
+  const { isSoftDeleted, taskBucket } = loadClient().__test
+  assert.equal(typeof isSoftDeleted, 'function', 'isSoftDeleted 必须可调用')
+  assert.equal(typeof taskBucket, 'function', 'taskBucket 必须可调用')
+
+  const now = new Date('2026-11-06T10:00:00')
+  const cases = [
+    { deleted: true },
+    { deletedAt: '2026-11-06T09:00:00.000Z' },
+    { deleted: true, deletedAt: '' },
+    { deletedAt: 'x' },
+  ]
+  for (const t of cases) {
+    assert.equal(isSoftDeleted(t), true, `必须判为已删：${JSON.stringify(t)}`)
+    assert.equal(taskBucket(t, now), 'deleted', `分桶必须落到 deleted：${JSON.stringify(t)}`)
+  }
+
+  const alive = [
+    { deleted: false },
+    { deleted: undefined, deletedAt: undefined },
+    { deletedAt: '' },
+    { deletedAt: null },
+    {},
+  ]
+  for (const t of alive) {
+    assert.equal(isSoftDeleted(t), false, `不得误判为已删：${JSON.stringify(t)}`)
+  }
+})
+
+test('WP5-UI：归档必须走 task.archive，不得用 upsert 写软删（W32 回归）', () => {
+  // 归档是「收起来」，不是「删掉」。用 task.upsert 写 deleted 会让用户在
+  // 归档区再也找不到它 —— 行为上等于删除，只是名字好听。
+  const src = code
+  const fn = src.slice(src.indexOf('const setArchived ='), src.indexOf('const undo =') > 0 ? src.indexOf('const undo =') : src.indexOf('const setArchived =') + 3000)
+  assert.ok(fn.length > 0, 'setArchived 必须存在')
+  assert.match(fn, /op: archived \? 'task\.archive' : 'task\.unarchive'/, '归档/恢复必须走专用 op')
+  assert.doesNotMatch(fn, /deleted:\s*true/, '归档不得写软删字段')
+  assert.doesNotMatch(fn, /task\.upsert/, '归档不得复用 upsert')
+})
+
+test('WP5-UI：键盘改期 ref 必须真的指向函数（W33 回归）', () => {
+  // ref 恒为 null 时，按下 ←/→ 会静默无反应 —— 比报错更糟，
+  // 用户以为快捷键坏了却不知道原因。
+  assert.match(code, /nudgeRef\.current = nudgeEventDay/, 'ref 必须赋值真实函数')
+  assert.doesNotMatch(code, /nudgeRef\.current = null/, 'ref 不得被赋成 null')
+  // 键盘处理里必须真的调用它，而不是只判空
+  const kb = code.slice(code.indexOf("k === 'arrowleft'"), code.indexOf("k === 'arrowleft'") + 300)
+  assert.match(kb, /nudgeRef\.current\(/, '键盘分支必须真的调用改期函数')
+})

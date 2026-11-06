@@ -274,10 +274,10 @@
   },
   {
     "id": "W4",
-    "name": "WP4：已软删待办仍进列表（删除对用户无效）",
+    "name": "WP4/WP5：软删判定恒假（已删待办回到列表，删除对用户无效）",
     "file": "packages/workbench-ui/client.js",
-    "from": "          if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return false\n          if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false",
-    "to": "          if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false"
+    "from": "function isSoftDeleted(t) {\n  return t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')\n}",
+    "to": "function isSoftDeleted(t) {\n  return false\n}"
   },
   {
     "id": "W5",
@@ -453,5 +453,40 @@
     "file": "workbench-core/src/service.js",
     "from": "  'event.move', 'task.reorder', 'task.archive',",
     "to": "  'event.move', 'task.reorder', 'task.archive', 'reminder.plan',"
+  },
+  {
+    "id": "W30",
+    "name": "WP5-UI：导入执行绕过宿主审批（confirmImport 拿不到凭证也继续）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "            op: 'confirmUserAction',",
+    "to": "            op: 'confirmUserActionX',"
+  },
+  {
+    "id": "W31",
+    "name": "WP5-UI：排序只传被移动的一条（并发写入互相覆盖）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "ids: next.map((t) => t.id),",
+    "to": "ids: [moved.id],"
+  },
+  {
+    "id": "W32",
+    "name": "WP5-UI：归档走 task.upsert 写软删（归档变删除，用户找不回来）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          const r = await request({ op: archived ? 'task.archive' : 'task.unarchive', payload: { id } })",
+    "to": "          const r = await request({ op: 'task.upsert', payload: { task: { id, deleted: true } } })"
+  },
+  {
+    "id": "W33",
+    "name": "WP5-UI：键盘改期 ref 恒为 null（选中后按 ←/→ 无反应）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "      nudgeRef.current = nudgeEventDay",
+    "to": "      nudgeRef.current = null"
+  },
+  {
+    "id": "W34",
+    "name": "WP5-UI：拖拽失败后不 reload（界面停在假的新位置）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          setError(String(e?.message ?? e))\n          await load()",
+    "to": "          setError(String(e?.message ?? e))"
   }
 ]

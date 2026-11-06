@@ -608,9 +608,14 @@ test('WP4：软删待办需要真实审批凭证（token 缺失/伪造均被拒�
 
 test('WP4：UI 侧跳过已删除待办（静态 + 行为双证）', () => {
   const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
-  // filteredTasks 必须跳过 deleted
-  assert.match(client, /t\?\.deleted === true \|\| \(typeof t\?\.deletedAt === 'string' && t\.deletedAt !== ''\)\) return false/,
-    'filteredTasks 必须跳过已删除待办')
+  // 软删判定已抽成唯一的 isSoftDeleted（原条件在 3 处重复，变异测试证明
+  // 其中 2 处抄漏也没人发现，见 W4）。断言改为锁定这个唯一实现，
+  // 并要求所有过滤点都复用它 —— 比原先「某处出现过这个正则」更强。
+  assert.match(client, /function isSoftDeleted\(t\) \{\s*\n\s*return t\?\.deleted === true \|\| \(typeof t\?\.deletedAt === 'string' && t\.deletedAt !== ''\)/,
+    '必须存在唯一的 isSoftDeleted 实现')
+  // 过滤点必须调用它，不得再抄一遍条件
+  const callSites = (client.match(/isSoftDeleted\(t\)/g) ?? []).length
+  assert.ok(callSites >= 3, `isSoftDeleted 至少被 3 处复用（filteredTasks / archivedTasks / taskBucket），实际 ${callSites} 处`)
   // taskBucket 必须把 deleted 归入独立的 deleted 桶
   assert.match(client, /return 'deleted'/, 'taskBucket 必须识别已删除待办')
 })
