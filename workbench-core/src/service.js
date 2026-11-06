@@ -622,6 +622,105 @@ export function createWorkbenchService(options) {
       const stored = store.collection('tasks').find((row) => row.id === task.id)
       return { task: structuredClone(stored ?? task) }
     },
+
+    /**
+     * **拖拽排序（WP5）**。
+     *
+     * 传**完整的目标顺序**而不是「把 A 挪到 B 前面」：后者需要服务端重建整个序列，
+     * 一旦并发或客户端状态陈旧就会算出用户没看到的顺序。传全量则幂等、可校验。
+     *
+     * `scope` 限定排序范围（默认全部）：同一 project 内排序不会影响别的分组。
+     * 只改 `order` 字段，**不碰任何其它字段**（授权明令禁止排序丢字段）。
+     */
+    'task.reorder': (payload, meta) => {
+      const ids = payload?.ids
+      if (!Array.isArray(ids) || ids.length === 0) {
+        throw validationError('ids 必须是非空数组（完整的目标顺序）')
+      }
+      const normalized = [...ids].map(String)
+      if (new Set(normalized).size !== normalized.length) {
+        throw validationError('ids 里不能有重复项', { ids: normalized })
+      }
+      const project = payload?.project
+      const rows = store.collection('tasks')
+      const missing = normalized.filter((id) => !rows.some((row) => row.id === id))
+      if (missing.length > 0) {
+        throw validationError('存在未知的待办 id，排序未生效', { missing })
+      }
+      // scope 校验：给了 project 就必须只排该分组内的待办
+      if (project !== undefined) {
+        const outsiders = normalized.filter((id) => {
+          const row = rows.find((r) => r.id === id)
+          return (row.project ?? null) !== project
+        })
+        if (outsiders.length > 0) {
+          throw validationError('ids 必须都属于同一分组', { project, outsiders })
+        }
+      }
+      const orderOf = new Map(normalized.map((id, index) => [id, index]))
+      store.mutate((draft) => {
+        for (const row of draft.tasks) {
+          const next = orderOf.get(row.id)
+          if (next !== undefined) row.order = next
+        }
+        draft.audit.push({
+          id: (options.idFactory ?? (() => randomUUID()))(),
+          at: now().toISOString(),
+          action: 'task.reorder',
+          entity: 'task',
+          entityId: null,
+          actor: meta?.actor ?? 'user',
+          after: { count: normalized.length, project: project ?? null },
+        })
+        return draft
+      }, { intent: 'task.reorder' })
+      return { reordered: normalized.length }
+    },
+
+    /**
+     * **归档 / 恢复（WP5）**。
+     *
+     * 归档与软删是**两件不同的事**：归档是「做完了、收起来」，不是「删掉」。
+     * 用独立字段 `archived` 表达，因此：
+     *   - 归档的待办仍在库里、仍可被 AI 读到（`task.list` 默认含归档，除非 archived:false）
+     *   - 软删（deleted）才需要审批；归档**不需要**（它不是破坏性操作）
+     *   - 恢复归档也不改变任何其它字段
+     *
+     * `archived` 与 `deleted` 同时为真时以 `deleted` 为准（不可见），
+     * 避免「归档后删掉、恢复归档时又冒出来」的语义混乱。
+     */
+    'task.archive': (payload, meta) => {
+      const ids = payload?.ids ?? (payload?.id === undefined ? undefined : [payload.id])
+      if (!Array.isArray(ids) || ids.length === 0) {
+        throw validationError('id 或 ids 必须提供')
+      }
+      const normalized = [...new Set(ids.map(String))]
+      const archived = payload?.archived !== false
+      const rows = store.collection('tasks')
+      const missing = normalized.filter((id) => !rows.some((row) => row.id === id))
+      if (missing.length > 0) {
+        throw notFoundError('存在未知的待办 id', { missing })
+      }
+      store.mutate((draft) => {
+        for (const row of draft.tasks) {
+          if (!normalized.includes(row.id)) continue
+          if (archived) row.archived = true
+          else delete row.archived
+        }
+        draft.audit.push({
+          id: (options.idFactory ?? (() => randomUUID()))(),
+          at: now().toISOString(),
+          action: archived ? 'task.archive' : 'task.unarchive',
+          entity: 'task',
+          entityId: normalized.length === 1 ? normalized[0] : null,
+          actor: meta?.actor ?? 'user',
+          after: { count: normalized.length, archived },
+        })
+        return draft
+      }, { intent: archived ? 'task.archive' : 'task.unarchive' })
+      const result = store.collection('tasks').filter((row) => normalized.includes(row.id))
+      return { archived, tasks: result }
+    },
   }
 
   return {

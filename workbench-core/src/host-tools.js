@@ -212,10 +212,52 @@ export function createWorkbenchToolDefinitions(deps = {}) {
         title: { type: 'string', required: true, description: 'Todo title.' },
         dueAt: { type: 'string', description: 'ISO instant due time.' },
         done: { type: 'boolean', description: 'Completion flag.' },
+        priority: { type: 'string', description: 'Priority: low / normal / high.' },
+        status: { type: 'string', description: 'Status label, e.g. planned / doing / done.' },
+        project: { type: 'string', description: 'Project/group this todo belongs to.' },
+        parentId: { type: 'string', description: 'Parent todo id (keeps the parent/child relation).' },
+        subtasks: { type: 'array', description: 'Subtask titles.' },
       },
       op: 'task.upsert',
       // 真实 service 契约：task.upsert 读 payload.task，且 task.id 必填非空
-      payload: (args) => ({ task: { ...args } }),
+      // 只回传显式给出的字段：合并语义保证未给的字段不被抹掉
+      payload: (args) => {
+        const task = {}
+        for (const [k, v] of Object.entries(args)) {
+          if (v !== undefined) task[k] = v
+        }
+        return { task }
+      },
+    }),
+    simpleTool({
+      name: 'workbench_task_reorder',
+      description: 'Reorder todos by supplying the complete desired order of ids (not a move instruction). Only the order field changes.',
+      parameters: {
+        ids: { type: 'array', required: true, description: 'Complete desired order of todo ids.' },
+        project: { type: 'string', description: 'Restrict to one project group.' },
+      },
+      op: 'task.reorder',
+      payload: (args) => {
+        const out = { ids: args.ids }
+        if (args.project !== undefined) out.project = args.project
+        return out
+      },
+    }),
+    simpleTool({
+      name: 'workbench_task_archive',
+      description: 'Archive or unarchive todos. Archiving is not deleting: archived todos stay readable and are not destructive.',
+      parameters: {
+        id: { type: 'string', description: 'Single todo id.' },
+        ids: { type: 'array', description: 'Multiple todo ids.' },
+        archived: { type: 'boolean', description: 'true to archive (default), false to unarchive.' },
+      },
+      op: 'task.archive',
+      payload: (args) => {
+        const out = { archived: args.archived !== false }
+        if (args.id !== undefined) out.id = args.id
+        if (args.ids !== undefined) out.ids = args.ids
+        return out
+      },
     }),
     // ---- 错误反馈 / 操作审计 ----
     {
