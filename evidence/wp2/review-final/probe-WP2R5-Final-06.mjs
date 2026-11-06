@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const FREEZE = '/tmp/wp2r5-freeze-2b0aabb'
-const LIVE = '/Users/sylas/Developer/dsh-workbench'
+const LIVE = '<repo>'
 const BASE = Date.UTC(2026, 10, 5, 0, 0, 0)
 const MIN = 60_000
 

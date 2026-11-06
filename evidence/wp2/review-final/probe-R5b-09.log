@@ -26,6 +26,6 @@
 
 === E) 对比：上一轮实现（2b0aabb，index 无上限）的行为 ===
   ❌ 探针异常  TypeError: hm.flush is not a function
-    at file:///Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final/probe-R5b-09.mjs:146:8
+    at file://<repo>/evidence/wp2/review-final/probe-R5b-09.mjs:146:8
 
 === 探针 R5b-09 汇总：FAIL（3 项） ===

@@ -18,6 +18,6 @@
 === C) 长时间运行：index 是否收敛 ===
   ❌ 探针异常  Error: ENOENT: no such file or directory, open '/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/r5b04-1Brbwo/conv.json'
     at readFileSync (node:fs:440:20)
-    at file:///Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final/probe-R5b-04.mjs:116:31
+    at file://<repo>/evidence/wp2/review-final/probe-R5b-04.mjs:116:31
 
 === 探针 R5b-04 汇总：FAIL（3 项） ===

@@ -1,6 +1,6 @@
 dsh: warning: 1 entry did not activate
 workbench-ui (@local/dsh-workbench-ui): Error: cannot get property "approval" without inject
-    at new apply (file:///Users/sylas/Developer/dsh-workbench/packages/workbench-ui/index.js:89:26)
+    at new apply (file://<repo>/packages/workbench-ui/index.js:89:26)
     at Fiber.execute (file:///opt/homebrew/lib/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/cordis/lib/index.js:1068:24)
     at file:///opt/homebrew/lib/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/cordis/lib/index.js:1142:34
     at file:///tmp/dsh-iso-Jv2UeM/profiles/rescue/#workbench-ui

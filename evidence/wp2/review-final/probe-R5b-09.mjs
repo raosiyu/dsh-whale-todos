@@ -136,7 +136,7 @@ try {
     // 用 git archive 导出上一轮基准
     const { execFileSync } = await import('node:child_process')
     const prev = '/tmp/wp2r5b-prev'
-    execFileSync('bash', ['-lc', `rm -rf ${prev} && mkdir -p ${prev} && cd /Users/sylas/Developer/dsh-workbench && git archive 2b0aabb | tar -x -C ${prev}`])
+    execFileSync('bash', ['-lc', `rm -rf ${prev} && mkdir -p ${prev} && cd <repo> && git archive 2b0aabb | tar -x -C ${prev}`])
     const P = await import(`${prev}/workbench-core/src/index.js`)
     let clock = BASE
     const hm = P.openHostMap({ filePath: join(dir, 'e.json'), maxEntries: 500, now: () => clock })

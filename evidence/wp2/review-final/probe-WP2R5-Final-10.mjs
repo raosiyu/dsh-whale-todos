@@ -28,7 +28,7 @@ for (const p of ['p1-real-storage-domain', 'p2-protect', 'p3-retention']) {
   const src = readFileSync(join(FREEZE, 'scripts', 'probes', `${p}.mjs`), 'utf8')
   const m = src.match(/const REPO = '([^']+)'/)
   const importsFreeze = src.includes('/tmp/wp2r5-freeze')
-  const importsLive = m !== null && m[1] === '/Users/sylas/Developer/dsh-workbench'
+  const importsLive = m !== null && m[1] === '<repo>'
   if (importsLive) bad(`${p}：REPO 指向主仓库工作副本（${m[1]}）→ 测的不是冻结版`)
   else ok(`${p}：REPO=${m?.[1] ?? '(无)'}，importsFreeze=${importsFreeze}`)
 }

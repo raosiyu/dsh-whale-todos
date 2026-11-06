@@ -37,6 +37,6 @@
   ✅ 未 flush 时重启：身份丢失  = undefined
   ❌ 探针异常  Error: ENOENT: no such file or directory, open '/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/r5b03-Lej8vu/f2.json'
     at readFileSync (node:fs:440:20)
-    at file:///Users/sylas/Developer/dsh-workbench/evidence/wp2/review-final/probe-R5b-03.mjs:224:56
+    at file://<repo>/evidence/wp2/review-final/probe-R5b-03.mjs:224:56
 
 === 探针 R5b-03 汇总：FAIL（5 项） ===

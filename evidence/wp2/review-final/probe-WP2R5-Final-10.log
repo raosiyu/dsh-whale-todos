@@ -1,9 +1,9 @@
 === WP2R5-Final 探针 10：诚实性核对 ===
 
 --- A) 三个探针的 import 目标 ---
-  ❌ p1-real-storage-domain：REPO 指向主仓库工作副本（/Users/sylas/Developer/dsh-workbench）→ 测的不是冻结版
-  ❌ p2-protect：REPO 指向主仓库工作副本（/Users/sylas/Developer/dsh-workbench）→ 测的不是冻结版
-  ❌ p3-retention：REPO 指向主仓库工作副本（/Users/sylas/Developer/dsh-workbench）→ 测的不是冻结版
+  ❌ p1-real-storage-domain：REPO 指向主仓库工作副本（<repo>）→ 测的不是冻结版
+  ❌ p2-protect：REPO 指向主仓库工作副本（<repo>）→ 测的不是冻结版
+  ❌ p3-retention：REPO 指向主仓库工作副本（<repo>）→ 测的不是冻结版
 
 --- B) 已提交证据日志的数字 vs 冻结版实测 ---
     已提交 unit-tests.log: pass=196 fail=0
