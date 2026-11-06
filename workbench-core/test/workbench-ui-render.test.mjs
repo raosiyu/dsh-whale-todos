@@ -142,3 +142,23 @@ test('WP4：t 必须在工厂作用域可见（防止退回 WorkbenchPage 内部
     assert.match(signature, /t\s*=\s*defaultT/, `${name} 必须从 props 取 t（带默认实现）`)
   }
 })
+
+test('WP4：ConfirmDelete 必须收到页面的 t（第四轮 N1，终审 B1）', () => {
+  const plugin = loadClient()
+  const clientSource = readFileSync(CLIENT, 'utf8')
+  // 调用点必须传 t：否则中文界面下确认删除弹窗仍是英文
+  assert.match(
+    clientSource,
+    /h\(ConfirmDelete,\s*\{[^}]*approving,\s*t,/s,
+    'ConfirmDelete 调用点必须传入 t',
+  )
+  // 组件本身必须有 defaultT 兜底
+  const probe = plugin.__test
+  assert.equal(typeof probe.ConfirmDelete, 'function')
+  assert.doesNotThrow(
+    () => render(probe.ConfirmDelete({
+      label: 'x', onConfirm: () => {}, onCancel: () => {}, approving: false,
+    })),
+    'ConfirmDelete 无 t 时也必须用 defaultT 兜底，不抛异常',
+  )
+})

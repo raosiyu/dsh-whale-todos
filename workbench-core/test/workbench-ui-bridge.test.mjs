@@ -711,3 +711,70 @@ test('WP4：用户确认凭证不在 AI 工具面暴露', () => {
   assert.equal(tools.includes('confirmUserAction'), false,
     'AI 工具面不得暴露 confirmUserAction（否则模型可自取凭证）')
 })
+
+test('WP4：event.restore 必须要求审批（终审 B3：真审批旁路）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+    const svc = host.getService().forSession('s1')
+
+    const created = svc.execute('event.create', {
+      event: { title: '可恢复', allDay: true, startDate: '2026-11-10' },
+    }, { actor: 'user' })
+    const id = created.event.id
+    const delToken = svc.confirmUserAction('event.delete', id, {})
+    svc.execute('event.delete', { id }, { actor: 'ui', approvalToken: delToken.token })
+    assert.equal(svc.execute('event.list', {}, {}).length, 0, '软删后不列出')
+
+    // 无凭证恢复必须被拒
+    assert.throws(
+      () => svc.execute('event.restore', { id }, { actor: 'attacker' }),
+      (e) => e?.code === 'confirmation-required',
+      '恢复软删必须要求审批（否则是审批旁路）',
+    )
+    // 有凭证才放行
+    const restoreToken = svc.confirmUserAction('event.restore', id, {})
+    svc.execute('event.restore', { id }, { actor: 'ui', approvalToken: restoreToken.token })
+    assert.equal(svc.execute('event.list', {}, {}).length, 1, '带凭证恢复后应重新出现')
+  })
+})
+
+test('WP4：用户确认凭证不采信调用方自选的 digest（终审 MAJOR-1）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+    const svc = host.getService().forSession('s1')
+
+    // 自选 digest 换出的凭证不能用于内容类操作（执行侧服务端重算摘要 → 指纹不符）
+    const evil = 'ab'.repeat(32)
+    const token = svc.confirmUserAction('snapshot.replace', '', { digest: evil })
+    assert.equal(typeof token.token, 'string', '可签发')
+    assert.throws(
+      () => svc.execute('snapshot.replace', { text: JSON.stringify({ events: [], tasks: [] }), digest: evil }, { actor: 'attacker', approvalToken: token.token }),
+      (e) => e?.code === 'confirmation-required',
+      '自选 digest 的凭证不得用于内容替换',
+    )
+  })
+})
+
+test('WP4：签发侧忽略调用方 digest（非内容 op 的凭证不受 digest 影响）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+    const svc = host.getService().forSession('s1')
+
+    const created = svc.execute('event.create', {
+      event: { title: 'X', allDay: true, startDate: '2026-11-10' },
+    }, { actor: 'user' })
+    const id = created.event.id
+
+    // 带自选 digest 签发的删除凭证：digest 被忽略 → 仍可用于删除该 id
+    const token = svc.confirmUserAction('event.delete', id, { digest: 'ff'.repeat(32) })
+    assert.equal(typeof token.token, 'string')
+    svc.execute('event.delete', { id }, { actor: 'ui', approvalToken: token.token })
+    assert.equal(svc.execute('event.list', {}, {}).length, 0, '删除应成功（digest 未污染指纹）')
+  })
+})

@@ -815,7 +815,7 @@ window.__ModuleLoader__.load({
 
         confirming !== null
           ? h(ConfirmDelete, {
-              label: confirming.label, approving,
+              label: confirming.label, approving, t,
               onConfirm: () => deleteWithApproval(confirming.kind, confirming.id),
               onCancel: () => setConfirming(null),
             })

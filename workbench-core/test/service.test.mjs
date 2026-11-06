@@ -98,7 +98,14 @@ test('服务：软删除后 list 不含、includeDeleted 含、可恢复', async
   svc.execute('event.delete', { id: event.id }, { approvalToken: await tokenFor(svc, 'event.delete', { target: event.id }) })
   assert.equal(svc.execute('event.list').length, 0)
   assert.equal(svc.execute('event.list', { includeDeleted: true }).length, 1)
-  svc.execute('event.restore', { id: event.id })
+  // 终审发现 event.restore 在 DANGEROUS_OPS 里却从不校验凭证（真审批旁路）：
+  // 无凭证即可悄悄撤销软删。现已补 requireConfirmation。
+  assert.throws(
+    () => svc.execute('event.restore', { id: event.id }),
+    (e) => e?.code === 'confirmation-required',
+    '恢复软删必须要求审批',
+  )
+  svc.execute('event.restore', { id: event.id }, { approvalToken: await tokenFor(svc, 'event.restore', { target: event.id }) })
   assert.equal(svc.execute('event.list').length, 1)
 })
 

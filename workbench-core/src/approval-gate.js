@@ -154,7 +154,16 @@ export function createHostApprovalGate(options = {}) {
      */
     issueForUserConfirm(op, target, detail = {}) {
       if (mode === 'deny') return { approved: false, reason: 'approval-mode-deny' }
-      const fingerprint = approvalFingerprint({ op, target, digest: detail.digest })
+      /**
+       * **不采信调用方自选的 digest**（纵深防御）。
+       *
+       * 内容类操作（event.import / snapshot.replace / store.rollback）的摘要
+       * 必须由**内容本身**算 —— service.js 的执行侧正是这么做的
+       * （`contentDigest(text)`），所以调用方自带的 digest 与执行侧指纹必然不符，
+       * 换出的凭证用不了。
+       * 这里显式忽略它，避免给「自选 digest」留下任何误解与后患。
+       */
+      const fingerprint = approvalFingerprint({ op, target, digest: '' })
       return { approved: true, token: makeToken(fingerprint, 'user-confirm') }
     },
 

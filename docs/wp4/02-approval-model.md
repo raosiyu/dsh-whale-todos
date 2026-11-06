@@ -28,7 +28,16 @@
 - **一次性** → 用第二次 = `confirmation-required`
 - 宿主签名（issuer nonce）→ 浏览器/模型**无法离线构造**
 - `payload` 里的 `confirmed` 布尔**永远没有授权含义**
-- 限制在 `DANGEROUS_OPS` 内 → 不是万能钥匙（`snapshot.replace` 等也拿不到）
+- **签发侧不采信调用方自选的 digest**（`issueForUserConfirm` 用固定空 digest）：
+  内容类操作（`event.import` / `snapshot.replace` / `store.rollback`）的摘要在
+  **执行侧**由服务端从内容重算（`contentDigest(text)`），因此即便换出一张凭证，
+  其指纹也与执行侧不符 → 用不了。调用方自带的 digest 一律忽略。
+- 限制在 `DANGEROUS_OPS` 内 → 不是万能钥匙（`event.list` / `task.list` / `event.create`
+  等非危险 op 拿不到）。
+  ⚠️ 但要说清楚：`snapshot.replace`、`event.import`、`store.rollback`、`event.restore`
+  **也在** `DANGEROUS_OPS` 内，因此**可以**为它们签发用户确认凭证。
+  它们的实际风险由「执行侧服务端重算内容摘要」挡住（见下条），
+  **不是**由「不在 DANGEROUS_OPS」挡住。
 - **不在 AI 工具面**：`workbench-core/src/host-tools.js` 未暴露 `confirmUserAction`
 - 删除落审计（`events.remove` 内部写 `store.audit`）
 

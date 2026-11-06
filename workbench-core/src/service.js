@@ -219,6 +219,13 @@ export function createWorkbenchService(options) {
 
     'event.restore': (payload, meta) => {
       const id = requireId(payload, 'id')
+      /**
+       * `event.restore` 能撤销软删 = 危险写，且它**在** DANGEROUS_OPS 里，
+       * 但原实现**从不**调 requireConfirmation —— 终审实测：无凭证即可把已删事件
+       * 悄悄恢复（审计里 actor 是未授权的 'attacker'）。
+       * 这是与 task.upsert 同样的遗漏，这里补齐。
+       */
+      requireConfirmation('event.restore', meta, { target: id })
       return events.restore(id, { actor: meta?.actor })
     },
 

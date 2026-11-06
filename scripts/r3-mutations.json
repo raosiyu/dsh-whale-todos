@@ -320,5 +320,26 @@
     "file": "packages/workbench-ui/client.js",
     "from": "      EventForm,\n      TaskForm,\n      ConfirmDelete,\n      WorkbenchPage,",
     "to": "      callHost,"
+  },
+  {
+    "id": "W11",
+    "name": "WP4：event.restore 不校验凭证（审批旁路 → 已删事件被悄悄恢复）",
+    "file": "workbench-core/src/service.js",
+    "from": "      requireConfirmation('event.restore', meta, { target: id })\n      return events.restore(id, { actor: meta?.actor })",
+    "to": "      return events.restore(id, { actor: meta?.actor })"
+  },
+  {
+    "id": "W12",
+    "name": "WP4：ConfirmDelete 不传 t（中文界面确认弹窗变英文）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "              label: confirming.label, approving, t,",
+    "to": "              label: confirming.label, approving,"
+  },
+  {
+    "id": "W13",
+    "name": "WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）",
+    "file": "workbench-core/src/approval-gate.js",
+    "from": "      const fingerprint = approvalFingerprint({ op, target, digest: '' })\n      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }",
+    "to": "      const fingerprint = approvalFingerprint({ op, target, digest: detail.digest })\n      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }"
   }
 ]
