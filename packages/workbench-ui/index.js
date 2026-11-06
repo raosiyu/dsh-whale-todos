@@ -83,10 +83,15 @@ export function apply(ctx, config = {}) {
     throw new Error('workbench-ui requires config.rootDir (an isolated data directory); refusing to guess a user-data path')
   }
 
+  // `approval` 是可选 Host 服务：用 ctx.get 读取，避免「cannot get property
+  // without inject」在隔离 profile 里让整个插件无法激活。
+  // 缺失时 createWorkbenchHostService 会 fail-closed（危险操作拿不到 token），
+  // 与 dsh-user-approval 的 'unavailable' 语义一致。
+  const approval = typeof ctx.get === 'function' ? ctx.get('approval') : undefined
   const service = createWorkbenchHostService({
     rootDir,
     mode: 'host',
-    requestApproval: ctx.approval?.request,
+    requestApproval: approval?.request,
   })
 
   // 唯一数据源：UI 与 AI 工具都从这里读
