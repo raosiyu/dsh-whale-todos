@@ -306,5 +306,19 @@
     "file": "packages/workbench-ui/client.js",
     "from": "            inject: () => ({ ctx, t: ctx.locale.bind(NS) }),",
     "to": "            inject: () => ({ ctx }),"
+  },
+  {
+    "id": "W9",
+    "name": "WP4：t 退回 WorkbenchPage 内部（三个弹窗渲染即崩 → 整页白屏）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "    function EventForm({ initial, onSave, onCancel, saving, t = defaultT }) {",
+    "to": "    function EventForm({ initial, onSave, onCancel, saving }) {"
+  },
+  {
+    "id": "W10",
+    "name": "WP4：三个弹窗组件不渲染（主路径静默消失）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "      EventForm,\n      TaskForm,\n      ConfirmDelete,\n      WorkbenchPage,",
+    "to": "      callHost,"
   }
 ]

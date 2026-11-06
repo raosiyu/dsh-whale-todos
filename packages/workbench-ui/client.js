@@ -26,6 +26,16 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'workbench'
     const NS = '@local/dsh-workbench-ui'
 
+    /**
+     * **默认文案函数**（factory 作用域）。
+     *
+     * 第三轮 Review 的 BLOCKER-1：`t` 曾只定义在 WorkbenchPage **内部**，
+     * 而 EventForm / TaskForm / ConfirmDelete 是工厂作用域的**兄弟函数**，
+     * 取不到它 → 渲染即 ReferenceError → React 卸载整棵子树 → 整页白屏。
+     * 现在 t 在 factory 层，组件可从 props 取，也可直接用默认实现。
+     */
+    const defaultT = (key) => LOCALE.en[key] ?? key
+
     // UI 文案走真 Client locale 服务（ctx.locale.register/bind）。
     // 真契约：dsh-client-ui-approval/lib/client.js:316 `ctx.locale.register(NS, { zh, en })`，
     // 取值 `ctx.locale.bind(NS)`('key')。
@@ -243,10 +253,21 @@ window.__ModuleLoader__.load({
       return { ok: true, value: text }
     }
 
-    // 供测试直接 import 本模块验证真实解码（复审 N1：
-    // 测试用复刻的 decode() 会让真 bug 复活而测试全绿）。
-    // 挂在 window 上仅为测试取用；生产路径不依赖它。
-    const __test = { callHost }
+    /**
+     * 供测试取用**真实**实现（复审 N1 / MAJOR-1）：
+     *  - callHost：解码逻辑若被复刻，真 bug 复活时测试仍全绿；
+     *  - 组件：渲染期异常（如第三轮的 `t is not defined`）静态断言测不出，
+     *    必须能真实调用组件函数才能捕获。
+     * 仅测试进程使用；生产路径不依赖它。
+     */
+    const __test = {
+      callHost,
+      // 三个弹窗组件：渲染期异常的探针目标（第三轮 BLOCKER-1 就是它们）
+      EventForm,
+      TaskForm,
+      ConfirmDelete,
+      WorkbenchPage,
+    }
 
     // --------------------------------------------------------------- 组件
     function StatusBar({ loading, error, onRetry }) {
@@ -321,7 +342,7 @@ window.__ModuleLoader__.load({
         }, '…'))))
     }
 
-    function EventForm({ initial, onSave, onCancel, saving }) {
+    function EventForm({ initial, onSave, onCancel, saving, t = defaultT }) {
       const [title, setTitle] = useState(initial?.title ?? '')
       const [date, setDate] = useState(() => {
         const d = eventDay(initial ?? {}) ?? new Date()
@@ -358,7 +379,7 @@ window.__ModuleLoader__.load({
           h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel'))))
     }
 
-    function TaskForm({ initial, onSave, onCancel, saving }) {
+    function TaskForm({ initial, onSave, onCancel, saving, t = defaultT }) {
       const [title, setTitle] = useState(initial?.title ?? '')
       const [dueAt, setDueAt] = useState(initial?.dueAt ?? '')
       const [priority, setPriority] = useState(initial?.priority ?? 'normal')
@@ -390,7 +411,7 @@ window.__ModuleLoader__.load({
           h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel'))))
     }
 
-    function ConfirmDelete({ label, onConfirm, onCancel, approving }) {
+    function ConfirmDelete({ label, onConfirm, onCancel, approving, t = defaultT }) {
       return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Confirm delete' },
         h('div', { className: 'wb-overlay-panel' },
           h('h2', null, t('delete'), '?'),
@@ -403,7 +424,7 @@ window.__ModuleLoader__.load({
     // --------------------------------------------------------------- 主页面
     function WorkbenchPage(props) {
       // UI 文案走 locale 服务
-      const t = props.t ?? ((k) => LOCALE.en[k] ?? k)
+      const t = props.t ?? defaultT
       // **最终 Review BLOCKER 修复**：`main` 是 root-scope keyed slot，
       // `ctx.slots.inject('main', ...)` 的 inject 在真 renderer 里是**零参**
       // （dsh-client-ui-renderer:435-441，binding=void 0 时不 push 参数），
@@ -482,12 +503,15 @@ window.__ModuleLoader__.load({
             request({ op: 'event.conflicts', payload: { windowStart, windowEnd } }),
             request({ op: 'event.expand', payload: { windowStart, windowEnd } }),
           ])
-          // 主数据（事件/待办）失败才算整体失败；冲突与展开失败只降级为「无」
-          if (ev.ok !== true && tk.ok !== true) {
-            throw new Error(ev.error?.message ?? tk.error?.message ?? '加载失败')
-          }
-          if (ev.ok !== true) setError(`日程加载失败：${ev.error?.message ?? ''}`)
-          if (tk.ok !== true) setError(`待办加载失败：${tk.error?.message ?? ''}`)
+          // 主数据（事件/待办）失败才算整体失败；冲突与展开失败只降级为「无」。
+          // 两条错误**合并成一条**，避免后一条覆盖前一条（第三轮 nit N3）。
+          const problems = []
+          if (ev.ok !== true) problems.push(`日程：${ev.error?.message ?? '加载失败'}`)
+          if (tk.ok !== true) problems.push(`待办：${tk.error?.message ?? '加载失败'}`)
+          // 辅助命令失败也提示（第三轮 nit N4：原先完全静默）
+          if (cf.ok !== true) problems.push(`冲突检测：${cf.error?.message ?? '不可用'}`)
+          if (ex.ok !== true) problems.push(`重复展开：${ex.error?.message ?? '不可用'}`)
+          if (problems.length > 0) setError(problems.join('；'))
           const conflictIds = new Set(
             (cf.ok === true && Array.isArray(cf.value) ? cf.value : [])
               .flatMap((c) => [c.a?.eventId, c.b?.eventId, c.a?.id, c.b?.id, c.eventIdA, c.eventIdB])
@@ -694,8 +718,8 @@ window.__ModuleLoader__.load({
               ? h('div', { className: 'wb-dialog' },
                   h('h2', null, editing.data?.id !== undefined ? 'Edit' : 'New', ' ', editing.kind),
                   editing.kind === 'event'
-                    ? h(EventForm, { initial: editing.data, saving, onSave: saveEvent, onCancel: () => setEditing(null) })
-                    : h(TaskForm, { initial: editing.data, saving, onSave: saveTask, onCancel: () => setEditing(null) }))
+                    ? h(EventForm, { initial: editing.data, saving, t, onSave: saveEvent, onCancel: () => setEditing(null) })
+                    : h(TaskForm, { initial: editing.data, saving, t, onSave: saveTask, onCancel: () => setEditing(null) }))
               : null,
 
             tab === 'calendar'
@@ -812,7 +836,7 @@ window.__ModuleLoader__.load({
             id: PANEL_ID,
             order: 20,
             locale: NS,
-            label: () => 'Workbench',
+            label: () => ctx.locale.bind(NS)('panel'),
           }, function WorkbenchIcon() {
             return h('svg', {
               viewBox: '0 0 24 24', width: 20, height: 20, 'aria-hidden': true,
