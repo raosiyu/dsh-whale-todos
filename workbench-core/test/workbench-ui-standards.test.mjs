@@ -100,8 +100,11 @@ test('WP4：加载 / 成功 / 失败状态齐全，错误不静默', () => {
 })
 
 test('WP4：删除走真 Host 审批，不读 confirmed 布尔', () => {
-  assert.match(client, /requestApproval/, '先申请审批')
+  // UI 删除的授权来自**用户在确认对话框的显式点击**，凭证由宿主签发
+  // （DSH 的 ctx.approval.request 只能在模型回合内发起，UI 删除是回合外操作）。
+  assert.match(client, /confirmUserAction/, '必须先申请宿主签发的用户确认凭证')
   assert.match(client, /approvalToken: token/, '带 token 调用删除')
+  assert.match(host, /confirmUserAction/, 'Host 侧必须提供用户确认签发入口')
   assert.doesNotMatch(clientCode, /confirmed:\s*true/, '不得用 confirmed 布尔绕过')
   assert.match(host, /op === 'requestApproval'/, 'Host 有审批桥')
   assert.match(host, /service\.askApproval/, '审批走真 service.askApproval')
