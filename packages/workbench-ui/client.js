@@ -824,7 +824,23 @@ window.__ModuleLoader__.load({
 
     // --------------------------------------------------------------- 注册
     return {
-      inject: ['slots', 'remote', 'sessions', 'locale'],
+      /**
+       * **Cordis inject 是逐服务名精确匹配的，不递归**（WP5 真机发现）。
+       *
+       * 真机报错 `cannot get property "remote.commands" without inject`：
+       * 声明 `remote` 只拿到 remote 根对象，其上的 `commands` 子服务仍需单独声明。
+       * 官方 dsh-client-ui-plan/lib/client.js:605 就是 `['remote', 'remote.commands', ...]`。
+       *
+       * 静态测试与 render 测试都测不出这个 —— 只有真浏览器 + 真 Cordis 才报。
+       */
+      inject: [
+        'slots',
+        'remote',
+        'remote.commands',
+        'remote.session',
+        'sessions',
+        'locale',
+      ],
       /** 仅供测试取用真实实现（见 __test 注释）。 */
       __test,
       apply(ctx) {
