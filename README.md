@@ -1,25 +1,42 @@
 # dsh-workbench
 
-DSH 智能日历与待办工作台插件的独立开发仓库。
+DSH 的日历 + 待办面板插件：侧边栏叫**鲸鱼待办**。
 
-**当前状态：WP0 + WP1 完成。** 已有可运行、可测试、可回退的 Event 日历域内核（`workbench-core/`，93 项测试全绿），**尚未接入 DSH Host、未实现 UI、未安装到任何 DSH profile**。
+日历拖拽改期、待办排序与分组、JSON/ICS 导入导出、到点提醒。
+所有写操作走同一个 Host Service 入口与真实审批，**界面与 Agent 共用同一套数据**——
+在界面里改的东西，Agent 立刻读得到；Agent 改的东西，界面刷新即可见。
+
+**当前状态：WP0–WP4 完成，WP5 进行中。** 面板已在隔离 DSH 环境里真实渲染、
+真实读写 Host 数据（不是原型截图）。
 
 | 工作包 | 状态 | 产出 |
 | --- | --- | --- |
 | WP0 | ✅ | 锁定上游、事件域源码级验证、证据链 |
-| WP1-0 | ✅ | 可复现构建环境、5 个失败测试修复、zod 安全升级 |
-| WP1-1~1-5 | ✅ | Event 日历域核心（校验/时区/重复/冲突/存储/ICS/统一入口） |
-| WP1-6 | ✅ | 脚本加固、证据脱敏、最终回归与交付报告 |
-| WP2+ | ⏸ | 未授权，未开始 |
+| WP1 | ✅ | Event 日历域内核（校验/时区/重复/冲突/存储/ICS/统一入口） |
+| WP2 | ✅ | 宿主审批门、统一业务入口、按会话隔离存储 |
+| WP3 | ✅ | 提醒底座（schedule-adapter / 恢复语义 / host-map）、16 个 Agent 工具 |
+| WP4 | ✅ | 面板 UI、设计规范、独立审查通过（0 blocker） |
+| WP5 | 🚧 | 拖拽、排序、导入导出、撤销重做、提醒接入界面 |
 
-快速验证：
+## 快速验证
 
 ```bash
-bash scripts/wp1-setup.sh                    # 可复现构建环境（含原生 binding 自愈）
-cd upstream/dely0-v1.17.2 && pnpm test       # 上游全量：1339 / 1337 pass / 0 fail / 2 skip
-cd workbench-core && node --test test/*.test.mjs   # 核心域：93 / 93 pass
-cd workbench-core && node demo/demo.mjs      # 功能演示
+bash scripts/wp1-setup.sh                          # 可复现构建环境（含原生 binding 自愈）
+cd workbench-core && node --test test/*.test.mjs   # 核心域：326 / 326 pass
+node scripts/r3-mutate.mjs evidence/wp5/01-mutation.log   # 变异测试：65 / 65 CAUGHT
+cd workbench-core && node demo/demo.mjs            # 功能演示
 ```
+
+变异测试的判据是**零存活、零跳过**：删掉任何一处保护代码，都必须有测试变红。
+存活变异（VACUUM）或锚点漂移（SKIP）都算验证不充分，不接受"大致通过"。
+
+## 设计红线
+
+1. **不许 AI 自签审批**：危险操作只认宿主签发的一次性凭证，payload 里的 `confirmed` 不被采信。
+2. **导入执行只走界面**：模型只能预览与导出，不能代替用户按下"确认导入"。
+3. **批量操作可回滚**：中途失败必须整体回退，不能留半截数据。
+4. **失败要说出来**：算不出提醒、导入跳过某条规则，都必须在界面上显式可见，不许静默吞掉。
+5. **界面与 Agent 同源**：同一套 Host Service、同一套校验，不许两套逻辑各写一遍。
 
 ## 来源与锁定版本
 
