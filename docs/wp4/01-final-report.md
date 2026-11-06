@@ -81,6 +81,24 @@ Client 视觉验证 **UNVERIFIED**（原因见 §5）；按授权 **STOP，不�
 `apply()` + 真实文件存储，断言落盘与读回；**不是只测模拟接口**。
 （浏览器网络层 `ctx.remote.commands.execute` 本身无浏览器控制，未端到端跑，见 §5。）
 
+### 审批模型与宿主边界（重要）
+
+见 `docs/wp4/02-approval-model.md`。
+
+要点：DSH 的 `ctx.approval.request` **只能在模型回合内**发起
+（`dsh-user-approval/README.md:153`；回合外调用直接抛错，实测见
+`evidence/wp4/11-user-confirm-out-of-turn.log`）。因此 WP4 有两条授权来源，
+**都由宿主签发凭证**：
+- **AI 侧**：真 `ApprovalService`（回合内成立），路径未变；
+- **UI 侧**：用户在确认对话框显式点击 = 授权，凭证由宿主
+  （`approval-gate.issueForUserConfirm`）签发，绑定 `(op,target,digest)`、一次性、
+  不可离线伪造、仅限 `DANGEROUS_OPS`、**不在 AI 工具面**、删除落审计。
+
+官方 `dsh-client-ui-schedule` 的删除是纯 UI 对话框 + 直接删除（无 token），
+**本包不比官方弱**（多了宿主签发凭证与审计）。残余风险（纯软件无法区分
+「用户点击」与「任意调用方索要凭证」，依赖 DSH Client 信任边界）已如实登记为
+**UNVERIFIED**。
+
 ## 四、UI 设计规范（授权 §三）
 
 | 要求 | 实现 / 静态核查 |

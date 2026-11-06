@@ -467,8 +467,19 @@ export function createWorkbenchService(options) {
      * 凭证由 gate 签发（绑定 op+target+digest、一次性、不可离线伪造），
      * 因此仍满足「不认 payload 里的 confirmed 布尔」这条硬约束。
      */
-    confirmUserAction: (op, target, detail = {}) =>
-      gate.issueForUserConfirm(op, target, detail),
+    confirmUserAction: (op, target, detail = {}) => {
+      /**
+       * 只允许**破坏性**操作走「用户确认」凭证。
+       *
+       * 若允许任意 op 签发，等于给了一个万能钥匙（任何 commands 调用方都能
+       * 换一个 snapshot.replace 的凭证）。这里限定在 DANGEROUS_OPS 内，
+       * 且仍受一次性 + 指纹绑定约束。
+       */
+      if (!DANGEROUS_OPS.includes(op)) {
+        throw validationError(`操作不在可确认清单内：${op}`, { op })
+      }
+      return gate.issueForUserConfirm(op, target, detail)
+    },
     defaultTimeZone,
     /**
      * 唯一入口。
