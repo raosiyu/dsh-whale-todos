@@ -2,1699 +2,1699 @@ TAP version 13
 # Subtest: 攻击1：payload.confirmed 不能授权删除
 ok 1 - 攻击1：payload.confirmed 不能授权删除
   ---
-  duration_ms: 74.078
+  duration_ms: 81.232333
   type: 'test'
   ...
 # Subtest: 攻击1：meta.confirmed 不能授权删除
 ok 2 - 攻击1：meta.confirmed 不能授权删除
   ---
-  duration_ms: 99.056917
+  duration_ms: 91.750959
   type: 'test'
   ...
 # Subtest: 攻击1：嵌套 payload.meta.confirmed 不能授权
 ok 3 - 攻击1：嵌套 payload.meta.confirmed 不能授权
   ---
-  duration_ms: 133.611708
+  duration_ms: 112.145375
   type: 'test'
   ...
 # Subtest: 攻击2：未知 token 被拒
 ok 4 - 攻击2：未知 token 被拒
   ---
-  duration_ms: 110.235542
+  duration_ms: 136.286875
   type: 'test'
   ...
 # Subtest: 攻击2：空串 / null / 数字 token 全被拒
 ok 5 - 攻击2：空串 / null / 数字 token 全被拒
   ---
-  duration_ms: 104.470667
+  duration_ms: 98.680417
   type: 'test'
   ...
 # Subtest: 攻击2：重放已消费 token 被拒
 ok 6 - 攻击2：重放已消费 token 被拒
   ---
-  duration_ms: 254.574167
+  duration_ms: 210.875167
   type: 'test'
   ...
 # Subtest: 攻击2：篡改 target 后使用凭证被拒
 ok 7 - 攻击2：篡改 target 后使用凭证被拒
   ---
-  duration_ms: 198.170917
+  duration_ms: 170.115333
   type: 'test'
   ...
 # Subtest: 攻击2：host 模式各种异常返回都 fail closed
 ok 8 - 攻击2：host 模式各种异常返回都 fail closed
   ---
-  duration_ms: 0.920541
+  duration_ms: 0.720875
   type: 'test'
   ...
 # Subtest: 攻击2：host 模式无 requester 时 fail closed
 ok 9 - 攻击2：host 模式无 requester 时 fail closed
   ---
-  duration_ms: 0.401667
+  duration_ms: 0.230208
   type: 'test'
   ...
 # Subtest: 攻击3：service 返回面不含任何写方法（旁路已封）
 ok 10 - 攻击3：service 返回面不含任何写方法（旁路已封）
   ---
-  duration_ms: 23.792084
+  duration_ms: 31.964959
   type: 'test'
   ...
 # Subtest: 攻击3：只有只读方法保留，且真的只读
 ok 11 - 攻击3：只有只读方法保留，且真的只读
   ---
-  duration_ms: 108.836291
+  duration_ms: 92.70075
   type: 'test'
   ...
 # Subtest: 攻击3：删除/替换/回滚都必须经过审批（无凭证一律拒）
 ok 12 - 攻击3：删除/替换/回滚都必须经过审批（无凭证一律拒）
   ---
-  duration_ms: 73.433333
+  duration_ms: 98.237708
   type: 'test'
   ...
 # Subtest: 攻击4：bulkDelete 的 target 使用 JSON 而非逗号拼接（无歧义）
 ok 13 - 攻击4：bulkDelete 的 target 使用 JSON 而非逗号拼接（无歧义）
   ---
-  duration_ms: 250.999375
+  duration_ms: 244.795
   type: 'test'
   ...
 # Subtest: 攻击4：target 为逗号拼接串时不能用于 ids 数组
 ok 14 - 攻击4：target 为逗号拼接串时不能用于 ids 数组
   ---
-  duration_ms: 136.617208
+  duration_ms: 121.365167
   type: 'test'
   ...
 # Subtest: 攻击4：指纹对不同 id 集合严格区分
 ok 15 - 攻击4：指纹对不同 id 集合严格区分
   ---
-  duration_ms: 0.38625
+  duration_ms: 0.251708
   type: 'test'
   ...
 # Subtest: 审批矩阵：5 个危险操作无凭证一律拒，有凭证一律放行
 ok 16 - 审批矩阵：5 个危险操作无凭证一律拒，有凭证一律放行
   ---
-  duration_ms: 104.290833
+  duration_ms: 110.737916
   type: 'test'
   ...
 # Subtest: 冲突：重叠的定时事件被检出
 ok 17 - 冲突：重叠的定时事件被检出
   ---
-  duration_ms: 2.049625
+  duration_ms: 1.534
   type: 'test'
   ...
 # Subtest: 冲突：首尾相接不算冲突（半开区间）
 ok 18 - 冲突：首尾相接不算冲突（半开区间）
   ---
-  duration_ms: 0.9805
+  duration_ms: 0.992875
   type: 'test'
   ...
 # Subtest: 冲突：两个全天事件互不冲突
 ok 19 - 冲突：两个全天事件互不冲突
   ---
-  duration_ms: 0.834417
+  duration_ms: 10.323417
   type: 'test'
   ...
 # Subtest: 冲突：全天与定时默认不冲突，allDayBlocks=true 时才冲突
 ok 20 - 冲突：全天与定时默认不冲突，allDayBlocks=true 时才冲突
   ---
-  duration_ms: 0.304667
+  duration_ms: 0.447041
   type: 'test'
   ...
 # Subtest: 冲突：重复事件与单次事件交叉命中
 ok 21 - 冲突：重复事件与单次事件交叉命中
   ---
-  duration_ms: 2.04275
+  duration_ms: 2.005125
   type: 'test'
   ...
 # Subtest: 冲突：已取消事件不参与
 ok 22 - 冲突：已取消事件不参与
   ---
-  duration_ms: 0.281458
+  duration_ms: 0.269125
   type: 'test'
   ...
 # Subtest: 空闲：两个会议之间留出空档，且 minSlot 过滤过短空档
 ok 23 - 空闲：两个会议之间留出空档，且 minSlot 过滤过短空档
   ---
-  duration_ms: 0.453584
+  duration_ms: 0.447042
   type: 'test'
   ...
 # Subtest: 空闲：buffer 把相邻会议的空档吃掉
 ok 24 - 空闲：buffer 把相邻会议的空档吃掉
   ---
-  duration_ms: 0.401917
+  duration_ms: 0.384417
   type: 'test'
   ...
 # Subtest: 空闲：全天空档（无事件）返回整个窗口
 ok 25 - 空闲：全天空档（无事件）返回整个窗口
   ---
-  duration_ms: 0.254167
+  duration_ms: 0.246625
   type: 'test'
   ...
 # Subtest: 空闲：窗口非法时拒绝
 ok 26 - 空闲：窗口非法时拒绝
   ---
-  duration_ms: 0.35175
+  duration_ms: 0.373084
   type: 'test'
   ...
 # Subtest: 写入前冲突检查：候选与已有事件冲突时 blocking=true
 ok 27 - 写入前冲突检查：候选与已有事件冲突时 blocking=true
   ---
-  duration_ms: 0.344583
+  duration_ms: 0.346667
   type: 'test'
   ...
 # Subtest: 写入前冲突检查：allowOverlap 时 blocking=false
 ok 28 - 写入前冲突检查：allowOverlap 时 blocking=false
   ---
-  duration_ms: 0.254583
+  duration_ms: 0.257375
   type: 'test'
   ...
 # Subtest: 写入前冲突检查：排除自身（更新场景）不与自己冲突
 ok 29 - 写入前冲突检查：排除自身（更新场景）不与自己冲突
   ---
-  duration_ms: 0.175375
+  duration_ms: 0.442292
   type: 'test'
   ...
 # Subtest: 契约：parseAtStrict 只接受 RFC3339 字符串，拒绝数字
 ok 30 - 契约：parseAtStrict 只接受 RFC3339 字符串，拒绝数字
   ---
-  duration_ms: 1.038333
+  duration_ms: 2.142625
   type: 'test'
   ...
 # Subtest: 契约：parseAtStrict 拒绝不存在的日历时刻（2 月 30 日）
 ok 31 - 契约：parseAtStrict 拒绝不存在的日历时刻（2 月 30 日）
   ---
-  duration_ms: 0.138125
+  duration_ms: 0.311916
   type: 'test'
   ...
 # Subtest: 契约：parseAtStrict 支持数字偏移
 ok 32 - 契约：parseAtStrict 支持数字偏移
   ---
-  duration_ms: 0.052666
+  duration_ms: 0.094208
   type: 'test'
   ...
 # Subtest: 契约 stub：create 必须两参，单参会失败
 ok 33 - 契约 stub：create 必须两参，单参会失败
   ---
-  duration_ms: 1.571625
+  duration_ms: 3.534541
   type: 'test'
   ...
 # Subtest: 契约 stub：create 的 at 传数字会失败
 ok 34 - 契约 stub：create 的 at 传数字会失败
   ---
-  duration_ms: 0.151708
+  duration_ms: 0.153666
   type: 'test'
   ...
 # Subtest: 契约 stub：create 拒绝过去的时刻（not_future）
 ok 35 - 契约 stub：create 拒绝过去的时刻（not_future）
   ---
-  duration_ms: 0.225
+  duration_ms: 0.095667
   type: 'test'
   ...
 # Subtest: 契约 stub：list 必须带 sessionId
 ok 36 - 契约 stub：list 必须带 sessionId
   ---
-  duration_ms: 0.090041
+  duration_ms: 0.076625
   type: 'test'
   ...
 # Subtest: 契约 stub：history 的 limit 必须在 1..100
 ok 37 - 契约 stub：history 的 limit 必须在 1..100
   ---
-  duration_ms: 0.127459
+  duration_ms: 0.654833
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：create 走两参 + at 字符串（形状正确才能建成）
 ok 38 - 适配器 host 后端：create 走两参 + at 字符串（形状正确才能建成）
   ---
-  duration_ms: 16.399167
+  duration_ms: 27.494791
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：跨 5 次重启不重复注册（B1 真实契约回归）
 ok 39 - 适配器 host 后端：跨 5 次重启不重复注册（B1 真实契约回归）
   ---
-  duration_ms: 11.602417
+  duration_ms: 29.40975
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：已投递后重启不重建（B2 真实契约回归）
 ok 40 - 适配器 host 后端：已投递后重启不重建（B2 真实契约回归）
   ---
-  duration_ms: 22.967
+  duration_ms: 23.124459
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：同标题同时刻的两条提醒独立存在（不被合成键合并）
 ok 41 - 适配器 host 后端：同标题同时刻的两条提醒独立存在（不被合成键合并）
   ---
-  duration_ms: 32.972625
+  duration_ms: 50.352708
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：取消一条不影响另一条（无孤儿）
 ok 42 - 适配器 host 后端：取消一条不影响另一条（无孤儿）
   ---
-  duration_ms: 75.515083
+  duration_ms: 79.102333
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：不同 sessionId 之间不互相影响
 ok 43 - 适配器 host 后端：不同 sessionId 之间不互相影响
   ---
-  duration_ms: 49.708833
+  duration_ms: 51.548292
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：宿主 catalog 抛错时显式降级，只建不删
 ok 44 - 适配器 host 后端：宿主 catalog 抛错时显式降级，只建不删
   ---
-  duration_ms: 37.88125
+  duration_ms: 34.182375
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：history 读不到时返回 UNKNOWN，不谎报未投递
 ok 45 - 适配器 host 后端：history 读不到时返回 UNKNOWN，不谎报未投递
   ---
-  duration_ms: 34.910792
+  duration_ms: 31.864708
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：宽限期补建的触发时刻恒在未来
 ok 46 - 适配器 host 后端：宽限期补建的触发时刻恒在未来
   ---
-  duration_ms: 32.338916
+  duration_ms: 27.91875
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：reconcile 带 scope 时不误删其它 scope
 ok 47 - 适配器 host 后端：reconcile 带 scope 时不误删其它 scope
   ---
-  duration_ms: 44.959042
+  duration_ms: 64.906083
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：缺少必需方法时构造即失败
 ok 48 - 适配器 host 后端：缺少必需方法时构造即失败
   ---
-  duration_ms: 8.789833
+  duration_ms: 10.583083
   type: 'test'
   ...
 # Subtest: 适配器 host 后端：缺 hostMap 或 sessionId 时构造即失败
 ok 49 - 适配器 host 后端：缺 hostMap 或 sessionId 时构造即失败
   ---
-  duration_ms: 10.962083
+  duration_ms: 14.578667
   type: 'test'
   ...
 # Subtest: hostMap：持久化并在重启后恢复映射
 ok 50 - hostMap：持久化并在重启后恢复映射
   ---
-  duration_ms: 16.912541
+  duration_ms: 28.897375
   type: 'test'
   ...
 # Subtest: hostMap：拒绝两个 reminderKey 指向同一 hostId
 ok 51 - hostMap：拒绝两个 reminderKey 指向同一 hostId
   ---
-  duration_ms: 6.9805
+  duration_ms: 7.796167
   type: 'test'
   ...
 # Subtest: hostMap：损坏文件不被静默重建，而是抛 store-corrupt
 ok 52 - hostMap：损坏文件不被静默重建，而是抛 store-corrupt
   ---
-  duration_ms: 14.813125
+  duration_ms: 26.868583
   type: 'test'
   ...
 # Subtest: 恢复：rebuildPlans 返回普通对象，skipped 不丢失
 ok 53 - 恢复：rebuildPlans 返回普通对象，skipped 不丢失
   ---
-  duration_ms: 134.202583
+  duration_ms: 185.938
   type: 'test'
   ...
 # Subtest: 恢复：suspend 时过期提醒记 missed 且不补发
 ok 54 - 恢复：suspend 时过期提醒记 missed 且不补发
   ---
-  duration_ms: 0.842208
+  duration_ms: 0.895125
   type: 'test'
   ...
 # Subtest: 公开 API：service 不暴露任何写方法（审批旁路已封闭）
 ok 55 - 公开 API：service 不暴露任何写方法（审批旁路已封闭）
   ---
-  duration_ms: 28.982625
+  duration_ms: 35.976833
   type: 'test'
   ...
 # Subtest: 变异M1：catalog 必须能看见已投递的 inactive 记录
 ok 56 - 变异M1：catalog 必须能看见已投递的 inactive 记录
   ---
-  duration_ms: 25.858125
+  duration_ms: 20.066541
   type: 'test'
   ...
 # Subtest: 变异M5：恢复层必须把 scope 透传给 reconcile
 ok 57 - 变异M5：恢复层必须把 scope 透传给 reconcile
   ---
-  duration_ms: 28.972917
+  duration_ms: 22.999167
   type: 'test'
   ...
 # Subtest: 变异M5b：恢复层的 scope 过滤确实生效（同 scope 内的多余项会被清理）
 ok 58 - 变异M5b：恢复层的 scope 过滤确实生效（同 scope 内的多余项会被清理）
   ---
-  duration_ms: 64.121542
+  duration_ms: 66.950459
   type: 'test'
   ...
 # Subtest: R3-1：hostMap 超过上限时按 fireAtMs 裁剪，只删本地映射
 ok 59 - R3-1：hostMap 超过上限时按 fireAtMs 裁剪，只删本地映射
   ---
-  duration_ms: 9.088292
+  duration_ms: 11.774125
   type: 'test'
   ...
 # Subtest: R3-1：裁剪后重启读回仍不超限
 ok 60 - R3-1：裁剪后重启读回仍不超限
   ---
-  duration_ms: 21.883792
+  duration_ms: 26.033167
   type: 'test'
   ...
 # Subtest: R3-1：裁剪映射不得影响宿主侧记录（宿主自己管 retention）
 ok 61 - R3-1：裁剪映射不得影响宿主侧记录（宿主自己管 retention）
   ---
-  duration_ms: 163.377792
+  duration_ms: 109.90925
   type: 'test'
   ...
 # Subtest: N-02 守卫：回执被 retention 裁剪时判 UNKNOWN，不得判 not-delivered
 ok 62 - N-02 守卫：回执被 retention 裁剪时判 UNKNOWN，不得判 not-delivered
   ---
-  duration_ms: 16.475833
+  duration_ms: 28.276666
   type: 'test'
   ...
 # Subtest: N-02 守卫：records 空且 earlierRecordsUnavailable=false 才是真未投递
 ok 63 - N-02 守卫：records 空且 earlierRecordsUnavailable=false 才是真未投递
   ---
-  duration_ms: 49.99425
+  duration_ms: 47.687041
   type: 'test'
   ...
 # Subtest: N-04 守卫：宿主 create 抛错不中断整轮，其余提醒仍建立
 ok 64 - N-04 守卫：宿主 create 抛错不中断整轮，其余提醒仍建立
   ---
-  duration_ms: 39.758916
+  duration_ms: 43.9965
   type: 'test'
   ...
 # Subtest: N-08 守卫：删除失败计入 failed 而非静默
 ok 65 - N-08 守卫：删除失败计入 failed 而非静默
   ---
-  duration_ms: 32.389959
+  duration_ms: 14.023958
   type: 'test'
   ...
 # Subtest: N-03 守卫：宿主机有行但本地无映射时，必须上报告警
 ok 66 - N-03 守卫：宿主机有行但本地无映射时，必须上报告警
   ---
-  duration_ms: 26.496167
+  duration_ms: 19.071917
   type: 'test'
   ...
 # Subtest: X6 守卫：degraded 时确实"不建也不删"（不是"盲目建"）
 ok 67 - X6 守卫：degraded 时确实"不建也不删"（不是"盲目建"）
   ---
-  duration_ms: 29.5935
+  duration_ms: 15.752875
   type: 'test'
   ...
 # Subtest: N-02 完整判据表：四种输入各自独立环境，结果必须互不相同
 ok 68 - N-02 完整判据表：四种输入各自独立环境，结果必须互不相同
   ---
-  duration_ms: 118.146
+  duration_ms: 133.25125
   type: 'test'
   ...
 # Subtest: N-17 守卫：投递状态 UNKNOWN 时不得删除宿主上仍然 active 的提醒
 ok 69 - N-17 守卫：投递状态 UNKNOWN 时不得删除宿主上仍然 active 的提醒
   ---
-  duration_ms: 45.7195
+  duration_ms: 39.532666
   type: 'test'
   ...
 # Subtest: N-17 守卫：protect 集合里的 key 不会被 reconcile 删除
 ok 70 - N-17 守卫：protect 集合里的 key 不会被 reconcile 删除
   ---
-  duration_ms: 31.988042
+  duration_ms: 50.211458
   type: 'test'
   ...
 # Subtest: R5-1 守卫：映射被裁剪后再次对账不得重复创建（P3 探针发现的缺陷）
 ok 71 - R5-1 守卫：映射被裁剪后再次对账不得重复创建（P3 探针发现的缺陷）
   ---
-  duration_ms: 406.988667
+  duration_ms: 344.6515
   type: 'test'
   ...
 # Subtest: R5-2 守卫：条目上限生效，但身份索引保留认领能力
 ok 72 - R5-2 守卫：条目上限生效，但身份索引保留认领能力
   ---
-  duration_ms: 19.307167
+  duration_ms: 14.997375
   type: 'test'
   ...
 # Subtest: R5-3 守卫：history 返回非法形状时判 UNKNOWN，不得重建（P2 探针发现的缺陷）
 ok 73 - R5-3 守卫：history 返回非法形状时判 UNKNOWN，不得重建（P2 探针发现的缺陷）
   ---
-  duration_ms: 14.794375
+  duration_ms: 13.019666
   type: 'test'
   ...
 # Subtest: N-02 判据表：earlierRecordsUnavailable 缺失时视为"确认未投递"
 ok 74 - N-02 判据表：earlierRecordsUnavailable 缺失时视为"确认未投递"
   ---
-  duration_ms: 80.212416
+  duration_ms: 86.897167
   type: 'test'
   ...
 # Subtest: R6 契约：put 只置脏，flush 才落盘（持久化时机是显式的）
 ok 75 - R6 契约：put 只置脏，flush 才落盘（持久化时机是显式的）
   ---
-  duration_ms: 12.480375
+  duration_ms: 13.234084
   type: 'test'
   ...
 # Subtest: R7 守卫：身份索引按时间老化，不按条数（不导致重复投递）
 ok 76 - R7 守卫：身份索引按时间老化，不按条数（不导致重复投递）
   ---
-  duration_ms: 22.289542
+  duration_ms: 23.1145
   type: 'test'
   ...
 # Subtest: R7 守卫：老身份被丢弃后，宿主侧那条已 inactive → 不会重建
 ok 77 - R7 守卫：老身份被丢弃后，宿主侧那条已 inactive → 不会重建
   ---
-  duration_ms: 29.010375
+  duration_ms: 27.952917
   type: 'test'
   ...
 # Subtest: R8 守卫：并发 reconcile 同一提醒只建一条（复审探针 09）
 ok 78 - R8 守卫：并发 reconcile 同一提醒只建一条（复审探针 09）
   ---
-  duration_ms: 14.080791
+  duration_ms: 13.679875
   type: 'test'
   ...
 # Subtest: R8 守卫：宿主 history 返回 {status:"unavailable"} 时判 UNKNOWN，不得重建（复审探针 01）
 ok 79 - R8 守卫：宿主 history 返回 {status:"unavailable"} 时判 UNKNOWN，不得重建（复审探针 01）
   ---
-  duration_ms: 11.562041
+  duration_ms: 11.949333
   type: 'test'
   ...
 # Subtest: R9 守卫：被裁成墓碑的提醒仍可被删除（复审 B-1，幽灵提醒）
 ok 80 - R9 守卫：被裁成墓碑的提醒仍可被删除（复审 B-1，幽灵提醒）
   ---
-  duration_ms: 376.609666
+  duration_ms: 292.392416
   type: 'test'
   ...
 # Subtest: R9 守卫：墓碑保留 scope，带 scope 对账时不被跳过
 ok 81 - R9 守卫：墓碑保留 scope，带 scope 对账时不被跳过
   ---
-  duration_ms: 112.702917
+  duration_ms: 190.481416
   type: 'test'
   ...
 # Subtest: R10 守卫：时间老化对墓碑也生效（复审 N-1）
 ok 82 - R10 守卫：时间老化对墓碑也生效（复审 N-1）
   ---
-  duration_ms: 9.738833
+  duration_ms: 36.96475
   type: 'test'
   ...
 # Subtest: R10 守卫：indexMeta（scope+fireAtMs）被清理，不无限增长（复审 N-2）
 ok 83 - R10 守卫：indexMeta（scope+fireAtMs）被清理，不无限增长（复审 N-2）
   ---
-  duration_ms: 7.95025
+  duration_ms: 12.8225
   type: 'test'
   ...
 # Subtest: R10 守卫：createLocks 链条在 upsert 完成后清理（复审 N-4）
 ok 84 - R10 守卫：createLocks 链条在 upsert 完成后清理（复审 N-4）
   ---
-  duration_ms: 14.096583
+  duration_ms: 16.776666
   type: 'test'
   ...
 # Subtest: WP3-P1 守卫：旧格式 indexScopes 读入后归一化落盘（不留旧字段）
 ok 85 - WP3-P1 守卫：旧格式 indexScopes 读入后归一化落盘（不留旧字段）
   ---
-  duration_ms: 4.723
+  duration_ms: 4.74025
   type: 'test'
   ...
 # Subtest: WP3-P7 守卫：prune 的老化删除可被显式 flush 落盘
 ok 86 - WP3-P7 守卫：prune 的老化删除可被显式 flush 落盘
   ---
-  duration_ms: 4.921833
+  duration_ms: 5.449
   type: 'test'
   ...
 # Subtest: WP3：真 ApprovalService 端到端 —— allowed-once 经适配器签发 token
 ok 87 - WP3：真 ApprovalService 端到端 —— allowed-once 经适配器签发 token
   ---
-  duration_ms: 45.419042
+  duration_ms: 52.662917
   type: 'test'
   ...
 # Subtest: WP3：真 ApprovalService 词汇白名单 —— 非 allowed-once 全 fail-closed
 ok 88 - WP3：真 ApprovalService 词汇白名单 —— 非 allowed-once 全 fail-closed
   ---
-  duration_ms: 188.580375
+  duration_ms: 167.977917
   type: 'test'
   ...
 # Subtest: WP3：applyWorkbenchHostService 用 ctx.provide 挂载服务
 ok 89 - WP3：applyWorkbenchHostService 用 ctx.provide 挂载服务
   ---
-  duration_ms: 7.943875
+  duration_ms: 2.367875
   type: 'test'
   ...
 # Subtest: WP3：sessionId 严格隔离（一个会话看不到另一个的事件）
 ok 90 - WP3：sessionId 严格隔离（一个会话看不到另一个的事件）
   ---
-  duration_ms: 138.119583
+  duration_ms: 122.486667
   type: 'test'
   ...
 # Subtest: WP3：scope 是一等字段，数据目录隔离（不用 key 前缀猜）
 ok 91 - WP3：scope 是一等字段，数据目录隔离（不用 key 前缀猜）
   ---
-  duration_ms: 257.127709
+  duration_ms: 303.206667
   type: 'test'
   ...
 # Subtest: WP3：UI 与 Agent 共用同一个 forSession 门面实例
 ok 92 - WP3：UI 与 Agent 共用同一个 forSession 门面实例
   ---
-  duration_ms: 41.731958
+  duration_ms: 38.2725
   type: 'test'
   ...
 # Subtest: WP3：invoke 记录审计流水，且只记 payload 键名不记用户数据
 ok 93 - WP3：invoke 记录审计流水，且只记 payload 键名不记用户数据
   ---
-  duration_ms: 108.337875
+  duration_ms: 127.7025
   type: 'test'
   ...
 # Subtest: WP3：危险操作在无宿主批准时 fail-closed 拒绝
 ok 94 - WP3：危险操作在无宿主批准时 fail-closed 拒绝
   ---
-  duration_ms: 124.471
+  duration_ms: 92.254417
   type: 'test'
   ...
 # Subtest: WP3：audit 上限保护 + describe 只读冻结
 ok 95 - WP3：audit 上限保护 + describe 只读冻结
   ---
-  duration_ms: 53.798417
+  duration_ms: 32.595625
   type: 'test'
   ...
 # Subtest: WP3：非法 sessionId 被拒绝（不产生路径穿越）
 ok 96 - WP3：非法 sessionId 被拒绝（不产生路径穿越）
   ---
-  duration_ms: 7.416417
+  duration_ms: 11.127416
   type: 'test'
   ...
 # Subtest: WP3：askApproval 转发到 service 的真实二参签名
 ok 97 - WP3：askApproval 转发到 service 的真实二参签名
   ---
-  duration_ms: 42.033292
+  duration_ms: 37.205834
   type: 'test'
   ...
 # Subtest: WP3：并发审批各调用保持自己的 agent（AsyncLocalStorage，不串味）
 ok 98 - WP3：并发审批各调用保持自己的 agent（AsyncLocalStorage，不串味）
   ---
-  duration_ms: 212.894125
+  duration_ms: 181.336875
   type: 'test'
   ...
 # Subtest: WP3：真宿主审批词汇 allowed-once 才授予，其余一律拒绝
 ok 99 - WP3：真宿主审批词汇 allowed-once 才授予，其余一律拒绝
   ---
-  duration_ms: 168.642583
+  duration_ms: 150.150333
   type: 'test'
   ...
 # Subtest: WP3：工具定义齐全且每个都有 name/description/parameters/output.render
 ok 100 - WP3：工具定义齐全且每个都有 name/description/parameters/output.render
   ---
-  duration_ms: 4.07175
+  duration_ms: 6.965917
   type: 'test'
   ...
 # Subtest: WP3：无调用方 Agent 时返回稳定错误，不泄露内部异常
 ok 101 - WP3：无调用方 Agent 时返回稳定错误，不泄露内部异常
   ---
-  duration_ms: 0.654
+  duration_ms: 0.743417
   type: 'test'
   ...
 # Subtest: WP3：sessionId 只取自 exec.agent.session.id
 ok 102 - WP3：sessionId 只取自 exec.agent.session.id
   ---
-  duration_ms: 103.611958
+  duration_ms: 113.7475
   type: 'test'
   ...
 # Subtest: WP3：payload 里的 confirmed 不能绕过审批（危险 op 不在工具面）
 ok 103 - WP3：payload 里的 confirmed 不能绕过审批（危险 op 不在工具面）
   ---
-  duration_ms: 13.851209
+  duration_ms: 12.422625
   type: 'test'
   ...
 # Subtest: WP3：operationError 只回传白名单业务错误码
 ok 104 - WP3：operationError 只回传白名单业务错误码
   ---
-  duration_ms: 48.493958
+  duration_ms: 52.770167
   type: 'test'
   ...
 # Subtest: WP3：renderValue 输出真实契约形状
 ok 105 - WP3：renderValue 输出真实契约形状
   ---
-  duration_ms: 0.16975
+  duration_ms: 0.128208
   type: 'test'
   ...
 # Subtest: WP3：applyWorkbenchTools 注册全部工具并返回精确 disposer
 ok 106 - WP3：applyWorkbenchTools 注册全部工具并返回精确 disposer
   ---
-  duration_ms: 17.367125
+  duration_ms: 7.312375
   type: 'test'
   ...
 # Subtest: WP3：applyWorkbenchTools 拒绝缺 tools.register / defineTool 的 Context
 ok 107 - WP3：applyWorkbenchTools 拒绝缺 tools.register / defineTool 的 Context
   ---
-  duration_ms: 8.246292
+  duration_ms: 18.791667
   type: 'test'
   ...
 # Subtest: WP3：真实 defineTool 接受全部工具定义
 ok 108 - WP3：真实 defineTool 接受全部工具定义
   ---
-  duration_ms: 19.948042
+  duration_ms: 26.910958
   type: 'test'
   ...
 # Subtest: WP3：真实 defineTool 拦截缺参并执行创建/查询/隔离
 ok 109 - WP3：真实 defineTool 拦截缺参并执行创建/查询/隔离
   ---
-  duration_ms: 180.959208
+  duration_ms: 203.017625
   type: 'test'
   ...
 # Subtest: WP3：event.update 工具按真实契约传 {id, patch}（编辑真的生效）
 ok 110 - WP3：event.update 工具按真实契约传 {id, patch}（编辑真的生效）
   ---
-  duration_ms: 183.747041
+  duration_ms: 184.99275
   type: 'test'
   ...
 # Subtest: WP3：task.upsert 工具按真实契约传 {task:{id,...}}（创建/编辑都生效）
 ok 111 - WP3：task.upsert 工具按真实契约传 {task:{id,...}}（创建/编辑都生效）
   ---
-  duration_ms: 197.010333
+  duration_ms: 181.776834
   type: 'test'
   ...
 # Subtest: WP3：workbench_help 列出工具与参数，供自然语言映射
 ok 112 - WP3：workbench_help 列出工具与参数，供自然语言映射
   ---
-  duration_ms: 6.338375
+  duration_ms: 13.939458
   type: 'test'
   ...
 # Subtest: WP3：workbench_audit 返回本会话审计且可限条数
 ok 113 - WP3：workbench_audit 返回本会话审计且可限条数
   ---
-  duration_ms: 147.768458
+  duration_ms: 95.179083
   type: 'test'
   ...
 # Subtest: WP3：自然语言意图映射说明（文档级，防止自造 NLP 解析器）
 ok 114 - WP3：自然语言意图映射说明（文档级，防止自造 NLP 解析器）
   ---
-  duration_ms: 0.533208
+  duration_ms: 0.167625
   type: 'test'
   ...
 # Subtest: WP3-B1 守卫：真 defineTool 出参校验对错误与成功值都通过（oneOf 互斥）
 ok 115 - WP3-B1 守卫：真 defineTool 出参校验对错误与成功值都通过（oneOf 互斥）
   ---
-  duration_ms: 2.769
+  duration_ms: 0.829917
   type: 'test'
   ...
 # Subtest: WP3-B1 守卫：真 ToolRuntime 端到端不把业务错误变成 ToolOutputError
 ok 116 - WP3-B1 守卫：真 ToolRuntime 端到端不把业务错误变成 ToolOutputError
   ---
-  duration_ms: 47.125875
+  duration_ms: 28.770208
   type: 'test'
   ...
 # Subtest: WP3-B2 守卫：审批适配器使用真 toolName 与 allowed-once 词汇
 ok 117 - WP3-B2 守卫：审批适配器使用真 toolName 与 allowed-once 词汇
   ---
-  duration_ms: 0.694209
+  duration_ms: 0.405166
   type: 'test'
   ...
 # Subtest: WP4：AI 工具 task.list 透传 includeDeleted（与 event.list 对称）
 ok 118 - WP4：AI 工具 task.list 透传 includeDeleted（与 event.list 对称）
   ---
-  duration_ms: 171.615041
+  duration_ms: 176.947333
   type: 'test'
   ...
 # Subtest: WP4：task.upsert 返回库中合并后的完整行（不只回显入参）
 ok 119 - WP4：task.upsert 返回库中合并后的完整行（不只回显入参）
   ---
-  duration_ms: 131.466458
+  duration_ms: 143.438667
   type: 'test'
   ...
 # Subtest: ICS 导入：定时事件字段完整解析
 ok 120 - ICS 导入：定时事件字段完整解析
   ---
-  duration_ms: 1.0175
+  duration_ms: 0.846291
   type: 'test'
   ...
 # Subtest: ICS 导入：VALUE=DATE 识别为全天
 ok 121 - ICS 导入：VALUE=DATE 识别为全天
   ---
-  duration_ms: 0.176917
+  duration_ms: 0.144458
   type: 'test'
   ...
 # Subtest: ICS 导入：RRULE 解析为结构化规则
 ok 122 - ICS 导入：RRULE 解析为结构化规则
   ---
-  duration_ms: 0.602041
+  duration_ms: 0.720834
   type: 'test'
   ...
 # Subtest: ICS 导入：缺 DTSTART 记 error 而非静默丢弃
 ok 123 - ICS 导入：缺 DTSTART 记 error 而非静默丢弃
   ---
-  duration_ms: 0.087
+  duration_ms: 0.069792
   type: 'test'
   ...
 # Subtest: ICS 导入：缺 VCALENDAR 报错
 ok 124 - ICS 导入：缺 VCALENDAR 报错
   ---
-  duration_ms: 0.166416
+  duration_ms: 0.133166
   type: 'test'
   ...
 # Subtest: ICS 导入：空内容报错
 ok 125 - ICS 导入：空内容报错
   ---
-  duration_ms: 0.045417
+  duration_ms: 0.03175
   type: 'test'
   ...
 # Subtest: ICS 导入：RECURRENCE-ID 例外实例被跳过并记 warning
 ok 126 - ICS 导入：RECURRENCE-ID 例外实例被跳过并记 warning
   ---
-  duration_ms: 0.113083
+  duration_ms: 0.088333
   type: 'test'
   ...
 # Subtest: ICS 导入：折行（续行）被正确拼接
 ok 127 - ICS 导入：折行（续行）被正确拼接
   ---
-  duration_ms: 0.053084
+  duration_ms: 0.040208
   type: 'test'
   ...
 # Subtest: ICS 导出：定时/全天/重复都能往返
 ok 128 - ICS 导出：定时/全天/重复都能往返
   ---
-  duration_ms: 10.656375
+  duration_ms: 12.304917
   type: 'test'
   ...
 # Subtest: ICS 导出：已取消事件不导出
 ok 129 - ICS 导出：已取消事件不导出
   ---
-  duration_ms: 0.32775
+  duration_ms: 0.293833
   type: 'test'
   ...
 # Subtest: ICS 导出：文本特殊字符被转义且可还原
 ok 130 - ICS 导出：文本特殊字符被转义且可还原
   ---
-  duration_ms: 0.199083
+  duration_ms: 0.17775
   type: 'test'
   ...
 # Subtest: JSON 快照：导出后解析回来结构一致
 ok 131 - JSON 快照：导出后解析回来结构一致
   ---
-  duration_ms: 0.088583
+  duration_ms: 0.100541
   type: 'test'
   ...
 # Subtest: JSON 快照：坏 JSON 报 validation
 ok 132 - JSON 快照：坏 JSON 报 validation
   ---
-  duration_ms: 0.058709
+  duration_ms: 0.340833
   type: 'test'
   ...
 # Subtest: JSON 快照：不支持的 format 报 unsupported
 ok 133 - JSON 快照：不支持的 format 报 unsupported
   ---
-  duration_ms: 0.04725
+  duration_ms: 0.04775
   type: 'test'
   ...
 # Subtest: JSON 快照：版本过高报 unsupported（不降级猜测）
 ok 134 - JSON 快照：版本过高报 unsupported（不降级猜测）
   ---
-  duration_ms: 0.037916
+  duration_ms: 0.034334
   type: 'test'
   ...
 # Subtest: JSON 快照：events 非数组报错
 ok 135 - JSON 快照：events 非数组报错
   ---
-  duration_ms: 0.040875
+  duration_ms: 0.031125
   type: 'test'
   ...
 # Subtest: 时区：Asia/Shanghai 无 DST，09:00 对应 UTC 01:00
 ok 136 - 时区：Asia/Shanghai 无 DST，09:00 对应 UTC 01:00
   ---
-  duration_ms: 9.189
+  duration_ms: 10.2755
   type: 'test'
   ...
 # Subtest: DST：America/New_York 春季前跳——不存在的墙钟被前移到空档结束
 ok 137 - DST：America/New_York 春季前跳——不存在的墙钟被前移到空档结束
   ---
-  duration_ms: 0.5025
+  duration_ms: 0.871542
   type: 'test'
   ...
 # Subtest: DST：America/New_York 秋季回拨——重复墙钟取较早瞬间
 ok 138 - DST：America/New_York 秋季回拨——重复墙钟取较早瞬间
   ---
-  duration_ms: 0.195042
+  duration_ms: 0.198417
   type: 'test'
   ...
 # Subtest: 重复：DAILY count=3 只产出 3 次
 ok 139 - 重复：DAILY count=3 只产出 3 次
   ---
-  duration_ms: 1.532083
+  duration_ms: 2.937084
   type: 'test'
   ...
 # Subtest: 重复：WEEKLY byDay=MO,WE 每周两次
 ok 140 - 重复：WEEKLY byDay=MO,WE 每周两次
   ---
-  duration_ms: 0.481791
+  duration_ms: 0.944125
   type: 'test'
   ...
 # Subtest: 重复：UNTIL 收口（日期按当天 23:59:59 含当天）
 ok 141 - 重复：UNTIL 收口（日期按当天 23:59:59 含当天）
   ---
-  duration_ms: 0.434625
+  duration_ms: 0.5105
   type: 'test'
   ...
 # Subtest: 重复：MONTHLY 31 号—RFC 策略跳过 2 月（非法日期 MUST be ignored）
 ok 142 - 重复：MONTHLY 31 号—RFC 策略跳过 2 月（非法日期 MUST be ignored）
   ---
-  duration_ms: 0.359583
+  duration_ms: 0.377
   type: 'test'
   ...
 # Subtest: 重复：MONTHLY 31 号—clamp 策略收敛到月末（本项目扩展，非 RFC）
 ok 143 - 重复：MONTHLY 31 号—clamp 策略收敛到月末（本项目扩展，非 RFC）
   ---
-  duration_ms: 0.32725
+  duration_ms: 0.336166
   type: 'test'
   ...
 # Subtest: 重复：非法 monthEndPolicy 被拒绝
 ok 144 - 重复：非法 monthEndPolicy 被拒绝
   ---
-  duration_ms: 0.883917
+  duration_ms: 1.232708
   type: 'test'
   ...
 # Subtest: 重复：窗口裁剪——只返回与窗口相交的实例
 ok 145 - 重复：窗口裁剪——只返回与窗口相交的实例
   ---
-  duration_ms: 0.741166
+  duration_ms: 1.018709
   type: 'test'
   ...
 # Subtest: 重复：非重复事件落在窗口外返回空
 ok 146 - 重复：非重复事件落在窗口外返回空
   ---
-  duration_ms: 0.469375
+  duration_ms: 0.375375
   type: 'test'
   ...
 # Subtest: 重复：已取消事件不参与展开
 ok 147 - 重复：已取消事件不参与展开
   ---
-  duration_ms: 0.34825
+  duration_ms: 0.318375
   type: 'test'
   ...
 # Subtest: 重复：不支持的字段显式报 unsupported（不静默忽略）
 ok 148 - 重复：不支持的字段显式报 unsupported（不静默忽略）
   ---
-  duration_ms: 0.255166
+  duration_ms: 0.328625
   type: 'test'
   ...
 # Subtest: 重复：无限规则 + 超大窗口触发上限保护，不 OOM
 ok 149 - 重复：无限规则 + 超大窗口触发上限保护，不 OOM
   ---
-  duration_ms: 34.985583
+  duration_ms: 40.289708
   type: 'test'
   ...
 # Subtest: 重复：展开窗口非法时拒绝
 ok 150 - 重复：展开窗口非法时拒绝
   ---
-  duration_ms: 0.134917
+  duration_ms: 0.156791
   type: 'test'
   ...
 # Subtest: 重复：全天事件按 UTC 日界展开，startDate 透出
 ok 151 - 重复：全天事件按 UTC 日界展开，startDate 透出
   ---
-  duration_ms: 0.221458
+  duration_ms: 0.234958
   type: 'test'
   ...
 # Subtest: 日期工具：addDaysToDate 跨月跨年正确
 ok 152 - 日期工具：addDaysToDate 跨月跨年正确
   ---
-  duration_ms: 0.024167
+  duration_ms: 0.024666
   type: 'test'
   ...
 # Subtest: 重复：interval=2 的 DAILY 隔天一次
 ok 153 - 重复：interval=2 的 DAILY 隔天一次
   ---
-  duration_ms: 0.18575
+  duration_ms: 0.190542
   type: 'test'
   ...
 # Subtest: 重复：YEARLY 闰日—RFC 策略跳过平年 2/29
 ok 154 - 重复：YEARLY 闰日—RFC 策略跳过平年 2/29
   ---
-  duration_ms: 0.470583
+  duration_ms: 0.44075
   type: 'test'
   ...
 # Subtest: 重复：YEARLY 闰日—clamp 策略收敛到 2/28
 ok 155 - 重复：YEARLY 闰日—clamp 策略收敛到 2/28
   ---
-  duration_ms: 0.226583
+  duration_ms: 0.255583
   type: 'test'
   ...
 # Subtest: 全天事件：锚定自身 timeZone，在上海时区读作 00:00 而不是 08:00
 ok 156 - 全天事件：锚定自身 timeZone，在上海时区读作 00:00 而不是 08:00
   ---
-  duration_ms: 0.201541
+  duration_ms: 0.206958
   type: 'test'
   ...
 # Subtest: 全天事件：未指定 timeZone 时按 UTC 锚定（跨时区仍读作同一本地日）
 ok 157 - 全天事件：未指定 timeZone 时按 UTC 锚定（跨时区仍读作同一本地日）
   ---
-  duration_ms: 0.214708
+  duration_ms: 0.158333
   type: 'test'
   ...
 # Subtest: 恢复：三个场景常量齐备
 ok 158 - 恢复：三个场景常量齐备
   ---
-  duration_ms: 2.249166
+  duration_ms: 1.140333
   type: 'test'
   ...
 # Subtest: 恢复：未知场景被拒绝
 ok 159 - 恢复：未知场景被拒绝
   ---
-  duration_ms: 0.8185
+  duration_ms: 0.415583
   type: 'test'
   ...
 # Subtest: 场景 restart：过期事件不再生成计划（compileReminder 的 null 契约生效）
 ok 160 - 场景 restart：过期事件不再生成计划（compileReminder 的 null 契约生效）
   ---
-  duration_ms: 9.466334
+  duration_ms: 10.028
   type: 'test'
   ...
 # Subtest: 场景 restart：已过期的计划若被直接传入，会被判为 missed 而非重建
 ok 161 - 场景 restart：已过期的计划若被直接传入，会被判为 missed 而非重建
   ---
-  duration_ms: 0.10375
+  duration_ms: 0.107417
   type: 'test'
   ...
 # Subtest: 场景 suspend：宽限期内仍补建，超过宽限期记 missed
 ok 162 - 场景 suspend：宽限期内仍补建，超过宽限期记 missed
   ---
-  duration_ms: 0.09675
+  duration_ms: 0.590292
   type: 'test'
   ...
 # Subtest: 场景 exit：退出期间到点的提醒不补发（避免轰炸）
 ok 163 - 场景 exit：退出期间到点的提醒不补发（避免轰炸）
   ---
-  duration_ms: 0.930833
+  duration_ms: 1.576041
   type: 'test'
   ...
 # Subtest: 恢复幂等：同一状态重复恢复不产生重复提醒
 ok 164 - 恢复幂等：同一状态重复恢复不产生重复提醒
   ---
-  duration_ms: 0.566333
+  duration_ms: 0.859917
   type: 'test'
   ...
 # Subtest: 恢复会清掉不再需要的旧提醒（事件被删后）
 ok 165 - 恢复会清掉不再需要的旧提醒（事件被删后）
   ---
-  duration_ms: 1.11825
+  duration_ms: 1.118208
   type: 'test'
   ...
 # Subtest: 错过摘要：空与多条都给出可读文案
 ok 166 - 错过摘要：空与多条都给出可读文案
   ---
-  duration_ms: 0.272792
+  duration_ms: 0.436792
   type: 'test'
   ...
 # Subtest: rebuildPlans 合并事件与任务提醒，且不把已完成的算进来
 ok 167 - rebuildPlans 合并事件与任务提醒，且不把已完成的算进来
   ---
-  duration_ms: 0.494
+  duration_ms: 0.664334
   type: 'test'
   ...
 # Subtest: 审批门：isolated 必须显式允许，否则构造即失败
 ok 168 - 审批门：isolated 必须显式允许，否则构造即失败
   ---
-  duration_ms: 0.81025
+  duration_ms: 0.9385
   type: 'test'
   ...
 # Subtest: 审批门：未知模式被拒绝
 ok 169 - 审批门：未知模式被拒绝
   ---
-  duration_ms: 0.061708
+  duration_ms: 0.076125
   type: 'test'
   ...
 # Subtest: 审批门：host 模式默认不自动批准（缺 requester 时拒绝）
 ok 170 - 审批门：host 模式默认不自动批准（缺 requester 时拒绝）
   ---
-  duration_ms: 0.219125
+  duration_ms: 0.284917
   type: 'test'
   ...
 # Subtest: 审批门：host 模式按宿主决定放行或拒绝
 ok 171 - 审批门：host 模式按宿主决定放行或拒绝
   ---
-  duration_ms: 0.08125
+  duration_ms: 0.103792
   type: 'test'
   ...
 # Subtest: 审批门：凭证一次性，重放被拒
 ok 172 - 审批门：凭证一次性，重放被拒
   ---
-  duration_ms: 0.135
+  duration_ms: 0.094083
   type: 'test'
   ...
 # Subtest: 审批门：凭证绑定操作指纹，不能挪用到别的操作
 ok 173 - 审批门：凭证绑定操作指纹，不能挪用到别的操作
   ---
-  duration_ms: 0.202042
+  duration_ms: 0.145792
   type: 'test'
   ...
 # Subtest: 审批门：凭证过期后失效
 ok 174 - 审批门：凭证过期后失效
   ---
-  duration_ms: 0.117125
+  duration_ms: 0.099792
   type: 'test'
   ...
 # Subtest: 审批门：缺 token / 伪造 token 一律拒绝
 ok 175 - 审批门：缺 token / 伪造 token 一律拒绝
   ---
-  duration_ms: 0.050208
+  duration_ms: 0.045166
   type: 'test'
   ...
 # Subtest: 审批门：deny 模式全拒且不可写
 ok 176 - 审批门：deny 模式全拒且不可写
   ---
-  duration_ms: 0.217583
+  duration_ms: 0.206083
   type: 'test'
   ...
 # Subtest: 审批门：authorize 一步到位，失败抛 confirmation-required
 ok 177 - 审批门：authorize 一步到位，失败抛 confirmation-required
   ---
-  duration_ms: 0.357417
+  duration_ms: 0.358084
   type: 'test'
   ...
 # Subtest: 审批门：fingerprint 对 op/target/digest 敏感
 ok 178 - 审批门：fingerprint 对 op/target/digest 敏感
   ---
-  duration_ms: 0.1075
+  duration_ms: 0.106166
   type: 'test'
   ...
 # Subtest: 提醒：幂等键对 kind/entity/occurrence/offset 敏感
 ok 179 - 提醒：幂等键对 kind/entity/occurrence/offset 敏感
   ---
-  duration_ms: 0.080208
+  duration_ms: 0.078
   type: 'test'
   ...
 # Subtest: 提醒：compileReminder 计算触发时刻与文案
 ok 180 - 提醒：compileReminder 计算触发时刻与文案
   ---
-  duration_ms: 0.499875
+  duration_ms: 0.695375
   type: 'test'
   ...
 # Subtest: 提醒：未知 kind / 负数偏移被拒绝
 ok 181 - 提醒：未知 kind / 负数偏移被拒绝
   ---
-  duration_ms: 0.061583
+  duration_ms: 0.083959
   type: 'test'
   ...
 # Subtest: 适配器：memory 后端按事件生成提前提醒
 ok 182 - 适配器：memory 后端按事件生成提前提醒
   ---
-  duration_ms: 8.511667
+  duration_ms: 10.898
   type: 'test'
   ...
 # Subtest: 适配器：includeEnd 时额外生成结束提醒
 ok 183 - 适配器：includeEnd 时额外生成结束提醒
   ---
-  duration_ms: 0.306666
+  duration_ms: 0.5645
   type: 'test'
   ...
 # Subtest: 适配器：已取消/已删除事件不生成提醒
 ok 184 - 适配器：已取消/已删除事件不生成提醒
   ---
-  duration_ms: 0.60675
+  duration_ms: 0.843084
   type: 'test'
   ...
 # Subtest: 适配器：重复事件按每次发生生成提醒
 ok 185 - 适配器：重复事件按每次发生生成提醒
   ---
-  duration_ms: 0.590708
+  duration_ms: 0.872875
   type: 'test'
   ...
 # Subtest: 适配器：任务到期提醒（跳过已完成/无 dueAt）
 ok 186 - 适配器：任务到期提醒（跳过已完成/无 dueAt）
   ---
-  duration_ms: 0.554875
+  duration_ms: 0.079542
   type: 'test'
   ...
 # Subtest: 适配器：reconcile 幂等——重复对账不产生重复提醒
 ok 187 - 适配器：reconcile 幂等——重复对账不产生重复提醒
   ---
-  duration_ms: 0.366125
+  duration_ms: 0.858458
   type: 'test'
   ...
 # Subtest: 适配器：事件改时间 → 旧提醒被取消、新提醒建立
 ok 188 - 适配器：事件改时间 → 旧提醒被取消、新提醒建立
   ---
-  duration_ms: 0.5165
+  duration_ms: 0.518375
   type: 'test'
   ...
 # Subtest: 适配器：取消单条提醒；取消不存在抛 not-found
 ok 189 - 适配器：取消单条提醒；取消不存在抛 not-found
   ---
-  duration_ms: 0.258541
+  duration_ms: 0.299625
   type: 'test'
   ...
 # Subtest: 适配器：到点只投递一次（幂等 tick）
 ok 190 - 适配器：到点只投递一次（幂等 tick）
   ---
-  duration_ms: 0.303458
+  duration_ms: 0.378
   type: 'test'
   ...
 # Subtest: 适配器：_tick 只在 memory 后端可用（防测试能力泄漏）
 ok 191 - 适配器：_tick 只在 memory 后端可用（防测试能力泄漏）
   ---
-  duration_ms: 6.441917
+  duration_ms: 9.347833
   type: 'test'
   ...
 # Subtest: 适配器：host 后端缺必需方法时构造即失败
 ok 192 - 适配器：host 后端缺必需方法时构造即失败
   ---
-  duration_ms: 0.088958
+  duration_ms: 0.150875
   type: 'test'
   ...
 # Subtest: 适配器：未知后端被拒绝
 ok 193 - 适配器：未知后端被拒绝
   ---
-  duration_ms: 0.045833
+  duration_ms: 0.159583
   type: 'test'
   ...
 # Subtest: 适配器：DEFAULT_LEAD_MINUTES 是合理正数
 ok 194 - 适配器：DEFAULT_LEAD_MINUTES 是合理正数
   ---
-  duration_ms: 0.023584
+  duration_ms: 0.028667
   type: 'test'
   ...
 # Subtest: 攻击回归：等长但内容不同的 ICS 不能复用同一审批凭证
 ok 195 - 攻击回归：等长但内容不同的 ICS 不能复用同一审批凭证
   ---
-  duration_ms: 28.620416
+  duration_ms: 32.276166
   type: 'test'
   ...
 # Subtest: 攻击回归：摘要由服务层按内容计算，不采信调用方传入的 digest
 ok 196 - 攻击回归：摘要由服务层按内容计算，不采信调用方传入的 digest
   ---
-  duration_ms: 19.33025
+  duration_ms: 23.557834
   type: 'test'
   ...
 # Subtest: 事件：非全天必须给 start + timeZone
 ok 197 - 事件：非全天必须给 start + timeZone
   ---
-  duration_ms: 1.685458
+  duration_ms: 0.952834
   type: 'test'
   ...
 # Subtest: 事件：全天必须给 startDate，且不能混用 start/end
 ok 198 - 事件：全天必须给 startDate，且不能混用 start/end
   ---
-  duration_ms: 0.223875
+  duration_ms: 0.181417
   type: 'test'
   ...
 # Subtest: 事件：end 必须晚于 start
 ok 199 - 事件：end 必须晚于 start
   ---
-  duration_ms: 9.20475
+  duration_ms: 9.504042
   type: 'test'
   ...
 # Subtest: 事件：未知字段被拒绝（防越权写 id/createdAt）
 ok 200 - 事件：未知字段被拒绝（防越权写 id/createdAt）
   ---
-  duration_ms: 0.107459
+  duration_ms: 0.179416
   type: 'test'
   ...
 # Subtest: 事件：归一化保留全天与定时两种形状，互斥字段置 null
 ok 201 - 事件：归一化保留全天与定时两种形状，互斥字段置 null
   ---
-  duration_ms: 0.532542
+  duration_ms: 0.484416
   type: 'test'
   ...
 # Subtest: 重复规则：count 与 until 互斥
 ok 202 - 重复规则：count 与 until 互斥
   ---
-  duration_ms: 0.22275
+  duration_ms: 0.21325
   type: 'test'
   ...
 # Subtest: 重复规则：byDay 仅 WEEKLY 支持
 ok 203 - 重复规则：byDay 仅 WEEKLY 支持
   ---
-  duration_ms: 0.179875
+  duration_ms: 0.191833
   type: 'test'
   ...
 # Subtest: 重复规则：不支持的 freq 被拒绝并给出可选值
 ok 204 - 重复规则：不支持的 freq 被拒绝并给出可选值
   ---
-  duration_ms: 0.07525
+  duration_ms: 0.448
   type: 'test'
   ...
 # Subtest: 重复规则：interval 归一为 1，undefined 键被清除
 ok 205 - 重复规则：interval 归一为 1，undefined 键被清除
   ---
-  duration_ms: 0.614875
+  duration_ms: 1.316542
   type: 'test'
   ...
 # Subtest: 时区：非法 IANA 名被拒绝
 ok 206 - 时区：非法 IANA 名被拒绝
   ---
-  duration_ms: 0.289584
+  duration_ms: 0.499167
   type: 'test'
   ...
 # Subtest: isoInstant：无时区被拒绝，带时区归一为 UTC
 ok 207 - isoInstant：无时区被拒绝，带时区归一为 UTC
   ---
-  duration_ms: 0.167
+  duration_ms: 0.350541
   type: 'test'
   ...
 # Subtest: isoDate：拒绝不存在的日期
 ok 208 - isoDate：拒绝不存在的日期
   ---
-  duration_ms: 0.056417
+  duration_ms: 0.1025
   type: 'test'
   ...
 # Subtest: validateObject：缺字段/未知字段都给出字段路径
 ok 209 - validateObject：缺字段/未知字段都给出字段路径
   ---
-  duration_ms: 0.071542
+  duration_ms: 0.175417
   type: 'test'
   ...
 # Subtest: 服务：未知操作报 unsupported 并列出支持项
 ok 210 - 服务：未知操作报 unsupported 并列出支持项
   ---
-  duration_ms: 21.70525
+  duration_ms: 32.900625
   type: 'test'
   ...
 # Subtest: 服务：创建事件后能列出与取回
 ok 211 - 服务：创建事件后能列出与取回
   ---
-  duration_ms: 99.595917
+  duration_ms: 99.768708
   type: 'test'
   ...
 # Subtest: 服务：参数校验在入口统一生效（未知字段被拒）
 ok 212 - 服务：参数校验在入口统一生效（未知字段被拒）
   ---
-  duration_ms: 28.040291
+  duration_ms: 29.502458
   type: 'test'
   ...
 # Subtest: 服务：冲突事件默认拒绝创建，allowOverlap 时放行
 ok 213 - 服务：冲突事件默认拒绝创建，allowOverlap 时放行
   ---
-  duration_ms: 178.036334
+  duration_ms: 183.283833
   type: 'test'
   ...
 # Subtest: 服务：删除是危险操作，未确认被拒
 ok 214 - 服务：删除是危险操作，未确认被拒
   ---
-  duration_ms: 167.068708
+  duration_ms: 159.690084
   type: 'test'
   ...
 # Subtest: 服务：软删除后 list 不含、includeDeleted 含、可恢复
 ok 215 - 服务：软删除后 list 不含、includeDeleted 含、可恢复
   ---
-  duration_ms: 223.160167
+  duration_ms: 182.773291
   type: 'test'
   ...
 # Subtest: 服务：更新走白名单，不能改 id
 ok 216 - 服务：更新走白名单，不能改 id
   ---
-  duration_ms: 178.555916
+  duration_ms: 138.571916
   type: 'test'
   ...
 # Subtest: 服务：批量删除需确认，且逐条生效
 ok 217 - 服务：批量删除需确认，且逐条生效
   ---
-  duration_ms: 228.739333
+  duration_ms: 254.814791
   type: 'test'
   ...
 # Subtest: 服务：expand 返回窗口内实例
 ok 218 - 服务：expand 返回窗口内实例
   ---
-  duration_ms: 68.219834
+  duration_ms: 81.172792
   type: 'test'
   ...
 # Subtest: 服务：freeSlots 返回可用时段
 ok 219 - 服务：freeSlots 返回可用时段
   ---
-  duration_ms: 50.402208
+  duration_ms: 66.872916
   type: 'test'
   ...
 # Subtest: 服务：ICS 预览不写库，确认后才导入
 ok 220 - 服务：ICS 预览不写库，确认后才导入
   ---
-  duration_ms: 116.203667
+  duration_ms: 114.497083
   type: 'test'
   ...
 # Subtest: 服务：ICS 含解析错误时中止导入并保持原数据不变
 ok 221 - 服务：ICS 含解析错误时中止导入并保持原数据不变
   ---
-  duration_ms: 61.877667
+  duration_ms: 60.319041
   type: 'test'
   ...
 # Subtest: 服务：快照导出→替换→可回滚
 ok 222 - 服务：快照导出→替换→可回滚
   ---
-  duration_ms: 171.102917
+  duration_ms: 163.24825
   type: 'test'
   ...
 # Subtest: 服务：快照替换需确认
 ok 223 - 服务：快照替换需确认
   ---
-  duration_ms: 8.790125
+  duration_ms: 7.169833
   type: 'test'
   ...
 # Subtest: 服务：Task 与 Event 共用入口但集合隔离，不动既有 Task
 ok 224 - 服务：Task 与 Event 共用入口但集合隔离，不动既有 Task
   ---
-  duration_ms: 117.199083
+  duration_ms: 113.085667
   type: 'test'
   ...
 # Subtest: 服务：Task upsert 缺 id 被拒
 ok 225 - 服务：Task upsert 缺 id 被拒
   ---
-  duration_ms: 13.035375
+  duration_ms: 11.080958
   type: 'test'
   ...
 # Subtest: 服务：审计日志记录每次写操作
 ok 226 - 服务：审计日志记录每次写操作
   ---
-  duration_ms: 82.132459
+  duration_ms: 64.814625
   type: 'test'
   ...
 # Subtest: 服务：DANGEROUS_OPS 覆盖所有需确认操作
 ok 227 - 服务：DANGEROUS_OPS 覆盖所有需确认操作
   ---
-  duration_ms: 2.850125
+  duration_ms: 0.7755
   type: 'test'
   ...
 # Subtest: N-05：deny 模式下所有写操作一律拒绝（不只危险清单）
 ok 228 - N-05：deny 模式下所有写操作一律拒绝（不只危险清单）
   ---
-  duration_ms: 9.657708
+  duration_ms: 12.086709
   type: 'test'
   ...
 # Subtest: 服务：持久化——新实例读到同样数据
 ok 229 - 服务：持久化——新实例读到同样数据
   ---
-  duration_ms: 53.812792
+  duration_ms: 48.470417
   type: 'test'
   ...
 # Subtest: 审批门矩阵：所有破坏性操作都必须确认，常规编辑不强制
 ok 230 - 审批门矩阵：所有破坏性操作都必须确认，常规编辑不强制
   ---
-  duration_ms: 60.400083
+  duration_ms: 35.716291
   type: 'test'
   ...
 # Subtest: 存储：首次打开创建空快照，版本正确
 ok 231 - 存储：首次打开创建空快照，版本正确
   ---
-  duration_ms: 26.672209
+  duration_ms: 25.516292
   type: 'test'
   ...
 # Subtest: 存储：写入后可重开读到同样内容（持久化）
 ok 232 - 存储：写入后可重开读到同样内容（持久化）
   ---
-  duration_ms: 96.253459
+  duration_ms: 91.487667
   type: 'test'
   ...
 # Subtest: 存储：mutate 前自动备份，backups 目录有文件
 ok 233 - 存储：mutate 前自动备份，backups 目录有文件
   ---
-  duration_ms: 105.077458
+  duration_ms: 100.83825
   type: 'test'
   ...
 # Subtest: 存储：回滚能恢复上一份内容
 ok 234 - 存储：回滚能恢复上一份内容
   ---
-  duration_ms: 192.460166
+  duration_ms: 185.47775
   type: 'test'
   ...
 # Subtest: 存储：中断残留 journal 时，重开自动回滚到备份
 ok 235 - 存储：中断残留 journal 时，重开自动回滚到备份
   ---
-  duration_ms: 109.288291
+  duration_ms: 109.310958
   type: 'test'
   ...
 # Subtest: 存储：schema 版本高于支持时拒绝启动（不猜不降级）
 ok 236 - 存储：schema 版本高于支持时拒绝启动（不猜不降级）
   ---
-  duration_ms: 40.084167
+  duration_ms: 29.7395
   type: 'test'
   ...
 # Subtest: 存储：损坏 JSON 报 store-corrupt 而不是静默重置
 ok 237 - 存储：损坏 JSON 报 store-corrupt 而不是静默重置
   ---
-  duration_ms: 22.085083
+  duration_ms: 34.104
   type: 'test'
   ...
 # Subtest: 存储：缺字段的存储被拒绝
 ok 238 - 存储：缺字段的存储被拒绝
   ---
-  duration_ms: 41.581042
+  duration_ms: 20.821875
   type: 'test'
   ...
 # Subtest: 存储：fingerprint 随内容变化，且不含 audit 噪音
 ok 239 - 存储：fingerprint 随内容变化，且不含 audit 噪音
   ---
-  duration_ms: 69.259959
+  duration_ms: 77.623208
   type: 'test'
   ...
 # Subtest: 存储：collection 返回副本，外部修改不污染内部状态
 ok 240 - 存储：collection 返回副本，外部修改不污染内部状态
   ---
-  duration_ms: 118.499875
+  duration_ms: 82.407917
   type: 'test'
   ...
 # Subtest: 存储：replace 整体替换并保留版本
 ok 241 - 存储：replace 整体替换并保留版本
   ---
-  duration_ms: 82.394875
+  duration_ms: 90.991
   type: 'test'
   ...
 # Subtest: 存储：emptyStore 是纯函数，两次调用互不影响
 ok 242 - 存储：emptyStore 是纯函数，两次调用互不影响
   ---
-  duration_ms: 0.19575
+  duration_ms: 0.122958
   type: 'test'
   ...
 # Subtest: WP4：真 commands 形状解析 /workbench <json>
 ok 243 - WP4：真 commands 形状解析 /workbench <json>
   ---
-  duration_ms: 0.706125
+  duration_ms: 0.846292
   type: 'test'
   ...
 # Subtest: WP4：非法请求明确报错，不静默失败
 ok 244 - WP4：非法请求明确报错，不静默失败
   ---
-  duration_ms: 0.105417
+  duration_ms: 0.142084
   type: 'test'
   ...
 # Subtest: WP4：rootDir 未配置时拒绝启动（不猜用户数据路径）
 ok 245 - WP4：rootDir 未配置时拒绝启动（不猜用户数据路径）
   ---
-  duration_ms: 0.230042
+  duration_ms: 0.43525
   type: 'test'
   ...
 # Subtest: WP4：Client→Host→Storage 全链路（创建/查询/编辑/待办/审批失败可见）
 ok 246 - WP4：Client→Host→Storage 全链路（创建/查询/编辑/待办/审批失败可见）
   ---
-  duration_ms: 495.957167
+  duration_ms: 527.6675
   type: 'test'
   ...
 # Subtest: WP4：重新加载后正确恢复（真持久化，非内存态）
 ok 247 - WP4：重新加载后正确恢复（真持久化，非内存态）
   ---
-  duration_ms: 129.165417
+  duration_ms: 120.913541
   type: 'test'
   ...
 # Subtest: WP4：AI 工具与 UI 共用同一 Host Service（双向一致性）
 ok 248 - WP4：AI 工具与 UI 共用同一 Host Service（双向一致性）
   ---
-  duration_ms: 213.860292
+  duration_ms: 174.566834
   type: 'test'
   ...
 # Subtest: WP4：冲突提示与重复事件展开来自真实 Host Service（非本地假数据）
 ok 249 - WP4：冲突提示与重复事件展开来自真实 Host Service（非本地假数据）
   ---
-  duration_ms: 259.424
+  duration_ms: 209.669291
   type: 'test'
   ...
 # Subtest: WP4：子任务与 AI 会话关联数据可经 Host Service 往返
 ok 250 - WP4：子任务与 AI 会话关联数据可经 Host Service 往返
   ---
-  duration_ms: 88.0605
+  duration_ms: 102.5035
   type: 'test'
   ...
 # Subtest: WP4：真 Remote 信封必须解出业务数据（旧扁平解码会失败）
 ok 251 - WP4：真 Remote 信封必须解出业务数据（旧扁平解码会失败）
   ---
-  duration_ms: 0.373
+  duration_ms: 0.540083
   type: 'test'
   ...
 # Subtest: WP4：main 是 root-scope keyed slot，inject 零参时 UI 不依赖注入的 sessionId
 ok 252 - WP4：main 是 root-scope keyed slot，inject 零参时 UI 不依赖注入的 sessionId
   ---
-  duration_ms: 0.505417
+  duration_ms: 0.653083
   type: 'test'
   ...
 # Subtest: WP4：待办删除不再调用不存在的 task.delete；审批保留 receiver
 ok 253 - WP4：待办删除不再调用不存在的 task.delete；审批保留 receiver
   ---
-  duration_ms: 0.254208
+  duration_ms: 0.344708
   type: 'test'
   ...
 # Subtest: WP4：TaskForm 编辑保留 subtasks / sourceSessionId（不丢字段）
 ok 254 - WP4：TaskForm 编辑保留 subtasks / sourceSessionId（不丢字段）
   ---
-  duration_ms: 0.108542
+  duration_ms: 0.149292
   type: 'test'
   ...
 # Subtest: WP4：真 callHost 对真 Remote 信封与业务错误码都正确（变异可被抓）
 ok 255 - WP4：真 callHost 对真 Remote 信封与业务错误码都正确（变异可被抓）
   ---
-  duration_ms: 0.246709
+  duration_ms: 0.324208
   type: 'test'
   ...
 # Subtest: WP4：已软删的待办不出现在 task.list（服务层过滤）
 ok 256 - WP4：已软删的待办不出现在 task.list（服务层过滤）
   ---
-  duration_ms: 195.901333
+  duration_ms: 199.996875
   type: 'test'
   ...
 # Subtest: WP4：软删待办需要真实审批凭证（token 缺失/伪造均被拒）
 ok 257 - WP4：软删待办需要真实审批凭证（token 缺失/伪造均被拒）
   ---
-  duration_ms: 206.687083
+  duration_ms: 177.791458
   type: 'test'
   ...
 # Subtest: WP4：UI 侧跳过已删除待办（静态 + 行为双证）
 ok 258 - WP4：UI 侧跳过已删除待办（静态 + 行为双证）
   ---
-  duration_ms: 0.76525
+  duration_ms: 0.321458
   type: 'test'
   ...
 # Subtest: WP4：UI 的 sessionId 必须来自 sessions store（不得回退到无效来源）
 ok 259 - WP4：UI 的 sessionId 必须来自 sessions store（不得回退到无效来源）
   ---
-  duration_ms: 0.586042
+  duration_ms: 0.72625
   type: 'test'
   ...
 # Subtest: WP4：UI 删除走「用户确认」凭证，回合外也能完成（第四轮 BLOCKER-4）
 ok 260 - WP4：UI 删除走「用户确认」凭证，回合外也能完成（第四轮 BLOCKER-4）
   ---
-  duration_ms: 103.191667
+  duration_ms: 89.519917
   type: 'test'
   ...
 # Subtest: WP4：用户确认凭证绑定 op+target、一次性，伪造与挪用均被拒
 ok 261 - WP4：用户确认凭证绑定 op+target、一次性，伪造与挪用均被拒
   ---
-  duration_ms: 95.533584
+  duration_ms: 79.142667
   type: 'test'
   ...
 # Subtest: WP4：用户确认凭证只限 DANGEROUS_OPS，不是万能钥匙
 ok 262 - WP4：用户确认凭证只限 DANGEROUS_OPS，不是万能钥匙
   ---
-  duration_ms: 24.081834
+  duration_ms: 21.318
   type: 'test'
   ...
 # Subtest: WP4：用户确认凭证不在 AI 工具面暴露
 ok 263 - WP4：用户确认凭证不在 AI 工具面暴露
   ---
-  duration_ms: 0.614875
+  duration_ms: 0.204167
   type: 'test'
   ...
 # Subtest: WP4：event.restore 必须要求审批（终审 B3：真审批旁路）
 ok 264 - WP4：event.restore 必须要求审批（终审 B3：真审批旁路）
   ---
-  duration_ms: 142.606625
+  duration_ms: 114.105542
   type: 'test'
   ...
 # Subtest: WP4：用户确认凭证不采信调用方自选的 digest（终审 MAJOR-1）
 ok 265 - WP4：用户确认凭证不采信调用方自选的 digest（终审 MAJOR-1）
   ---
-  duration_ms: 8.816583
+  duration_ms: 22.218125
   type: 'test'
   ...
 # Subtest: WP4：签发侧忽略调用方 digest（非内容 op 的凭证不受 digest 影响）
 ok 266 - WP4：签发侧忽略调用方 digest（非内容 op 的凭证不受 digest 影响）
   ---
-  duration_ms: 62.455084
+  duration_ms: 71.031125
   type: 'test'
   ...
 # Subtest: WP4：AI 工具形状更新既有待办不丢字段（收口 NEW-1：静默数据丢失）
 ok 267 - WP4：AI 工具形状更新既有待办不丢字段（收口 NEW-1：静默数据丢失）
   ---
-  duration_ms: 71.708084
+  duration_ms: 71.118083
   type: 'test'
   ...
 # Subtest: WP4：无凭证不得复活已软删待办（收口 NEW-2：审批旁路）
 ok 268 - WP4：无凭证不得复活已软删待办（收口 NEW-2：审批旁路）
   ---
-  duration_ms: 76.427792
+  duration_ms: 70.616417
   type: 'test'
   ...
 # Subtest: WP4：client.js 工厂可执行，且无相对 require
 ok 269 - WP4：client.js 工厂可执行，且无相对 require
   ---
-  duration_ms: 1.027708
+  duration_ms: 1.064083
   type: 'test'
   ...
 # Subtest: WP4：三个弹窗组件渲染不得抛异常（第三轮 BLOCKER-1 守卫）
 ok 270 - WP4：三个弹窗组件渲染不得抛异常（第三轮 BLOCKER-1 守卫）
   ---
-  duration_ms: 1.624708
+  duration_ms: 1.089708
   type: 'test'
   ...
 # Subtest: WP4：WorkbenchPage 渲染不得抛异常
 ok 271 - WP4：WorkbenchPage 渲染不得抛异常
   ---
-  duration_ms: 0.690917
+  duration_ms: 1.251167
   type: 'test'
   ...
 # Subtest: WP4：t 必须在工厂作用域可见（防止退回 WorkbenchPage 内部）
 ok 272 - WP4：t 必须在工厂作用域可见（防止退回 WorkbenchPage 内部）
   ---
-  duration_ms: 0.1575
+  duration_ms: 0.225125
   type: 'test'
   ...
 # Subtest: WP4：ConfirmDelete 必须收到页面的 t（第四轮 N1，终审 B1）
 ok 273 - WP4：ConfirmDelete 必须收到页面的 t（第四轮 N1，终审 B1）
   ---
-  duration_ms: 0.619708
+  duration_ms: 0.646291
   type: 'test'
   ...
 # Subtest: WP4：main 是 keyed slot，且不覆盖 conversation
 ok 274 - WP4：main 是 keyed slot，且不覆盖 conversation
   ---
-  duration_ms: 0.567292
+  duration_ms: 0.73425
   type: 'test'
   ...
 # Subtest: WP4：样式只用 --dsw-alias-* 令牌，无硬编码颜色
 ok 275 - WP4：样式只用 --dsw-alias-* 令牌，无硬编码颜色
   ---
-  duration_ms: 0.553
+  duration_ms: 0.874834
   type: 'test'
   ...
 # Subtest: WP4：不 import Harness Client 包 / 无 iframe / 不写 document.body
 ok 276 - WP4：不 import Harness Client 包 / 无 iframe / 不写 document.body
   ---
-  duration_ms: 0.087
+  duration_ms: 0.1055
   type: 'test'
   ...
 # Subtest: WP4：设计尺寸合规（16px 正文 / 20-28px 标题 / >=44px 点击区 / 4-8 倍数）
 ok 277 - WP4：设计尺寸合规（16px 正文 / 20-28px 标题 / >=44px 点击区 / 4-8 倍数）
   ---
-  duration_ms: 0.114292
+  duration_ms: 0.168
   type: 'test'
   ...
 # Subtest: WP4：键盘、焦点与可访问性基础
 ok 278 - WP4：键盘、焦点与可访问性基础
   ---
-  duration_ms: 0.124833
+  duration_ms: 0.176417
   type: 'test'
   ...
 # Subtest: WP4：加载 / 成功 / 失败状态齐全，错误不静默
 ok 279 - WP4：加载 / 成功 / 失败状态齐全，错误不静默
   ---
-  duration_ms: 0.038375
+  duration_ms: 0.052917
   type: 'test'
   ...
 # Subtest: WP4：删除走真 Host 审批，不读 confirmed 布尔
 ok 280 - WP4：删除走真 Host 审批，不读 confirmed 布尔
   ---
-  duration_ms: 0.099625
+  duration_ms: 0.122042
   type: 'test'
   ...
 # Subtest: WP4：manifest / patch / locale / icon 完整
 ok 281 - WP4：manifest / patch / locale / icon 完整
   ---
-  duration_ms: 0.811041
+  duration_ms: 0.783208
   type: 'test'
   ...
 # Subtest: WP4：数据只来自 Host Service（无本地假数据）
 ok 282 - WP4：数据只来自 Host Service（无本地假数据）
   ---
-  duration_ms: 0.230792
+  duration_ms: 0.489
   type: 'test'
   ...
 # Subtest: WP4：UI 文案走真 Client locale 服务（不再是硬编码英文）
 ok 283 - WP4：UI 文案走真 Client locale 服务（不再是硬编码英文）
   ---
-  duration_ms: 0.46875
+  duration_ms: 0.416833
   type: 'test'
   ...
 1..283
@@ -1705,4 +1705,4 @@ ok 283 - WP4：UI 文案走真 Client locale 服务（不再是硬编码英文�
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 2573.657792
+# duration_ms 2665.141666

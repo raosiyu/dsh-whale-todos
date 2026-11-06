@@ -10,7 +10,7 @@ CAUGHT M6 已投递判定失效（无视 history）  → pass 280 fail 3
 CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 276 fail 7
 CAUGHT M8 审批门放行（不校验 token）  → pass 257 fail 26
 CAUGHT M9 service 重新暴露 store 写方法  → pass 280 fail 3
-CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 280 fail 3
+CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 281 fail 2
 CAUGHT M11 hostMap 不持久化（只写内存）  → pass 276 fail 7
 CAUGHT M12 hostMap 允许 hostId 重复  → pass 282 fail 1
 CAUGHT M13 损坏映射静默重建为空  → pass 282 fail 1
