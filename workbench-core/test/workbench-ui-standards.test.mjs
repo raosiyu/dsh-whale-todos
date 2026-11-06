@@ -98,7 +98,12 @@ test('WP4：键盘、焦点与可访问性基础', () => {
   assert.match(client, /role: 'dialog'/, '确认框用 dialog')
   assert.match(client, /aria-modal/, 'dialog 需 aria-modal')
   assert.match(client, /aria-label/, '交互控件需 aria-label')
-  assert.match(client, /ev\.key\.toLowerCase\(\) === 'k'/, 'Ctrl/Cmd+K 聚焦搜索')
+  // Ctrl/Cmd+K 聚焦搜索：允许两种等价写法（直接比较 或 先取 key 再比较）。
+  // 断言必须仍然能抓住「快捷键丢了」——只匹配 toLowerCase 不够，
+  // 必须同时出现 k 分支和 searchRef.focus()。
+  assert.match(client, /toLowerCase\(\)/, '按键需归一化大小写')
+  assert.match(client, /=== 'k'/, 'Ctrl/Cmd+K 分支存在')
+  assert.match(client, /searchRef\.current\?\.focus\(\)/, 'Ctrl/Cmd+K 必须真的聚焦搜索框')
   assert.match(client, /onKeyDown|addEventListener\('keydown'/, '键盘监听需在 effect 内清理')
 })
 

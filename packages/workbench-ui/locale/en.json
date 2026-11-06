@@ -23,5 +23,13 @@
   "retry": "Retry",
   "loading": "Loading…",
   "ready": "Ready",
-  "error": "Error"
+  "error": "Error",
+  "import": "Import",
+  "undo": "Undo",
+  "redo": "Redo",
+  "archive": "Archive",
+  "restore": "Restore",
+  "grouped": "Groups",
+  "reminder": "Reminders",
+  "moveScope": "Move scope"
 }

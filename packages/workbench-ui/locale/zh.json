@@ -23,5 +23,13 @@
   "retry": "重试",
   "loading": "加载中…",
   "ready": "就绪",
-  "error": "错误"
+  "error": "错误",
+  "undo": "撤销",
+  "redo": "重做",
+  "archive": "归档",
+  "restore": "恢复",
+  "grouped": "分组",
+  "reminder": "提醒",
+  "moveScope": "移动范围",
+  "import": "导入"
 }

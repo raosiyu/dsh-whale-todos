@@ -180,6 +180,23 @@ window.__ModuleLoader__.load({
 .wb-overlay-panel h2{font-size:20px;margin:0 0 16px 0}
 .wb-kbd{font:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--dsw-alias-border-l1);
   border-radius:4px;color:var(--dsw-alias-label-tertiary)}
+/* 拖拽：必须让人看见「正在拖什么」「会落到哪」 */
+.wb-drag-source{opacity:.4}
+.wb-drop-target{outline:2px dashed var(--dsw-alias-state-business-primary);outline-offset:-2px;
+  background:var(--dsw-alias-interactive-bg-hover)}
+.wb-drag-preview{position:fixed;pointer-events:none;z-index:2000;padding:4px 8px;border-radius:4px;
+  font-size:12px;background:var(--dsw-alias-interactive-bg-hover);
+  border:1px solid var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary)}
+.wb-group-head{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:16px;
+  color:var(--dsw-alias-label-secondary)}
+.wb-handle{cursor:grab;min-width:44px;min-height:44px;display:inline-flex;align-items:center;
+  justify-content:center;border:0;background:transparent;color:var(--dsw-alias-label-tertiary);font:inherit}
+.wb-handle:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+.wb-preview-table{width:100%;border-collapse:collapse;font-size:16px}
+.wb-preview-table th,.wb-preview-table td{text-align:left;padding:4px 8px;
+  border-bottom:1px solid var(--dsw-alias-border-l1)}
+.wb-preview-create{color:var(--dsw-alias-state-business-primary)}
+.wb-preview-warn{color:var(--dsw-alias-state-warn-label)}
 @media (max-width:800px){.wb-side{width:100%;max-width:none;border-left:0;
   border-top:1px solid var(--dsw-alias-border-l1)}.wb-body{flex-direction:column}}
 `
@@ -314,7 +331,15 @@ function taskBucket(t, now) {
         }, o.label)))
     }
 
-    function MonthView({ events, cursor, onSelectDay, onSelectEvent }) {
+    /**
+     * 月视图：日期格是放置目标，事件块是可拖拽项。
+     *
+     * 为什么把日期格从 `button` 改成 `div[role=button]`：
+     * 事件块本身必须是可点击、可拖拽的按钮，把它塞进另一个 button 里
+     * 既是非法 HTML，也会让拖拽手势被父级按钮吃掉——拖不动。
+     * 现在空区域点击 = 选这天，事件块点击 = 选这个事件，两者互不干扰。
+     */
+    function MonthView({ events, cursor, onSelectDay, onSelectEvent, drag, setDrag, dropHint, setDropHint, onDropEvent }) {
       const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
       const offset = (first.getDay() + 6) % 7 // Monday first
       const start = addDays(first, -offset)
@@ -337,34 +362,172 @@ function taskBucket(t, now) {
           const k = isoDate(d)
           const list = byDay.get(k) ?? []
           const inMonth = d.getMonth() === cursor.getMonth()
-          return h('button', {
-            key: k, type: 'button',
-            className: `wb-cell${sameDay(d, today) ? ' wb-cell-today' : ''}`,
-            'aria-label': `${k}, ${list.length} events`,
+          const isTarget = dropHint !== null && dropHint.kind === 'event' && dropHint.dateKey === k
+          return h('div', {
+            key: k,
+            role: 'button',
+            tabIndex: 0,
+            className: `wb-cell${sameDay(d, today) ? ' wb-cell-today' : ''}${isTarget ? ' wb-drop-target' : ''}`,
+            'aria-label': `${k}，${list.length} 个事件；拖放可改期`,
             onClick: () => onSelectDay(d),
+            onKeyDown: (ev) => {
+              if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelectDay(d) }
+            },
+            onDragOver: (ev) => {
+              // 只有拖事件时才接受；拖待办到月视图没有语义
+              if (drag === null || drag.kind !== 'event') return
+              ev.preventDefault()
+              ev.dataTransfer.dropEffect = 'move'
+              if (dropHint === null || dropHint.dateKey !== k) {
+                setDropHint({ kind: 'event', dateKey: k })
+              }
+            },
+            onDragLeave: () => {
+              if (dropHint !== null && dropHint.kind === 'event' && dropHint.dateKey === k) setDropHint(null)
+            },
+            onDrop: (ev) => {
+              ev.preventDefault()
+              setDropHint(null)
+              if (drag === null || drag.kind !== 'event') return
+              onDropEvent(drag, k)
+            },
             style: { opacity: inMonth ? 1 : 0.45 },
           },
             h('div', null, String(d.getDate())),
-            list.slice(0, 2).map((e) => h('div', {
-              key: e.id, className: 'wb-tertiary',
-              style: { fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+            list.slice(0, 2).map((e) => h('button', {
+              key: e.id,
+              type: 'button',
+              draggable: true,
+              className: `wb-tertiary${drag !== null && drag.id === e.id ? ' wb-drag-source' : ''}`,
+              'aria-label': `${e.title || '事件'}，拖动可改期`,
+              title: '拖动到别的日期可改期',
+              onClick: (ev) => { ev.stopPropagation(); onSelectEvent(e) },
+              onDragStart: (ev) => {
+                ev.stopPropagation()
+                ev.dataTransfer.effectAllowed = 'move'
+                // 必须设 data：某些浏览器不给 dataTransfer 就不认这次拖拽
+                ev.dataTransfer.setData('text/plain', e.id)
+                setDrag({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true, recurring: e.recurrence != null })
+              },
+              onDragEnd: () => { setDrag(null); setDropHint(null) },
+              style: { fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap', border: 0, background: 'transparent', textAlign: 'left',
+                color: 'inherit', padding: 0, cursor: 'grab', maxWidth: '100%' },
             }, e.allDay ? 'All day · ' : `${fmtTime(e.start)} · `, e.title)))
         }))
     }
 
-    function AgendaList({ events, onSelect, emptyText }) {
+    function AgendaList({ events, onSelect, emptyText, drag, setDrag }) {
       if (events.length === 0) return h('div', { className: 'wb-empty' }, emptyText)
-      return h('div', null, events.map((e) => h('div', { key: e.id, className: 'wb-row' },
-        h('button', { className: 'wb-row-main', type: 'button', onClick: () => onSelect(e) },
+      const d = drag ?? null
+      const set = setDrag ?? (() => {})
+      return h('div', null, events.map((e) => {
+        const dragging = d !== null && d.id === e.id
+        const main = h('button', {
+          className: 'wb-row-main', type: 'button',
+          draggable: true,
+          title: '拖动到月视图的日期格可改期',
+          'aria-label': (e.title || 'event') + '，拖动可改期',
+          onClick: () => onSelect(e),
+          onDragStart: (ev) => {
+            ev.dataTransfer.effectAllowed = 'move'
+            ev.dataTransfer.setData('text/plain', e.id)
+            set({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true, recurring: e.recurrence != null })
+          },
+          onDragEnd: () => set(null),
+        },
           h('span', null, e.allDay === true ? 'All day' : fmtTime(e.start)),
           h('span', { style: { flex: 1 } }, e.title || '(untitled)'),
           e.recurrence ? h('span', { className: 'wb-badge' }, 'Repeat') : null,
-          e.conflict === true ? h('span', { className: 'wb-badge' }, 'Conflict') : null),
-        h('button', {
+          e.conflict === true ? h('span', { className: 'wb-badge' }, 'Conflict') : null)
+        const more = h('button', {
           className: 'wb-btn', type: 'button',
-          'aria-label': `Open ${e.title || 'event'}`,
+          'aria-label': 'Open ' + (e.title || 'event'),
           onClick: () => onSelect(e),
-        }, '…'))))
+        }, '…')
+        return h('div', {
+          key: e.id,
+          className: 'wb-row' + (dragging ? ' wb-drag-source' : ''),
+        }, main, more)
+      }))
+    }
+
+    /**
+     * 重复事件拖拽改期时的范围选择。
+     *
+     * 为什么不替用户默认选一个：改「这一次」会写 EXDATE + 新建独立事件，
+     * 改「整个系列」会平移全部实例——数据后果完全不同，猜错就是错改用户的日历。
+     */
+    function MoveScopeDialog({ title, dateKey, onChoose, onCancel }) {
+      return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true',
+        'aria-label': '选择移动范围' },
+        h('div', { className: 'wb-overlay-panel' },
+          h('h2', null, '移动重复事件'),
+          h('p', { className: 'wb-muted' }, `「${title ?? '(无标题)'}」是重复事件。移到 ${dateKey}：`),
+          h('div', { style: { display: 'grid', gap: '8px', marginTop: '16px' } },
+            h('button', { className: 'wb-btn', type: 'button',
+              'aria-label': '只改这一次', onClick: () => onChoose('single') },
+              '只改这一次', h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, '  其余实例不动')),
+            h('button', { className: 'wb-btn', type: 'button',
+              'aria-label': '改整个系列', onClick: () => onChoose('series') },
+              '改整个系列', h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, '  所有实例一起平移')),
+            h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, '取消'))))
+    }
+
+    /**
+     * 导入预览面板：**先看清会发生什么，再决定导不导**。
+     *
+     * 四类必须分开显示（新增 / 重复 / 冲突 / 不支持），因为用户对它们的
+     * 处置预期完全不同：重复的通常跳过，冲突的要看要不要覆盖，
+     * 不支持的要知道「哪些东西导不进来」——合并成一句「导入成功」就是骗人。
+     */
+    function ImportPreview({ preview, onConfirm, onCancel, approving, t = defaultT }) {
+      if (preview === null || preview === undefined) return null
+      const c = preview.counts ?? {}
+      const row = (label, n, hint, cls) => h('tr', { key: label },
+        h('td', cls ? { className: cls } : null, label),
+        h('td', null, String(n ?? 0)),
+        h('td', { className: 'wb-tertiary', style: { fontSize: '12px' } }, hint))
+      const body = [
+        row('新增', c.create, '会写进库里的条目', 'wb-preview-create'),
+        row('重复', c.duplicate, '库里已有同 id/同 uid，将跳过'),
+        row('冲突', c.conflict, '与既有事件时间重叠', 'wb-preview-warn'),
+        row('不支持', c.unsupported, '导不进来，原因见下', 'wb-preview-warn'),
+        row('会被移除', c.removed, '覆盖式导入会删掉这些既有条目'),
+      ]
+      const unsupportedList = Array.isArray(preview.unsupported) ? preview.unsupported : []
+      const warningList = Array.isArray(preview.warnings) ? preview.warnings : []
+      const sections = []
+      if (unsupportedList.length > 0) {
+        sections.push(h('div', { key: 'unsup', style: { marginTop: '16px' } },
+          h('h3', { style: { fontSize: '16px' } }, '不支持的条目'),
+          h('ul', null, unsupportedList.slice(0, 10).map((u, i) => h('li', {
+            key: i, className: 'wb-status-error',
+          }, u.kind + '「' + (u.detail ?? '') + '」：' + (u.reason ?? '不支持'))))))
+      }
+      if (warningList.length > 0) {
+        sections.push(h('div', { key: 'warn', style: { marginTop: '16px' } },
+          h('h3', { style: { fontSize: '16px' } }, '警告'),
+          h('ul', null, warningList.slice(0, 10).map((w, i) => h('li', {
+            key: i, className: 'wb-status-error',
+          }, String(w?.message ?? w))))))
+      }
+      const foot = h('div', { style: { display: 'flex', gap: '8px', marginTop: '16px' } },
+        h('button', { className: 'wb-btn wb-btn-danger', type: 'button',
+          disabled: approving, 'aria-label': '确认导入', onClick: onConfirm },
+        approving ? '导入中…' : '确认导入'),
+        h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, '取消'))
+      const note = h('p', { className: 'wb-tertiary', style: { fontSize: '12px', marginTop: '16px' } },
+        '确认导入会走宿主审批，并自动先做一次备份。')
+      return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': '导入预览' },
+        h('div', { className: 'wb-overlay-panel' },
+          h('h2', null, '导入预览'),
+          h('table', { className: 'wb-preview-table' },
+            h('thead', null, h('tr', null, h('th', null, '类别'), h('th', null, '数量'), h('th', null, '说明'))),
+            h('tbody', null, body)),
+          sections,
+          note,
+          foot))
     }
 
     function EventForm({ initial, onSave, onCancel, saving, t = defaultT }) {
@@ -498,6 +661,22 @@ function taskBucket(t, now) {
        */
       const [reminders, setReminders] = useState([])
       const [reminderSkipped, setReminderSkipped] = useState(0)
+      /**
+       * 拖拽状态。drag = 正在拖的东西；dropHint = 当前悬停的落点。
+       *
+       * 三个字段必须一起走：只记 id 就没法在落点上显示「会变成几点」，
+       * 只记落点就没法判断「这是不是同一个事件」（原地拖回不该发请求）。
+       */
+      const [drag, setDrag] = useState(null)
+      const [dropHint, setDropHint] = useState(null)
+      /** 单次重复事件移动时，问「只改这一次 / 改整个系列」 */
+      const [moveDialog, setMoveDialog] = useState(null)
+      /** 撤销/重做可用性，由 history.status 提供 */
+      const [history, setHistory] = useState({ canUndo: false, canRedo: false, undoDepth: 0, redoDepth: 0 })
+      /** 分组折叠：归档区默认收起 */
+      const [showArchived, setShowArchived] = useState(false)
+      /** 导入预览面板：null = 未打开 */
+      const [importPanel, setImportPanel] = useState(null)
       const [search, setSearch] = useState('')
       const [cursor, setCursor] = useState(() => new Date())
       const [selected, setSelected] = useState(null)
@@ -528,7 +707,7 @@ function taskBucket(t, now) {
           // 全部来自真实 Host Service（event.list / task.list / event.conflicts /
           // event.expand），无任何本地假数据。
           // 各命令**独立降级**：任一失败不应让整页变空白（其余数据仍可用）。
-          const [ev, tk, cf, ex, rm] = await Promise.all([
+          const [ev, tk, cf, ex, rm, hs] = await Promise.all([
             request({ op: 'event.list', payload: { includeDeleted: false } }),
             request({ op: 'task.list', payload: {} }),
             request({ op: 'event.conflicts', payload: { windowStart, windowEnd } }),
@@ -536,6 +715,8 @@ function taskBucket(t, now) {
             // 提醒：只读计算（该提醒什么、什么时候提醒）。
             // 真实投递由宿主 ctx.schedule 负责，UI 只负责显示，不负责投递。
             request({ op: 'reminder.plan', payload: { nowMs: now, windowDays: 7 } }),
+            // 撤销可用性：只读查询，失败就当作不可用（按钮置灰），不阻断整页
+            request({ op: 'history.status', payload: {} }),
           ])
           // 主数据（事件/待办）失败才算整体失败；冲突与展开失败只降级为「无」。
           // 两条错误**合并成一条**，避免后一条覆盖前一条（第三轮 nit N3）。
@@ -546,6 +727,7 @@ function taskBucket(t, now) {
           if (cf.ok !== true) problems.push(`冲突检测：${cf.error?.message ?? '不可用'}`)
           if (ex.ok !== true) problems.push(`重复展开：${ex.error?.message ?? '不可用'}`)
           if (rm.ok !== true) problems.push(`提醒：${rm.error?.message ?? '不可用'}`)
+          if (hs.ok !== true) problems.push(`撤销：${hs.error?.message ?? '不可用'}`)
           if (problems.length > 0) setError(problems.join('；'))
           const conflictIds = new Set(
             (cf.ok === true && Array.isArray(cf.value) ? cf.value : [])
@@ -574,6 +756,14 @@ function taskBucket(t, now) {
           setReminderSkipped(
             rm.ok === true && Array.isArray(rm.value?.skipped) ? rm.value.skipped.length : 0,
           )
+          setHistory(hs.ok === true && hs.value !== null && typeof hs.value === 'object'
+            ? {
+                canUndo: hs.value.canUndo === true,
+                canRedo: hs.value.canRedo === true,
+                undoDepth: Number.isFinite(hs.value.undoDepth) ? hs.value.undoDepth : 0,
+                redoDepth: Number.isFinite(hs.value.redoDepth) ? hs.value.redoDepth : 0,
+              }
+            : { canUndo: false, canRedo: false, undoDepth: 0, redoDepth: 0 })
           setConflictCount(conflictIds.size)
           setNotice('Loaded from Host Service')
         } catch (e) {
@@ -585,12 +775,35 @@ function taskBucket(t, now) {
 
       useEffect(() => { load() }, [load])
 
-      // Ctrl/Cmd+K 聚焦搜索（键盘可访问性）
+      /**
+       * 快捷键要拿到**最新**的 undo/redo，而 keydown 的 effect 依赖数组是空的
+       * （只在挂载时注册一次，避免每次渲染重绑）。用 ref 转发即可：
+       * 注册一次，永远调到当前那个函数。
+       */
+      const undoRef = useRef(null)
+      const redoRef = useRef(null)
+      const importInputRef = useRef(null)
+
+      // Ctrl/Cmd+K 聚焦搜索；Ctrl/Cmd+Z 撤销；Ctrl/Cmd+Shift+Z 重做
       useEffect(() => {
         const onKey = (ev) => {
-          if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
+          const mod = ev.ctrlKey || ev.metaKey
+          if (!mod) return
+          const k = ev.key.toLowerCase()
+          if (k === 'k') {
             ev.preventDefault()
             searchRef.current?.focus()
+            return
+          }
+          // 在输入框里打字时不要抢撤销键：那是浏览器/输入法的文本撤销
+          const el = ev.target
+          const typing = el !== null && el !== undefined
+            && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable === true)
+          if (typing) return
+          if (k === 'z') {
+            ev.preventDefault()
+            if (ev.shiftKey) redoRef.current?.()
+            else undoRef.current?.()
           }
         }
         window.addEventListener('keydown', onKey)
@@ -611,6 +824,63 @@ function taskBucket(t, now) {
           return taskBucket(t, now) === taskFilter
         })
       }, [tasks, search, taskFilter])
+
+      /**
+       * 分组。排序只认组内，跨组不动——跨组意味着改 project，
+       * 那是「移动」不是「排序」，语义不同不能混在一个手势里。
+       *
+       * 组内按 order 排（Host task.reorder 写的就是这个字段）；
+       * 没有 order 的排在后面，保持稳定，避免「拖一下就全组重排」。
+       */
+      const groupedTasks = useMemo(() => {
+        const groups = new Map()
+        for (const t of filteredTasks) {
+          const key = t.project ?? null
+          if (!groups.has(key)) groups.set(key, [])
+          groups.get(key).push(t)
+        }
+        const rows = []
+        for (const [project, list] of groups) {
+          const ordered = [...list].sort((a, b) => {
+            const ao = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER
+            const bo = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER
+            return ao - bo
+          })
+          rows.push({ project, rows: ordered })
+        }
+        // 有分组的排前面，未分组垫底
+        return rows.sort((a, b) => {
+          if (a.project === null && b.project !== null) return 1
+          if (b.project === null && a.project !== null) return -1
+          return String(a.project ?? '').localeCompare(String(b.project ?? ''))
+        })
+      }, [filteredTasks])
+
+      /** 已归档的待办单独一区：它们仍在库里、仍可被 AI 读到，只是收起来了。 */
+      const archivedTasks = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        return tasks.filter((t) => {
+          if (t?.archived !== true) return false
+          // deleted 优先：归档后又删掉的，不再显示在归档区
+          if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return false
+          return q === '' || String(t.title ?? '').toLowerCase().includes(q)
+        })
+      }, [tasks, search])
+
+      /** 键盘替代操作：把某条在组内上/下挪一位，走和拖拽同一条 reorder 路径。 */
+      const nudgeTask = async (groupId, id, delta) => {
+        const rows = tasks
+          .filter((t) => (t.project ?? null) === groupId && t.archived !== true)
+          .sort((a, b) => {
+            const ao = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER
+            const bo = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER
+            return ao - bo
+          })
+        const i = rows.findIndex((t) => t.id === id)
+        const j = i + delta
+        if (i < 0 || j < 0 || j >= rows.length) return
+        await reorderTasks(groupId, id, rows[j].id)
+      }
 
       const todayEvents = useMemo(() => {
         const now = new Date()
@@ -633,6 +903,192 @@ function taskBucket(t, now) {
         const d = eventDay(e)
         return d !== null && sameDay(d, cursor)
       }), [filteredEvents, cursor])
+
+      /**
+       * 拖拽改期。
+       *
+       * 三个必须做对的地方：
+       * 1. **冲突不写盘**：Host 侧 event.move 会先算候选再落盘，冲突时抛
+       *    conflictError。这里不发「乐观更新」——列表只在成功后 reload，
+       *    失败时界面保持原样，这就是「保存失败恢复原位」的实现方式。
+       * 2. **重复事件必须问**：只改这一次（EXDATE + 独立事件）还是改整个系列，
+       *    是两种完全不同的数据后果，不能替用户猜。
+       * 3. **时区不丢**：定时事件移动只改墙钟时刻，timeZone 原样带过去。
+       */
+      const moveEventToDate = async (target, dateKey, modeChoice) => {
+        if (target === null || target.kind !== 'event') return
+        setError(null)
+        const source = events.find((e) => e.id === target.id)
+        if (source === undefined) { setError('事件已不存在，请刷新'); return }
+        const recurring = source.recurrence !== null && source.recurrence !== undefined
+        // 重复事件第一次拖：先问范围，不擅自决定
+        if (recurring && modeChoice === undefined) {
+          setMoveDialog({ id: target.id, title: source.title, dateKey, allDay: source.allDay === true })
+          return
+        }
+        const mode = recurring ? (modeChoice ?? 'series') : 'series'
+        setSaving(true)
+        try {
+          const body = source.allDay === true
+            ? { id: target.id, mode, target: { startDate: dateKey }, ...(recurring && mode === 'single' ? { occurrenceDate: target.occurrenceDate } : {}) }
+            : {
+                id: target.id, mode,
+                target: { start: `${dateKey}T${fmtTime(source.start) || '09:00'}` },
+                ...(recurring && mode === 'single' ? { occurrenceDate: target.occurrenceDate } : {}),
+              }
+          const r = await request({ op: 'event.move', payload: body })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'event.move failed')
+          setNotice(`已移动到 ${dateKey}${mode === 'single' ? '（仅这一次）' : ''}`)
+          await load()
+        } catch (e) {
+          // 失败不动界面：events 仍是 load 出来的旧值，等于「恢复原位」
+          setError(String(e?.message ?? e))
+          await load()
+        } finally {
+          setSaving(false)
+        }
+      }
+
+      /**
+       * 待办拖拽排序。
+       *
+       * Host 的 task.reorder 要**完整的目标顺序**（幂等），所以这里算出
+       * 整组的新顺序再发。只发「挪到某条前面」会让并发写入互相覆盖。
+       */
+      const reorderTasks = async (groupId, fromId, toId) => {
+        if (fromId === toId) return
+        const groupRows = tasks.filter((t) => (t.project ?? null) === groupId && t.archived !== true)
+        const from = groupRows.findIndex((t) => t.id === fromId)
+        const to = groupRows.findIndex((t) => t.id === toId)
+        if (from < 0 || to < 0) return
+        const next = [...groupRows]
+        const [moved] = next.splice(from, 1)
+        next.splice(to, 0, moved)
+        setError(null)
+        setSaving(true)
+        try {
+          const r = await request({
+            op: 'task.reorder',
+            payload: { ids: next.map((t) => t.id), project: groupId },
+          })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'task.reorder failed')
+          setNotice('顺序已保存')
+          await load()
+        } catch (e) { setError(String(e?.message ?? e)); await load() }
+        finally { setSaving(false) }
+      }
+
+      /** 归档 / 恢复。归档不是删除，不需要审批；恢复更不需要。 */
+      const setArchived = async (id, archived) => {
+        setError(null)
+        setSaving(true)
+        try {
+          const r = await request({ op: archived ? 'task.archive' : 'task.unarchive', payload: { id } })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'archive failed')
+          setNotice(archived ? '已归档' : '已恢复')
+          await load()
+        } catch (e) { setError(String(e?.message ?? e)) }
+        finally { setSaving(false) }
+      }
+
+      /** 撤销 / 重做。失败必须说出来——静默失败会让人以为操作生效了。 */
+      const undo = async () => {
+        setError(null)
+        try {
+          const r = await request({ op: 'history.undo', payload: {} })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'undo failed')
+          setNotice('已撤销上一步')
+          await load()
+        } catch (e) { setError(String(e?.message ?? e)) }
+      }
+      const redo = async () => {
+        setError(null)
+        try {
+          const r = await request({ op: 'history.redo', payload: {} })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'redo failed')
+          setNotice('已重做')
+          await load()
+        } catch (e) { setError(String(e?.message ?? e)) }
+      }
+
+      // 每次渲染把最新的 undo/redo 挂进 ref，供空依赖的 keydown effect 调用
+      undoRef.current = undo
+      redoRef.current = redo
+
+      /**
+       * 导入：预览 → 用户确认 → **真 Host 审批** → 执行。
+       *
+       * 为什么执行必须走审批：`event.import` 在 DANGEROUS_OPS 里，是覆盖性写入。
+       * 模型只能预览、只能告诉用户要导入什么，不能自己按下导入。
+       * 这里的 token 由宿主在用户点击「确认导入」后签发，绑定 (op,target,digest)。
+       */
+      const startImport = async (kind, text) => {
+        setError(null)
+        setSaving(true)
+        try {
+          const op = kind === 'ics' ? 'event.previewIcs' : 'snapshot.preview'
+          const r = await request({ op, payload: { text } })
+          if (r.ok !== true) throw new Error(r.error?.message ?? (op + ' failed'))
+          const v = r.value ?? {}
+          // 统一成面板要的形状：ICS 预览给的是 plan 数组，JSON 预览给的是计数
+          if (kind === 'ics') {
+            const plan = Array.isArray(v.plan) ? v.plan : []
+            const create = plan.filter((x) => x.action === 'create').length
+            const duplicate = plan.filter((x) => x.action === 'skip-duplicate-uid').length
+            const conflict = plan.filter((x) => x.action === 'conflict').length
+            setImportPanel({
+              kind, text,
+              counts: { create, duplicate, conflict, unsupported: 0, removed: 0 },
+              unsupported: Array.isArray(v.unsupported) ? v.unsupported : [],
+              warnings: Array.isArray(v.warnings) ? v.warnings : [],
+            })
+          } else {
+            setImportPanel({
+              kind, text,
+              counts: v.counts ?? {},
+              unsupported: Array.isArray(v.unsupported) ? v.unsupported : [],
+              warnings: Array.isArray(v.warnings) ? v.warnings : [],
+              removedEvents: v.removedEvents ?? [],
+              removedTasks: v.removedTasks ?? [],
+            })
+          }
+        } catch (e) {
+          setError(String(e?.message ?? e))
+        } finally {
+          setSaving(false)
+        }
+      }
+
+      /** 用户在预览面板点了「确认导入」→ 申请宿主签发的用户确认凭证 → 执行。 */
+      const confirmImport = async (panel) => {
+        if (panel === null) return
+        setApproving(true)
+        setError(null)
+        try {
+          const op = panel.kind === 'ics' ? 'event.import' : 'snapshot.replace'
+          // digest 必须和 Host 侧算的一致：Host 用 contentDigest(text)，
+          // 这里传原文，由 Host 自己算，避免两边算法不一致导致 fingerprint-mismatch
+          const approval = await request({
+            op: 'confirmUserAction',
+            payload: { approvalOp: op, target: panel.kind, summary: 'Import ' + panel.kind + ' data' },
+          })
+          if (approval.ok !== true) throw new Error(approval.error?.message ?? 'Host approval was not granted')
+          const token = approval.value?.token
+          if (typeof token !== 'string' || token === '') throw new Error('Host approval was not granted')
+          const r = await request({
+            op,
+            payload: { text: panel.text, approvalToken: token },
+          })
+          if (r.ok !== true) throw new Error(r.error?.message ?? (op + ' failed'))
+          setImportPanel(null)
+          setNotice('导入完成')
+          await load()
+        } catch (e) {
+          setError(String(e?.message ?? e))
+        } finally {
+          setApproving(false)
+        }
+      }
 
       const saveEvent = async (payload) => {
         setSaving(true)
@@ -758,6 +1214,24 @@ function taskBucket(t, now) {
             value: search, onChange: (e) => setSearch(e.target.value),
           }),
           h('button', { className: 'wb-btn', type: 'button', onClick: load, 'aria-label': t('refresh') }, t('refresh')),
+          // 导入入口：选文件 → 预览 → 确认 → 走 Host 审批执行
+          h('button', {
+            className: 'wb-btn', type: 'button', 'aria-label': '导入数据',
+            title: '导入 JSON 快照或 ICS 日历；先预览再确认',
+            onClick: () => importInputRef.current?.click(),
+          }, '导入'),
+          h('input', {
+            ref: importInputRef, type: 'file', accept: '.json,.ics,application/json,text/calendar',
+            style: { display: 'none' }, 'aria-hidden': 'true', tabIndex: -1,
+            onChange: async (ev) => {
+              const file = ev.target.files?.[0]
+              ev.target.value = ''   // 允许连续选同一个文件
+              if (file === undefined) return
+              const text = await file.text()
+              const kind = file.name.toLowerCase().endsWith('.ics') ? 'ics' : 'json'
+              await startImport(kind, text)
+            },
+          }),
           h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ ', t('new'))),
         h(StatusBar, { loading, error, onRetry: load }),
         notice ? h('div', { className: 'wb-status', role: 'status' }, notice) : null,
@@ -820,11 +1294,18 @@ function taskBucket(t, now) {
                       h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor((c) => view === 'month' ? new Date(c.getFullYear(), c.getMonth() + 1, 1) : addDays(c, view === 'week' ? 7 : 1)), 'aria-label': 'Next' }, '›'),
                       h('button', { className: 'wb-btn', type: 'button', onClick: () => setCursor(new Date()) }, 'Today'))),
                   view === 'month'
-                    ? h(MonthView, { events: filteredEvents, cursor, onSelectDay: (d) => { setCursor(d); setView('day') }, onSelectEvent: setSelected })
+                    ? h(MonthView, {
+                        events: filteredEvents, cursor,
+                        onSelectDay: (d) => { setCursor(d); setView('day') },
+                        onSelectEvent: setSelected,
+                        drag, setDrag, dropHint, setDropHint,
+                        onDropEvent: (target, dateKey) => moveEventToDate(target, dateKey),
+                      })
                     : h(AgendaList, {
                         events: view === 'week' ? weekEvents : view === 'day' ? dayEvents : todayEvents,
                         onSelect: setSelected,
                         emptyText: view === 'agenda' ? 'No events in the next 7 days' : 'No events in this range',
+                        drag, setDrag,
                       }),
                   h('div', { className: 'wb-section', style: { marginTop: '24px' } },
                     h('h2', null, t('today'), ' & next 7 days'),
@@ -839,19 +1320,101 @@ function taskBucket(t, now) {
                         { id: 'doing', label: t('inProgress') }, { id: 'done', label: t('done') },
                       ],
                     })),
-                  filteredTasks.length === 0
+                  h('div', { className: 'wb-section', style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+                    h('button', {
+                      className: 'wb-btn', type: 'button', disabled: !history.canUndo,
+                      'aria-label': '撤销上一步', title: history.canUndo ? '撤销上一步（Ctrl/Cmd+Z）' : '没有可撤销的操作',
+                      onClick: undo,
+                    }, '↶ 撤销'),
+                    h('button', {
+                      className: 'wb-btn', type: 'button', disabled: !history.canRedo,
+                      'aria-label': '重做', title: history.canRedo ? '重做（Ctrl/Cmd+Shift+Z）' : '没有可重做的操作',
+                      onClick: redo,
+                    }, '↷ 重做'),
+                    h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } },
+                      `可撤销 ${history.undoDepth} 步`)),
+                  // 分组渲染：project 相同的待办归一组，组内按 order 排。
+                  // 拖拽排序只在**组内**进行——跨组拖动要改 project，那是另一个语义，
+                  // 不在本次授权范围内，所以明确不做（而不是默默允许然后字段错乱）。
+                  groupedTasks.length === 0
                     ? h('div', { className: 'wb-empty' }, 'No tasks in this view')
-                    : h('div', null, filteredTasks.map((t) => h('div', { key: t.id, className: 'wb-row' },
+                    : h('div', null,
+                        groupedTasks.map((g) => h('div', { key: g.project ?? '__none__' },
+                          h('div', { className: 'wb-group-head' },
+                            h('span', null, g.project === null ? '未分组' : g.project),
+                            h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } },
+                              `${g.rows.length} 项`)),
+                          g.rows.map((t) => h('div', {
+                            key: t.id,
+                            className: `wb-row${dropHint !== null && dropHint.kind === 'task' && dropHint.id === t.id ? ' wb-drop-target' : ''}`,
+                            onDragOver: (ev) => {
+                              if (drag === null || drag.kind !== 'task') return
+                              ev.preventDefault()
+                              ev.dataTransfer.dropEffect = 'move'
+                              if (dropHint === null || dropHint.id !== t.id) setDropHint({ kind: 'task', id: t.id })
+                            },
+                            onDragLeave: () => {
+                              if (dropHint !== null && dropHint.kind === 'task' && dropHint.id === t.id) setDropHint(null)
+                            },
+                            onDrop: (ev) => {
+                              ev.preventDefault()
+                              setDropHint(null)
+                              if (drag === null || drag.kind !== 'task') return
+                              reorderTasks(g.project ?? null, drag.id, t.id)
+                            },
+                          },
+                            // 拖拽手柄：键盘用户用下方「上移/下移」按钮，不依赖拖拽
+                            h('button', {
+                              className: 'wb-handle', type: 'button', draggable: true,
+                              'aria-label': `拖动 ${t.title} 调整顺序`,
+                              title: '拖动调整顺序；键盘用户请用上移/下移按钮',
+                              onDragStart: (ev) => {
+                                ev.dataTransfer.effectAllowed = 'move'
+                                ev.dataTransfer.setData('text/plain', t.id)
+                                setDrag({ kind: 'task', id: t.id, title: t.title, group: g.project ?? null })
+                              },
+                              onDragEnd: () => { setDrag(null); setDropHint(null) },
+                            }, '⠿'),
+                            h('button', {
+                              className: 'wb-row-main', type: 'button',
+                              'aria-label': `${t.done === true ? 'Reopen' : 'Complete'} ${t.title}`,
+                              onClick: () => toggleTask(t),
+                            },
+                              h('span', { 'aria-hidden': true }, t.done === true ? '☑' : '☐'),
+                              h('span', { style: { flex: 1, textDecoration: t.done === true ? 'line-through' : 'none' } }, t.title),
+                              t.priority === 'high' ? h('span', { className: 'wb-badge' }, 'High') : null,
+                              t.dueAt ? h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, String(t.dueAt).slice(0, 10)) : null),
+                            h('button', { className: 'wb-btn', type: 'button', 'aria-label': `Details of ${t.title}`, onClick: () => setSelected({ kind: 'task', ...t }) }, '…'),
+                            // 键盘替代操作：不依赖鼠标拖拽也能调整顺序
+                            h('button', {
+                              className: 'wb-btn', type: 'button', 'aria-label': `上移 ${t.title}`,
+                              onClick: () => nudgeTask(g.project ?? null, t.id, -1),
+                            }, '↑'),
+                            h('button', {
+                              className: 'wb-btn', type: 'button', 'aria-label': `下移 ${t.title}`,
+                              onClick: () => nudgeTask(g.project ?? null, t.id, 1),
+                            }, '↓'),
+                            h('button', {
+                              className: 'wb-btn', type: 'button', 'aria-label': `归档 ${t.title}`,
+                              title: '归档不是删除：随时可以恢复', onClick: () => setArchived(t.id, true),
+                            }, '归档')))))),
+                  // 归档区：默认收起。归档不是删除，所以这里必须能恢复。
+                  archivedTasks.length === 0
+                    ? null
+                    : h('div', { className: 'wb-section', style: { marginTop: '16px' } },
                         h('button', {
-                          className: 'wb-row-main', type: 'button',
-                          'aria-label': `${t.done === true ? 'Reopen' : 'Complete'} ${t.title}`,
-                          onClick: () => toggleTask(t),
-                        },
-                          h('span', { 'aria-hidden': true }, t.done === true ? '☑' : '☐'),
-                          h('span', { style: { flex: 1, textDecoration: t.done === true ? 'line-through' : 'none' } }, t.title),
-                          t.priority === 'high' ? h('span', { className: 'wb-badge' }, 'High') : null,
-                          t.dueAt ? h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, String(t.dueAt).slice(0, 10)) : null),
-                        h('button', { className: 'wb-btn', type: 'button', 'aria-label': `Details of ${t.title}`, onClick: () => setSelected({ kind: 'task', ...t }) }, '…'))))))
+                          className: 'wb-btn', type: 'button',
+                          'aria-expanded': showArchived ? 'true' : 'false',
+                          onClick: () => setShowArchived((v) => !v),
+                        }, showArchived ? '▾' : '▸', ` 已归档（${archivedTasks.length}）`),
+                        showArchived
+                          ? h('div', null, archivedTasks.map((t) => h('div', { key: t.id, className: 'wb-row' },
+                              h('span', { className: 'wb-tertiary', style: { flex: 1, minHeight: '44px', display: 'flex', alignItems: 'center' } }, t.title),
+                              h('button', {
+                                className: 'wb-btn', type: 'button', 'aria-label': `恢复 ${t.title}`,
+                                onClick: () => setArchived(t.id, false),
+                              }, '恢复'))))
+                          : null)))
 
           , h('div', { className: 'wb-side wb-scroll' },
               selected === null
@@ -895,6 +1458,40 @@ function taskBucket(t, now) {
               onConfirm: () => deleteWithApproval(confirming.kind, confirming.id),
               onCancel: () => setConfirming(null),
             })
+          : null,
+
+        // 重复事件拖拽后问范围：只改这一次 / 改整个系列
+        moveDialog !== null
+          ? h(MoveScopeDialog, {
+              title: moveDialog.title, dateKey: moveDialog.dateKey,
+              onChoose: (mode) => {
+                const pending = moveDialog
+                setMoveDialog(null)
+                moveEventToDate(
+                  { kind: 'event', id: pending.id, occurrenceDate: pending.dateKey },
+                  pending.dateKey,
+                  mode,
+                )
+              },
+              onCancel: () => setMoveDialog(null),
+            })
+          : null,
+
+        // 导入预览：看清四类计数再决定
+        importPanel !== null
+          ? h(ImportPreview, {
+              preview: importPanel,
+              approving,
+              onConfirm: () => confirmImport(importPanel),
+              onCancel: () => setImportPanel(null),
+            })
+          : null,
+
+        // 拖拽跟随提示：让用户知道「正在拖什么、会落到哪」
+        drag !== null
+          ? h('div', { className: 'wb-drag-preview', 'aria-hidden': 'true' },
+              '移动：' + (drag.title || '(无标题)'),
+              dropHint !== null && dropHint.kind === 'event' ? ' → ' + dropHint.dateKey : '')
           : null)
     }
 
