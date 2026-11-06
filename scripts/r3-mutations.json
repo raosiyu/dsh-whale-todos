@@ -290,7 +290,7 @@
     "id": "W6",
     "name": "WP4：软删待办不需审批（删除绕过审批门）",
     "file": "workbench-core/src/service.js",
-    "from": "      if (isSoftDelete) {\n        requireConfirmation('task.upsert', meta, { target: task.id })\n      }",
+    "from": "      if (declaredSoftDelete || existingSoftDelete) {\n        requireConfirmation('task.upsert', meta, { target: task.id })\n      }",
     "to": ""
   },
   {
@@ -341,5 +341,19 @@
     "file": "workbench-core/src/approval-gate.js",
     "from": "      const fingerprint = approvalFingerprint({ op, target, digest: '' })\n      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }",
     "to": "      const fingerprint = approvalFingerprint({ op, target, digest: detail.digest })\n      return { approved: true, token: makeToken(fingerprint, 'user-confirm') }"
+  },
+  {
+    "id": "W14",
+    "name": "WP4：task.upsert 整行替换（AI 工具更新既有待办 → 字段被抹掉）",
+    "file": "workbench-core/src/service.js",
+    "from": "          const merged = { ...draft.tasks[index] }\n          for (const [k, v] of Object.entries(task)) {\n            if (v !== undefined) merged[k] = v\n          }\n          draft.tasks[index] = merged",
+    "to": "          draft.tasks[index] = { ...task }"
+  },
+  {
+    "id": "W15",
+    "name": "WP4：软删审批不判库中既有行（无凭证复活已删待办）",
+    "file": "workbench-core/src/service.js",
+    "from": "      if (declaredSoftDelete || existingSoftDelete) {",
+    "to": "      if (declaredSoftDelete) {"
   }
 ]

@@ -778,3 +778,57 @@ test('WP4：签发侧忽略调用方 digest（非内容 op 的凭证不受 diges
     assert.equal(svc.execute('event.list', {}, {}).length, 0, '删除应成功（digest 未污染指纹）')
   })
 })
+
+test('WP4：AI 工具形状更新既有待办不丢字段（收口 NEW-1：静默数据丢失）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+    const svc = host.getService().forSession('s1')
+
+    const full = {
+      id: 't1', title: '季度总结', dueAt: '2026-11-10T09:00:00Z', priority: 'high',
+      status: 'planned', done: false, subtasks: ['a', 'b'], sourceSessionId: 'sess-origin',
+    }
+    svc.execute('task.upsert', { task: full }, { actor: 'ui' })
+
+    // AI 工具形状：只有 id/title/dueAt/done
+    svc.execute('task.upsert', { task: { id: 't1', title: '季度总结', done: true } }, { actor: 'agent-tool' })
+
+    const after = svc.execute('task.list', {}, {})[0]
+    assert.equal(after.done, true, 'done 应被更新')
+    assert.equal(after.priority, 'high', 'priority 不得被抹掉')
+    assert.equal(after.status, 'planned', 'status 不得被抹掉')
+    assert.equal(after.dueAt, '2026-11-10T09:00:00Z', 'dueAt 不得被抹掉')
+    assert.deepEqual(after.subtasks, ['a', 'b'], 'subtasks 不得被抹掉')
+    assert.equal(after.sourceSessionId, 'sess-origin', 'sourceSessionId 不得被抹掉')
+  })
+})
+
+test('WP4：无凭证不得复活已软删待办（收口 NEW-2：审批旁路）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+    const svc = host.getService().forSession('s1')
+
+    const task = { id: 't2', title: '被悄悄复活', done: false }
+    svc.execute('task.upsert', { task }, { actor: 'ui' })
+    const delToken = svc.confirmUserAction('task.upsert', 't2', {})
+    svc.execute('task.upsert', { task: { ...task, deleted: true } }, { actor: 'ui', approvalToken: delToken.token })
+    assert.equal(svc.execute('task.list', {}, {}).length, 0, '软删后不列出')
+
+    // 无凭证 + 不带 deleted 字段 → 必须被拒（不能复活）
+    assert.throws(
+      () => svc.execute('task.upsert', { task: { id: 't2', title: '被悄悄复活' } }, { actor: 'attacker' }),
+      (e) => e?.code === 'confirmation-required',
+      '复活已软删待办必须要求审批',
+    )
+    const audit = svc.execute('store.audit', {}, {})
+    assert.equal(
+      audit.some((a) => a.actor === 'attacker'),
+      false,
+      '未授权的复活不得进审计',
+    )
+  })
+})

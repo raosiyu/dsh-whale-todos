@@ -407,29 +407,46 @@ export function createWorkbenchService(options) {
       if (typeof task.id !== 'string' || task.id === '') {
         throw validationError('task.id 必须是非空字符串')
       }
+      const existingTask = store.collection('tasks').find((row) => row.id === task.id)
       /**
-       * **条件审批**（复审 MAJOR 修复）：
+       * **条件审批**（复审 MAJOR 修复 + 收口复审 NEW-2 修复）：
        *
        * 复审发现软删绕过审批门（`task.upsert` 从不调 requireConfirmation，
        * token 可伪造）。但不能一律审批——新建待办是正常路径（授权要求
        * 「快速创建」「创建和完成待办」顺畅），一律要审批会把体验打崩。
        *
-       * 语义对齐 Event 侧（`event.create` 不在危险清单，`event.update` 需要）：
+       * 语义：
        *   - **新建**待办 → 不需要审批
-       *   - **编辑/完成**既有待办 → 不需要审批（授权要求「创建和完成待办」顺畅）
-       *   - **软删**待办（deleted/deletedAt）→ 需要审批（破坏性）
+       *   - **编辑/完成**既有待办 → 不需要审批
+       *   - **软删**待办 → 需要审批（破坏性）
        *
-       * 指纹用 task.id，凭证仍只能由宿主签发。
+       * 软删判定必须看**两边**：
+       *   - 入参声明软删（deleted/deletedAt）
+       *   - **库中既有行已经是软删**（否则可用不带 deleted 的 payload
+       *     无凭证把已删待办「复活」= 撤销一次软删，与 event.restore 同语义）
        */
-      const isSoftDelete = task.deleted === true
+      const declaredSoftDelete = task.deleted === true
         || (typeof task.deletedAt === 'string' && task.deletedAt !== '')
-      if (isSoftDelete) {
+      const existingSoftDelete = existingTask !== undefined && isTaskDeleted(existingTask)
+      if (declaredSoftDelete || existingSoftDelete) {
         requireConfirmation('task.upsert', meta, { target: task.id })
       }
       store.mutate((draft) => {
         const index = draft.tasks.findIndex((row) => row.id === task.id)
         if (index < 0) draft.tasks.push({ ...task })
-        else draft.tasks[index] = { ...task }
+        else {
+          /**
+           * **合并语义**（收口复审 NEW-1 修复）：
+           * 整行替换会抹掉调用方没提供的字段 —— AI 工具只有 id/title/dueAt/done，
+           * 于是 priority/status/subtasks/sourceSessionId 全丢（静默数据丢失）。
+           * 对照 `event.update` 的 mergePatch 白名单：这里也只覆盖**显式提供**的字段。
+           */
+          const merged = { ...draft.tasks[index] }
+          for (const [k, v] of Object.entries(task)) {
+            if (v !== undefined) merged[k] = v
+          }
+          draft.tasks[index] = merged
+        }
         draft.audit.push({
           id: (options.idFactory ?? (() => randomUUID()))(),
           at: now().toISOString(),

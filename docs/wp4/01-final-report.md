@@ -122,12 +122,12 @@ Client 视觉验证 **UNVERIFIED**（原因见 §5）；按授权 **STOP，不�
 | 项 | 结果 |
 | --- | --- |
 | **真实 DSH 隔离环境加载** | ✅ `DSH_HOME=/tmp/dsh-iso-Jv2UeM`（rescue profile），`dsh plugin add` 以 link 安装（53ms，无构建脚本）；`--patch` 覆盖 `rootDir` 到隔离目录；有界 boot 12s：**修复后零错误、零 "did not activate"、Web 服务起在独立端口 127.0.0.1:50981**。证据 `evidence/wp4/01-03` |
-| **UI ↔ Host 双向一致性** | ✅ 27/27 bridge + 渲染测试（含真 Remote 信封、main inject 形状、软删过滤与审批、**组件渲染不抛异常**、**回合外删除**）+ 真落盘/重启恢复 |
+| **UI ↔ Host 双向一致性** | ✅ 29/29 bridge + 渲染测试（含真 Remote 信封、main inject 形状、软删过滤与审批、**组件渲染不抛异常**、**回合外删除**）+ 真落盘/重启恢复 |
 | 日历与待办功能 | ✅ 上表逐项 + 静态规范 10/10 |
 | **深浅色截图** | ❌ **未取得（UNVERIFIED）** |
 | **窗口缩放与交互实际检查** | ❌ **未取得（UNVERIFIED）** |
 | 键盘及可访问性基础验证 | ⚠️ 静态核查通过；**真实键盘操作未测（UNVERIFIED）** |
-| 既有测试回归 | ✅ **279/279** 单测、**49/49** 变异（0 真空 0 跳过）、门禁 **8/8** |
+| 既有测试回归 | ✅ **281/281** 单测、**51/51** 变异（0 真空 0 跳过）、门禁 **8/8** |
 | 独立代码及视觉 Review | 见 §8 |
 
 ### 为什么没有截图（必须说清，不造假）
@@ -147,7 +147,7 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
 | --- | --- |
 | 不修改正式 DSH profile | ✅ `~/.dsh/profiles/desktop/package.json` mtime 仍 `Nov 5 21:32:55`、`cordis.patch.yml` 无 `workbench-ui` 行；所有安装/启动都在 `DSH_HOME=/tmp/dsh-iso-Jv2UeM` |
 | 不修改现有用户数据 | ✅ `rootDir` 为空时插件**拒绝启动**；隔离测试用 `/tmp` 目录 |
-| 不触碰其他项目 | ✅ 鲸鱼娘 `79d7e24` dirty 0 |
+| 不触碰其他项目 | ✅ `~/Developer/鲸鱼娘/plugin` HEAD `79d7e24`、工作树干净（该目录本身是 git 仓库，可当场核实） |
 | 不擅自 push | ✅ 0 remote |
 | 不进入 WP5 | ✅ **STOP** |
 | 不用模拟接口冒充真实宿主 | ✅ WP3 业务层零依赖 + 真 commands 路径 + 真文件存储；bridge 测试明确标注「浏览器网络层未端到端」 |

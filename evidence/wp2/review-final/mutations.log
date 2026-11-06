@@ -1,58 +1,60 @@
 === 变异验证（删保护代码，测试应失败）===
-变异定义：49 项（scripts/r3-mutations.json）
+变异定义：51 项（scripts/r3-mutations.json）
 
-CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 277 fail 2
-CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 278 fail 1
-CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 248 fail 31
-CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 277 fail 2
-CAUGHT M5 恢复层不传 scope  → pass 277 fail 2
-CAUGHT M6 已投递判定失效（无视 history）  → pass 276 fail 3
-CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 272 fail 7
-CAUGHT M8 审批门放行（不校验 token）  → pass 254 fail 25
-CAUGHT M9 service 重新暴露 store 写方法  → pass 276 fail 3
-CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 277 fail 2
-CAUGHT M11 hostMap 不持久化（只写内存）  → pass 272 fail 7
-CAUGHT M12 hostMap 允许 hostId 重复  → pass 278 fail 1
-CAUGHT M13 损坏映射静默重建为空  → pass 278 fail 1
-CAUGHT M14 compileReminder 不再滤过期  → pass 278 fail 1
-CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 270 fail 9
-CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 278 fail 1
-CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 278 fail 1
-CAUGHT X11 UNKNOWN 纳入 future  → pass 272 fail 7
-CAUGHT X12 删除失败不计入 failed  → pass 278 fail 1
-CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 275 fail 4
-CAUGHT X14 hostMap 保留上限失效  → pass 273 fail 6
-CAUGHT X15 N-05 deny 模式不拦  → pass 278 fail 1
-CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 278 fail 1
-CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 278 fail 1
-CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 277 fail 2
-CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 275 fail 4
-CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 276 fail 3
-CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 275 fail 4
-CAUGHT X22 裁剪不生效（条目数无上限）  → pass 273 fail 6
-CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 278 fail 1
-CAUGHT X24 catalog 不用身份索引（认不出宿主行 → 重复创建）  → pass 268 fail 11
-CAUGHT X25 N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）  → pass 275 fail 4
-CAUGHT X26 去掉同 key 创建锁（并发重复投递回归）  → pass 278 fail 1
-CAUGHT X27 不识别宿主 status 形状（unknown 被判未投递 → 二次投递）  → pass 278 fail 1
-CAUGHT X28 B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）  → pass 277 fail 2
-CAUGHT X29 B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）  → pass 278 fail 1
-CAUGHT W1 WP4：callHost 退回扁平解码（真信封下静默空列表）  → pass 269 fail 10
-CAUGHT W2 WP4：approval.request 丢 receiver（真审批永不签发 token）  → pass 278 fail 1
-CAUGHT W3 WP4：初始 sessionId 不从 sessions store 取（UI 拿不到会话）  → pass 278 fail 1
-CAUGHT W4 WP4：已软删待办仍进列表（删除对用户无效）  → pass 278 fail 1
-CAUGHT W5 WP4：service task.list 不过滤已删除（删除后仍可见）  → pass 278 fail 1
-CAUGHT W6 WP4：软删待办不需审批（删除绕过审批门）  → pass 277 fail 2
-CAUGHT W7 WP4：TaskForm 编辑丢字段（subtasks/sourceSessionId 消失）  → pass 278 fail 1
-CAUGHT W8 WP4：UI 文案退回硬编码英文（中文用户看不到翻译）  → pass 278 fail 1
-CAUGHT W9 WP4：t 退回 WorkbenchPage 内部（三个弹窗渲染即崩 → 整页白屏）  → pass 277 fail 2
-CAUGHT W10 WP4：三个弹窗组件不渲染（主路径静默消失）  → pass 276 fail 3
-CAUGHT W11 WP4：event.restore 不校验凭证（审批旁路 → 已删事件被悄悄恢复）  → pass 277 fail 2
-CAUGHT W12 WP4：ConfirmDelete 不传 t（中文界面确认弹窗变英文）  → pass 278 fail 1
-CAUGHT W13 WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）  → pass 278 fail 1
+CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 279 fail 2
+CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 280 fail 1
+CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 250 fail 31
+CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 279 fail 2
+CAUGHT M5 恢复层不传 scope  → pass 279 fail 2
+CAUGHT M6 已投递判定失效（无视 history）  → pass 278 fail 3
+CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 274 fail 7
+CAUGHT M8 审批门放行（不校验 token）  → pass 255 fail 26
+CAUGHT M9 service 重新暴露 store 写方法  → pass 278 fail 3
+CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 279 fail 2
+CAUGHT M11 hostMap 不持久化（只写内存）  → pass 274 fail 7
+CAUGHT M12 hostMap 允许 hostId 重复  → pass 280 fail 1
+CAUGHT M13 损坏映射静默重建为空  → pass 280 fail 1
+CAUGHT M14 compileReminder 不再滤过期  → pass 280 fail 1
+CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 272 fail 9
+CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 280 fail 1
+CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 280 fail 1
+CAUGHT X11 UNKNOWN 纳入 future  → pass 274 fail 7
+CAUGHT X12 删除失败不计入 failed  → pass 280 fail 1
+CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 277 fail 4
+CAUGHT X14 hostMap 保留上限失效  → pass 275 fail 6
+CAUGHT X15 N-05 deny 模式不拦  → pass 280 fail 1
+CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 280 fail 1
+CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 280 fail 1
+CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 279 fail 2
+CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 277 fail 4
+CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 278 fail 3
+CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 277 fail 4
+CAUGHT X22 裁剪不生效（条目数无上限）  → pass 275 fail 6
+CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 280 fail 1
+CAUGHT X24 catalog 不用身份索引（认不出宿主行 → 重复创建）  → pass 270 fail 11
+CAUGHT X25 N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）  → pass 277 fail 4
+CAUGHT X26 去掉同 key 创建锁（并发重复投递回归）  → pass 280 fail 1
+CAUGHT X27 不识别宿主 status 形状（unknown 被判未投递 → 二次投递）  → pass 280 fail 1
+CAUGHT X28 B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）  → pass 279 fail 2
+CAUGHT X29 B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）  → pass 280 fail 1
+CAUGHT W1 WP4：callHost 退回扁平解码（真信封下静默空列表）  → pass 271 fail 10
+CAUGHT W2 WP4：approval.request 丢 receiver（真审批永不签发 token）  → pass 280 fail 1
+CAUGHT W3 WP4：初始 sessionId 不从 sessions store 取（UI 拿不到会话）  → pass 280 fail 1
+CAUGHT W4 WP4：已软删待办仍进列表（删除对用户无效）  → pass 280 fail 1
+CAUGHT W5 WP4：service task.list 不过滤已删除（删除后仍可见）  → pass 279 fail 2
+CAUGHT W6 WP4：软删待办不需审批（删除绕过审批门）  → pass 278 fail 3
+CAUGHT W7 WP4：TaskForm 编辑丢字段（subtasks/sourceSessionId 消失）  → pass 280 fail 1
+CAUGHT W8 WP4：UI 文案退回硬编码英文（中文用户看不到翻译）  → pass 280 fail 1
+CAUGHT W9 WP4：t 退回 WorkbenchPage 内部（三个弹窗渲染即崩 → 整页白屏）  → pass 279 fail 2
+CAUGHT W10 WP4：三个弹窗组件不渲染（主路径静默消失）  → pass 278 fail 3
+CAUGHT W11 WP4：event.restore 不校验凭证（审批旁路 → 已删事件被悄悄恢复）  → pass 279 fail 2
+CAUGHT W12 WP4：ConfirmDelete 不传 t（中文界面确认弹窗变英文）  → pass 280 fail 1
+CAUGHT W13 WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）  → pass 280 fail 1
+CAUGHT W14 WP4：task.upsert 整行替换（AI 工具更新既有待办 → 字段被抹掉）  → pass 280 fail 1
+CAUGHT W15 WP4：软删审批不判库中既有行（无凭证复活已删待办）  → pass 280 fail 1
 
 === 汇总 ===
-CAUGHT: 49
+CAUGHT: 51
 VACUUM: 0
 SKIP:   0
 
