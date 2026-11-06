@@ -149,13 +149,32 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
 | `event.conflicts` 窗口 | 设计 | UI 用「今天起 7 天」固定窗口，未做成用户可选（授权未要求） |
 | 子任务创建 | 设计 | 授权只要求「子任务展示」；Host `task.upsert` 存任意字段，UI 展示但不提供子任务编辑（不属本包范围） |
 
-## 八、独立 Review（三轮）
+## 八、独立 Review（四轮）
 
 | 轮次 | 基准 | 结论 | 处理 |
 | --- | --- | --- | --- |
 | 1 | `1a2c7ef` | 🔴 REQUEST CHANGES（5 blocker） | 全部修复 → `836ce52` |
 | 2 | `836ce52` | 🔴 REQUEST CHANGES（1 MAJOR + 4 MINOR） | 全部修复 → `24ba56b` |
-| 3 | `24ba56b` | 见 `evidence/wp4/final-review/` | — |
+| 3 | `548be95` | 🔴 REQUEST CHANGES（1 blocker + 1 MAJOR） | 全部修复 → `bf1c657` |
+| 4 | `bf1c657` | 见 `evidence/wp4/final-review/REVIEW-round4.md` | — |
+
+### 三轮抓到的实质缺陷（不粉饰）
+
+- **第 1 轮 5 blocker**：真 Remote 信封解码（`result.value` 是对象不是文本，真浏览器里 UI 静默空列表）；
+  `main` 是 root-scope keyed slot，inject **零参**（拿不到 sessionId）；
+  调用了不存在的 `task.delete`；`approval.request` 裸传丢 `this`；`TaskForm` 编辑丢字段。
+- **第 2 轮 MAJOR**：软删待办**仍出现在列表**且**绕过审批**（`task.list` 不过滤、`task.upsert` 不调 `requireConfirmation`、token 可伪造）。
+  4 MINOR：测试用复刻实现（真 bug 复活仍全绿）、变异对 UI 零覆盖、报告数字过期、locale 未接。
+- **第 3 轮 blocker**：**我自己在第 3 轮接线 locale 时引入的回归**——`t` 只定义在 `WorkbenchPage` 内部，
+  而 `EventForm`/`TaskForm`/`ConfirmDelete` 是工厂作用域的兄弟函数 → 渲染即
+  `ReferenceError` → **整个工作台白屏**。同轮 MAJOR：没有任何测试渲染组件，
+  267 条全绿也测不出这个必崩缺陷。
+
+**共同教训**：前三轮抓到的两个「必崩」缺陷，静态断言全都测不出
+（`require('./x')` 相对路径在浏览器模块表里不存在；`t` 越出作用域）。
+**「源码长什么样」全绿 ≠ 「跑起来对不对」**。
+第 3 轮起补了**真实执行工厂 + 真实调用组件**的渲染测试，
+并用变异验证：退回旧写法即变红、还原即全绿。
 
 第 1 轮 5 个 blocker：真 Remote 信封解码、main root-scope inject 零参、
 不存在的 `task.delete`、approval.request 丢 `this`、TaskForm 编辑丢字段。
