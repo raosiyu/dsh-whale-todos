@@ -29,15 +29,19 @@
 - 宿主签名（issuer nonce）→ 浏览器/模型**无法离线构造**
 - `payload` 里的 `confirmed` 布尔**永远没有授权含义**
 - **签发侧不采信调用方自选的 digest**（`issueForUserConfirm` 用固定空 digest）：
-  内容类操作（`event.import` / `snapshot.replace` / `store.rollback`）的摘要在
-  **执行侧**由服务端从内容重算（`contentDigest(text)`），因此即便换出一张凭证，
-  其指纹也与执行侧不符 → 用不了。调用方自带的 digest 一律忽略。
+  调用方自带的 digest 一律忽略。
+  - `event.import` / `snapshot.replace`：摘要在**执行侧**由服务端从内容重算
+    （`contentDigest(text)`），与签发侧的固定空摘要不符 → 换出的凭证**用不了**。
+  - `store.rollback`：执行侧指纹是 `{op, target: 备份名, digest: undefined}`，
+    与签发侧 `{op, target: 备份名, digest: ''}` **匹配** → 凭证**可用**。
+    它的风险来自「回滚会丢数据」本身，而不是摘要不符。
 - 限制在 `DANGEROUS_OPS` 内 → 不是万能钥匙（`event.list` / `task.list` / `event.create`
   等非危险 op 拿不到）。
   ⚠️ 但要说清楚：`snapshot.replace`、`event.import`、`store.rollback`、`event.restore`
   **也在** `DANGEROUS_OPS` 内，因此**可以**为它们签发用户确认凭证。
-  它们的实际风险由「执行侧服务端重算内容摘要」挡住（见下条），
-  **不是**由「不在 DANGEROUS_OPS」挡住。
+  风险来源各不相同：`event.import` / `snapshot.replace` 被「执行侧服务端重算内容摘要」
+  挡住；`store.rollback`（回滚丢数据）与 `event.restore`（复活已删数据）**不被摘要挡住**，
+  它们的约束是「必须由用户在 UI 明确确认」这一交互前提 —— 见 §4 的残余风险。
 - **不在 AI 工具面**：`workbench-core/src/host-tools.js` 未暴露 `confirmUserAction`
 - 删除落审计（`events.remove` 内部写 `store.audit`）
 

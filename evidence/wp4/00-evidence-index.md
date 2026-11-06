@@ -40,11 +40,11 @@ DSH_HOME=/tmp/dsh-iso-Jv2UeM dsh --profile rescue \
 
 | 项 | 命令 | 期望 |
 | --- | --- | --- |
-| 单元/集成 | `cd workbench-core && node --test test/*.test.mjs` | 281/281 |
-| Client→Host→Storage 桥 | `node --test test/workbench-ui-bridge.test.mjs` | 24/24（真 Remote 信封、真 dsh-commands 形状、真文件落盘） |
+| 单元/集成 | `cd workbench-core && node --test test/*.test.mjs` | 283/283 |
+| Client→Host→Storage 桥 | `node --test test/workbench-ui-bridge.test.mjs` | 26/26（真 Remote 信封、真 dsh-commands 形状、真文件落盘） |
 | 组件渲染 | `node --test test/workbench-ui-render.test.mjs` | 5/5（真实调用组件，捕获渲染期异常） |
 | UI 规范静态 | `node --test test/workbench-ui-standards.test.mjs` | 10/10（令牌/尺寸/键盘/审批/manifest/locale） |
-| 变异 | `node scripts/r3-mutate.mjs /tmp/mut.log` | 51/51 CAUGHT，0 VACUUM，0 SKIP |
+| 变异 | `node scripts/r3-mutate.mjs /tmp/mut.log` | 53/53 CAUGHT，0 VACUUM，0 SKIP |
 | 门禁 | `bash scripts/wp2-r5-gate.sh` | 8/8 PASS |
 | O(N²)/线性性能基准 | `node scripts/bench-reconcile.mjs` | 见 `docs/wp3/01-on2-registry.md`（UNRESOLVED） |
 

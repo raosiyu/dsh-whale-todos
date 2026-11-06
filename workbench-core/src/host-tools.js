@@ -163,9 +163,12 @@ export function createWorkbenchToolDefinitions(deps = {}) {
     simpleTool({
       name: 'workbench_task_list',
       description: 'List todos in this session/scope.',
-      parameters: {},
+      parameters: {
+        includeDeleted: { type: 'boolean', description: 'Include soft-deleted todos (default false).' },
+      },
       op: 'task.list',
-      payload: () => ({}),
+      // 与 event.list 对称：能透传 includeDeleted，AI 才能看到已删项
+      payload: (args) => ({ includeDeleted: args.includeDeleted === true }),
     }),
     // ---- 创建 / 编辑 ----
     simpleTool({

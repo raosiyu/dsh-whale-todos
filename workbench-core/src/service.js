@@ -457,7 +457,9 @@ export function createWorkbenchService(options) {
         })
         return draft
       }, { intent: 'task.upsert' })
-      return { task: structuredClone(task) }
+      // 返回**库中合并后的完整行**：原实现只回显入参，调用方会误读为「字段丢了」
+      const stored = store.collection('tasks').find((row) => row.id === task.id)
+      return { task: structuredClone(stored ?? task) }
     },
   }
 

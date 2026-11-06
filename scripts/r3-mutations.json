@@ -355,5 +355,19 @@
     "file": "workbench-core/src/service.js",
     "from": "      if (declaredSoftDelete || existingSoftDelete) {",
     "to": "      if (declaredSoftDelete) {"
+  },
+  {
+    "id": "W16",
+    "name": "WP4：AI 工具 task.list 不透传 includeDeleted（AI 看不到已删待办）",
+    "file": "workbench-core/src/host-tools.js",
+    "from": "      // 与 event.list 对称：能透传 includeDeleted，AI 才能看到已删项\n      payload: (args) => ({ includeDeleted: args.includeDeleted === true }),",
+    "to": "      payload: () => ({}),"
+  },
+  {
+    "id": "W17",
+    "name": "WP4：AI 工具 event.update 不带 patch（编辑不生效）",
+    "file": "workbench-core/src/host-tools.js",
+    "from": "      payload: (args) => {\n        const { id, ...patch } = args\n        return { id, patch }\n      },",
+    "to": "      payload: (args) => ({ ...args }),"
   }
 ]

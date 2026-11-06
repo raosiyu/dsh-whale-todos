@@ -76,7 +76,7 @@ Client 视觉验证 **UNVERIFIED**（原因见 §5）；按授权 **STOP，不�
 | 8 | 删除经过可信审批 | bridge 测试：无 token → `confirmation-required`；`requestApproval` 无 answerer → fail-closed；WP3 真 `ApprovalService` 端到端 2/2 |
 | 9 | 错误明确、不静默 | bridge 测试：未知 op → `unsupported`；StatusBar `role=alert` + Retry |
 
-**测试覆盖真实 Client→Host→Storage 路径**：`test/workbench-ui-bridge.test.mjs`（17 项）用
+**测试覆盖真实 Client→Host→Storage 路径**：`test/workbench-ui-bridge.test.mjs`（26 项）用
 `dsh-commands` 的真实 `parseCommand` / `invocation` 形状构造请求，跑**真实**
 `apply()` + 真实文件存储，断言落盘与读回；**不是只测模拟接口**。
 （浏览器网络层 `ctx.remote.commands.execute` 本身无浏览器控制，未端到端跑，见 §5。）
@@ -122,12 +122,12 @@ Client 视觉验证 **UNVERIFIED**（原因见 §5）；按授权 **STOP，不�
 | 项 | 结果 |
 | --- | --- |
 | **真实 DSH 隔离环境加载** | ✅ `DSH_HOME=/tmp/dsh-iso-Jv2UeM`（rescue profile），`dsh plugin add` 以 link 安装（53ms，无构建脚本）；`--patch` 覆盖 `rootDir` 到隔离目录；有界 boot 12s：**修复后零错误、零 "did not activate"、Web 服务起在独立端口 127.0.0.1:50981**。证据 `evidence/wp4/01-03` |
-| **UI ↔ Host 双向一致性** | ✅ 29/29 bridge + 渲染测试（含真 Remote 信封、main inject 形状、软删过滤与审批、**组件渲染不抛异常**、**回合外删除**）+ 真落盘/重启恢复 |
+| **UI ↔ Host 双向一致性** | ✅ 31/31 bridge（26）+ 渲染（5）（含真 Remote 信封、main inject 形状、软删过滤与审批、**组件渲染不抛异常**、**回合外删除**）+ 真落盘/重启恢复 |
 | 日历与待办功能 | ✅ 上表逐项 + 静态规范 10/10 |
 | **深浅色截图** | ❌ **未取得（UNVERIFIED）** |
 | **窗口缩放与交互实际检查** | ❌ **未取得（UNVERIFIED）** |
 | 键盘及可访问性基础验证 | ⚠️ 静态核查通过；**真实键盘操作未测（UNVERIFIED）** |
-| 既有测试回归 | ✅ **281/281** 单测、**51/51** 变异（0 真空 0 跳过）、门禁 **8/8** |
+| 既有测试回归 | ✅ **283/283** 单测、**53/53** 变异（0 真空 0 跳过）、门禁 **8/8** |
 | 独立代码及视觉 Review | 见 §8 |
 
 ### 为什么没有截图（必须说清，不造假）
@@ -145,7 +145,7 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
 
 | 红线 | 结果 |
 | --- | --- |
-| 不修改正式 DSH profile | ✅ `~/.dsh/profiles/desktop/package.json` mtime 仍 `Nov 5 21:32:55`、`cordis.patch.yml` 无 `workbench-ui` 行；所有安装/启动都在 `DSH_HOME=/tmp/dsh-iso-Jv2UeM` |
+| 不修改正式 DSH profile | ✅ `grep -c workbench-ui ~/.dsh/profiles/desktop/package.json ~/.dsh/profiles/desktop/cordis.patch.yml` = 0/0（这两个文件的 mtime 被 DSH 自身的插件操作改动过，故以**内容**为准，不引用 mtime）；所有安装/启动都在 `DSH_HOME=/tmp/dsh-iso-Jv2UeM` |
 | 不修改现有用户数据 | ✅ `rootDir` 为空时插件**拒绝启动**；隔离测试用 `/tmp` 目录 |
 | 不触碰其他项目 | ✅ `~/Developer/鲸鱼娘/plugin` HEAD `79d7e24`、工作树干净（该目录本身是 git 仓库，可当场核实） |
 | 不擅自 push | ✅ 0 remote |
