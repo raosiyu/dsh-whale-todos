@@ -32,9 +32,16 @@ export const emptyStore = () => ({
   events: [],
   tasks: [],
   audit: [],
+  undo: [],
+  redo: [],
 })
 
 const MAX_BACKUPS = 20
+
+/** 参与撤销的集合（只有业务数据，审计是流水不参与）。 */
+export const UNDOABLE_KEYS = Object.freeze(['events', 'tasks'])
+
+export const DEFAULT_HISTORY_LIMIT = 20
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex')
 
@@ -45,6 +52,7 @@ const sha256 = (text) => createHash('sha256').update(text).digest('hex')
 export function openStore(dir, options = {}) {
   const now = options.now ?? (() => new Date())
   const maxBackups = options.maxBackups ?? MAX_BACKUPS
+  const historyLimit = options.historyLimit ?? DEFAULT_HISTORY_LIMIT
   const file = join(dir, 'workbench.json')
   const backupDir = join(dir, 'backups')
   const journalFile = join(dir, 'workbench.journal')
@@ -94,6 +102,12 @@ export function openStore(dir, options = {}) {
     }
     for (const key of ['events', 'tasks', 'audit']) {
       if (!Array.isArray(data[key])) {
+        throw new WorkbenchError(ERROR_CODES.STORE_CORRUPT, `存储字段 ${key} 必须是数组`, { path, field: key })
+      }
+    }
+    // 撤销/重做栈是可选的（老数据没有），但一旦存在就必须是数组
+    for (const key of ['undo', 'redo']) {
+      if (data[key] !== undefined && !Array.isArray(data[key])) {
         throw new WorkbenchError(ERROR_CODES.STORE_CORRUPT, `存储字段 ${key} 必须是数组`, { path, field: key })
       }
     }
@@ -174,6 +188,25 @@ export function openStore(dir, options = {}) {
     ensureDirs()
     validateShape(next, 'commit')
     const stamped = { ...next, updatedAt: now().toISOString() }
+    /**
+     * **撤销记录（WP5）挂在 commit 这个唯一拦截点上**，而不是散落在每个业务写方法里。
+     *
+     * 理由：撤销栈里的「前一份状态」必须和这次写入**原子地**成对出现。
+     * 如果各业务方法自己记录，漏一处就是一次不可撤销的改动，
+     * 而且并发/异常路径下记的前状态可能是错的。
+     * commit 是同步的，`state` 在这里就是**这次写入之前**的权威状态。
+     *
+     * `meta.undo === false` 用于撤销/重做自身：它们改的就是历史，不能再入栈。
+     */
+    if (meta?.undo !== false) {
+      const before = {}
+      for (const key of UNDOABLE_KEYS) before[key] = structuredClone(state[key] ?? [])
+      const stack = Array.isArray(stamped.undo) ? stamped.undo.slice() : []
+      stack.push({ id: randomUUID(), label: meta?.intent ?? 'write', at: now().toISOString(), before })
+      stamped.undo = stack.slice(Math.max(0, stack.length - historyLimit))
+      // 新写入让重做栈失效：那段历史已经不在当前状态之上了
+      stamped.redo = []
+    }
     // 备份旧状态（供显式 rollback）
     snapshot(state, 'pre')
     writeFileDurable(
@@ -236,11 +269,47 @@ export function openStore(dir, options = {}) {
       const restored = validateShape(readJson(path), path)
       writeFileDurable(file, JSON.stringify(restored, null, 2))
       state = restored
+      /**
+       * **回滚必须清空撤销/重做栈**（WP5）。
+       *
+       * rollback 绕过 commit 直接把 state 换成旧快照，于是栈里那些条目指向的
+       * 「前一份状态」已经和当前状态毫无关系了。实测后果：一次失败的批量导入
+       * （已建了 3 条，第 4 条炸掉 → rollback）之后按撤销，会把**那 3 条半截数据
+       * 重新装回来**——灾难恢复变成了数据复活器。
+       *
+       * 清空是诚实的做法：回滚之后没有可撤销的历史，因为历史已经被整体替换了。
+       */
+      if (Array.isArray(state.undo) || Array.isArray(state.redo)) {
+        state = { ...state, undo: [], redo: [] }
+        writeFileDurable(file, JSON.stringify(state, null, 2))
+      }
       return { restored: target, at: now().toISOString() }
     },
     /** 内容指纹（导出/导入校验用）。 */
     fingerprint() {
       return sha256(JSON.stringify({ version: state.version, events: state.events, tasks: state.tasks }))
+    },
+    /**
+     * 把「从 undoDepth 起新增的多条撤销记录」折叠成一条（WP5 导入用）。
+     *
+     * 批量导入内部会逐条 `create`，于是栈里堆了 N 条 —— 用户要按 N 次 Cmd+Z
+     * 才能撤掉一次导入。这里合成一条，`before` 取导入开始前的状态。
+     *
+     * @param {number} undoDepth 导入开始前的栈深
+     * @param {string} label 折叠后的标签
+     * @param {object} before 导入开始前的业务集合快照
+     */
+    collapseUndo(undoDepth, label, before) {
+      const current = state.undo ?? []
+      if (current.length <= undoDepth) return { collapsed: 0 }
+      const kept = current.slice(0, undoDepth)
+      const collapsed = current.length - undoDepth
+      const entry = { id: randomUUID(), label, at: now().toISOString(), before: structuredClone(before) }
+      const next = { ...state, undo: [...kept, entry], redo: [] }
+      // 不写 journal：这只是历史记账，不是业务数据变更
+      writeFileDurable(file, JSON.stringify({ ...next, updatedAt: now().toISOString() }, null, 2))
+      state = { ...next, updatedAt: now().toISOString() }
+      return { collapsed }
     },
     /** 整体替换（导入用）；调用方负责先 backup。 */
     replace(next) {

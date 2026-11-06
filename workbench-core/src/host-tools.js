@@ -326,6 +326,29 @@ export function createWorkbenchToolDefinitions(deps = {}) {
       },
     }),
 
+    // ---- 撤销 / 重做（WP5）----
+    simpleTool({
+      name: 'workbench_history_status',
+      description: 'Report whether an undo or redo is available and what the next one would revert.',
+      parameters: {},
+      op: 'history.status',
+      payload: () => ({}),
+    }),
+    simpleTool({
+      name: 'workbench_undo',
+      description: 'Undo the most recent change (yours or the user\'s). The undone change can be redone.',
+      parameters: {},
+      op: 'history.undo',
+      payload: () => ({}),
+    }),
+    simpleTool({
+      name: 'workbench_redo',
+      description: 'Redo the most recently undone change.',
+      parameters: {},
+      op: 'history.redo',
+      payload: () => ({}),
+    }),
+
     // ---- 错误反馈 / 操作审计 ----
     {
       name: 'workbench_help',

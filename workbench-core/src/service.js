@@ -27,6 +27,7 @@ import { AUDIT_ACTIONS, createEventRepo } from './event-repo.js'
 import { expandEvent, expandEvents } from './recurrence.js'
 import { buildIcs, exportJson, parseIcs, parseJsonSnapshot } from './ics.js'
 import { approvalFingerprint, createHostApprovalGate } from './approval-gate.js'
+import { createHistoryOps } from './history.js'
 import { openStore } from './store.js'
 import { validateEventInput } from './event.js'
 
@@ -64,6 +65,14 @@ export const DANGEROUS_OPS = Object.freeze([
 export const WRITE_OPS = Object.freeze([
   'event.create', 'event.update', 'event.restore', 'event.delete', 'event.bulkDelete',
   'event.import', 'task.upsert', 'snapshot.replace', 'store.rollback', 'store.backup',
+  /**
+   * 撤销/重做会改数据，deny 模式下必须一并拒绝。
+   * 它们**不进** DANGEROUS_OPS：撤销是用户的正常补救手段，
+   * 一律要求审批会让「按 Cmd+Z」变成一次弹窗风暴。
+   */
+  'history.undo', 'history.redo',
+  // WP5 新增的写操作
+  'event.move', 'task.reorder', 'task.archive',
 ])
 
 /**
@@ -71,7 +80,10 @@ export const WRITE_OPS = Object.freeze([
  * @param {{ dataDir: string, now?: () => Date, idFactory?: () => string }} options
  */
 export function createWorkbenchService(options) {
-  const store = openStore(options.dataDir, { now: options.now })
+  const store = openStore(options.dataDir, {
+    now: options.now,
+    historyLimit: options.historyLimit,
+  })
   const events = createEventRepo(store, { now: options.now, idFactory: options.idFactory })
   const now = options.now ?? (() => new Date())
   /**
@@ -360,11 +372,22 @@ export function createWorkbenchService(options) {
 
       // 原子：排除原实例 + 建新实例，两步在同一次 mutate 里
       const backup = store.backup('before-event-move-single')
+      /**
+       * 单次移动是「排除 + 新建」两步，必须折叠成**一条**撤销 ——
+       * 否则用户按一次 Cmd+Z 只撤掉新建那条，原实例还处于被排除状态，
+       * 结果是「这次约会凭空消失」。
+       */
+      const undoDepthBefore = (store.read().undo ?? []).length
+      const beforeState = {
+        events: structuredClone(store.read().events ?? []),
+        tasks: structuredClone(store.read().tasks ?? []),
+      }
       try {
         const excluded = events.update(id, {
           excludeDates: [...new Set([...(current.excludeDates ?? []), occurrenceDate])].sort(),
         }, { actor: meta?.actor })
         const created = events.create(validated, { actor: meta?.actor })
+        store.collapseUndo(undoDepthBefore, 'event.move:single', beforeState)
         return { moved: created, mode, event: excluded, created, occurrenceDate, conflicts: preview.conflicts }
       } catch (error) {
         store.rollback(backup.path.split('/').pop())
@@ -494,6 +517,16 @@ export function createWorkbenchService(options) {
         throw validationError('ICS 存在无法解析的条目，已中止导入', { errors: parsed.errors })
       }
       const backup = store.backup('before-ics-import')
+      /**
+       * **导入折叠成一条撤销**（WP5）：内部逐条 create 会在栈里堆 N 条，
+       * 用户得按 N 次 Cmd+Z 才能撤掉一次导入。记下开始前的栈深与数据，
+       * 成功后就地合成一条。
+       */
+      const undoDepthBefore = (store.read().undo ?? []).length
+      const beforeState = {
+        events: structuredClone(store.read().events ?? []),
+        tasks: structuredClone(store.read().tasks ?? []),
+      }
       const created = []
       try {
         for (const incoming of parsed.events) {
@@ -516,6 +549,11 @@ export function createWorkbenchService(options) {
         })
         return draft
       }, { intent: 'event.import' })
+      /**
+       * **折叠必须放在最后**：审计那条 mutate 自己也会入栈，
+       * 先折叠再写审计会留下两条（实测：导入 3 条 → 栈深 +2）。
+       */
+      store.collapseUndo(undoDepthBefore, 'event.import', beforeState)
       return { imported: created.length, events: created, warnings: parsed.warnings, backup }
     },
 
@@ -594,6 +632,11 @@ export function createWorkbenchService(options) {
       requireConfirmation('snapshot.replace', meta, { digest: contentDigest(text) })
       const parsed = parseJsonSnapshot(text)
       const backup = store.backup('before-snapshot-replace')
+      const undoDepthBefore = (store.read().undo ?? []).length
+      const beforeState = {
+        events: structuredClone(store.read().events ?? []),
+        tasks: structuredClone(store.read().tasks ?? []),
+      }
       try {
         store.replace({
           version: 1,
@@ -606,8 +649,16 @@ export function createWorkbenchService(options) {
         store.rollback(backup.path.split('/').pop())
         throw error
       }
+      store.collapseUndo(undoDepthBefore, 'snapshot.replace', beforeState)
       return { replaced: { events: parsed.events.length, tasks: parsed.tasks.length }, backup }
     },
+
+    // ---- 撤销 / 重做（WP5）------------------------------------------------
+    ...createHistoryOps(store, {
+      now,
+      idFactory: options.idFactory,
+      limit: options.historyLimit,
+    }),
 
     // ---- 存储运维 ---------------------------------------------------------
     'store.backup': (payload = {}) => store.backup(payload.label ?? 'manual'),
