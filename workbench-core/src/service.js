@@ -22,12 +22,16 @@ import { createHash, randomUUID } from 'node:crypto'
 
 import { conflictError, confirmationRequired, notFoundError, unsupportedError, validationError } from './errors.js'
 import { checkEventConflicts, findConflicts, findFreeSlots } from './conflict.js'
+import { WALL_PATTERN, addDaysToDate, dateToUtcMs, daysBetween, instantToWall, wallToInstant } from './time.js'
 import { AUDIT_ACTIONS, createEventRepo } from './event-repo.js'
-import { expandEvents } from './recurrence.js'
+import { expandEvent, expandEvents } from './recurrence.js'
 import { buildIcs, exportJson, parseIcs, parseJsonSnapshot } from './ics.js'
 import { approvalFingerprint, createHostApprovalGate } from './approval-gate.js'
 import { openStore } from './store.js'
 import { validateEventInput } from './event.js'
+
+/** 拖拽移动支持的范围（「此后所有」需要 RRULE 分段，本版本明确不提供）。 */
+export const MOVABLE_MODES = Object.freeze(['single', 'series'])
 
 /** 需要显式确认的危险操作。 */
 export const DANGEROUS_OPS = Object.freeze([
@@ -209,6 +213,163 @@ export function createWorkbenchService(options) {
       const patch = payload.patch ?? {}
       const updated = events.update(id, patch, { actor: meta?.actor })
       return { event: updated }
+    },
+
+    /**
+     * **拖拽移动（WP5）**。
+     *
+     * 语义必须显式，不允许猜：
+     * - 非重复事件：`mode` 只能是 `series`（等价于整体移动）；给 `single` 直接报错。
+     * - 重复事件：必须显式 `single`（只改这一次）或 `series`（改整个系列）。
+     * - `thisAndFuture`（此后所有）**明确拒绝** —— 本数据模型没有 RRULE 分段，
+     *   假装支持会写出一份语义错误的日历。
+     *
+     * `single` 的实现是 RRULE 的 EXDATE 语义：把原日期写进 `excludeDates`，
+     * 再新建一个**非重复**事件承载新时间（保留原事件的所有其他字段）。
+     * 这样系列其余实例完全不动，且可被再次查询/编辑/删除。
+     */
+    'event.move': (payload, meta) => {
+      const id = requireId(payload, 'id')
+      const mode = payload?.mode ?? 'series'
+      const target = payload?.target ?? {}
+      if (!MOVABLE_MODES.includes(mode)) {
+        throw unsupportedError(
+          `不支持的移动范围：${mode}（只支持 ${MOVABLE_MODES.join(' / ')}；「此后所有」需要 RRULE 分段，本版本不提供）`,
+          { mode, supported: [...MOVABLE_MODES] },
+        )
+      }
+      const current = events.find(id)
+      if (current === null) throw notFoundError(`事件不存在：${id}`, { id })
+
+      const isRecurring = current.recurrence !== null && current.recurrence !== undefined
+      if (mode === 'single' && !isRecurring) {
+        throw validationError('非重复事件没有「只改这一次」的语义，请用 mode=series', { id, mode })
+      }
+
+      const conflictsOf = (candidate) => {
+        const preview = checkEventConflicts(events.listActive().filter((row) => row.id !== id), {
+          id: '__candidate__',
+          ...candidate,
+          uid: '__candidate__',
+          status: 'confirmed',
+          tags: candidate.tags ?? [],
+        }, {
+          allowOverlap: payload?.allowOverlap === true,
+          allDayBlocks: payload?.allDayBlocks === true,
+        })
+        return preview
+      }
+
+      if (mode === 'series') {
+        const patch = {}
+        if (current.allDay) {
+          const date = target.startDate
+          if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            throw validationError('全天事件移动必须给 target.startDate（YYYY-MM-DD）', { target })
+          }
+          const deltaDays = daysBetween(current.startDate, date)
+          patch.startDate = date
+          if (current.endDate !== null && current.endDate !== undefined) {
+            patch.endDate = addDaysToDate(current.endDate, deltaDays)
+          }
+          // excludeDates 是日期集合，整体平移才与系列保持一致
+          if (Array.isArray(current.excludeDates) && current.excludeDates.length > 0) {
+            patch.excludeDates = current.excludeDates.map((d) => addDaysToDate(d, deltaDays))
+          }
+        } else {
+          const start = target.start ?? target.startDate
+          if (typeof start !== 'string' || !WALL_PATTERN.test(start)) {
+            throw validationError('非全天事件移动必须给 target.start（YYYY-MM-DDTHH:mm）', { target })
+          }
+          const deltaMs = wallToInstant(start, current.timeZone).ms - wallToInstant(current.start, current.timeZone).ms
+          patch.start = start
+          if (current.end !== null && current.end !== undefined) {
+            patch.end = instantToWall(wallToInstant(current.end, current.timeZone).ms + deltaMs, current.timeZone)
+          }
+          if (typeof target.timeZone === 'string' && target.timeZone !== current.timeZone) {
+            patch.timeZone = target.timeZone
+          }
+        }
+        // 先算候选（合并后）再落盘：冲突时**不写**，前端据此恢复原位
+        const candidate = { ...current, ...patch }
+        const preview = conflictsOf(candidate)
+        if (preview.blocking) {
+          throw conflictError('移动目标存在时间冲突', {
+            conflicts: preview.conflicts.map((c) => ({ a: c.a.eventId, b: c.b.eventId, overlapMs: c.overlapMs })),
+          })
+        }
+        const moved = events.update(id, patch, { actor: meta?.actor })
+        return { moved, mode, event: moved, conflicts: preview.conflicts }
+      }
+
+      // mode === 'single'：EXDATE + 独立事件
+      const occurrenceDate = payload?.occurrenceDate
+      if (typeof occurrenceDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate)) {
+        throw validationError('「只改这一次」必须给 occurrenceDate（被拖动的那个实例的日期）', { payload })
+      }
+      const windowAround = (date) => {
+        const dayMs = 86400000
+        const center = dateToUtcMs(date)
+        return { windowStart: center - dayMs * 2, windowEnd: center + dayMs * 2, monthEndPolicy: 'rfc' }
+      }
+      const instances = expandEvent(current, windowAround(occurrenceDate))
+      const hit = instances.find((occ) => (occ.startDate ?? new Date(occ.startMs).toISOString().slice(0, 10)) === occurrenceDate)
+      if (hit === undefined) {
+        throw validationError(`该日期不是这个系列的实际实例：${occurrenceDate}`, { id, occurrenceDate })
+      }
+
+      // 新时间：沿用原实例的时长，起点取 target
+      const baseEvent = current.allDay
+        ? { allDay: true, startDate: target.startDate, timeZone: current.timeZone }
+        : {
+            allDay: false,
+            start: target.start ?? target.startDate,
+            timeZone: target.timeZone ?? current.timeZone,
+            end: null,
+          }
+      if (current.allDay) {
+        if (typeof baseEvent.startDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(baseEvent.startDate)) {
+          throw validationError('全天事件移动必须给 target.startDate（YYYY-MM-DD）', { target })
+        }
+      } else {
+        if (typeof baseEvent.start !== 'string' || !WALL_PATTERN.test(baseEvent.start)) {
+          throw validationError('非全天事件移动必须给 target.start（YYYY-MM-DDTHH:mm）', { target })
+        }
+        // 保留原时长
+        const durationMs = hit.endMs - hit.startMs
+        baseEvent.end = instantToWall(wallToInstant(baseEvent.start, baseEvent.timeZone).ms + durationMs, baseEvent.timeZone)
+      }
+
+      const candidate = {
+        title: current.title,
+        description: current.description,
+        location: current.location,
+        importance: current.importance,
+        tags: current.tags,
+        source: 'local',
+        ...baseEvent,
+        recurrence: undefined,
+      }
+      const validated = validateEventInput(withDefaultZone(candidate))
+      const preview = conflictsOf(validated)
+      if (preview.blocking) {
+        throw conflictError('移动目标存在时间冲突', {
+          conflicts: preview.conflicts.map((c) => ({ a: c.a.eventId, b: c.b.eventId, overlapMs: c.overlapMs })),
+        })
+      }
+
+      // 原子：排除原实例 + 建新实例，两步在同一次 mutate 里
+      const backup = store.backup('before-event-move-single')
+      try {
+        const excluded = events.update(id, {
+          excludeDates: [...new Set([...(current.excludeDates ?? []), occurrenceDate])].sort(),
+        }, { actor: meta?.actor })
+        const created = events.create(validated, { actor: meta?.actor })
+        return { moved: created, mode, event: excluded, created, occurrenceDate, conflicts: preview.conflicts }
+      } catch (error) {
+        store.rollback(backup.path.split('/').pop())
+        throw error
+      }
     },
 
     'event.delete': (payload, meta) => {

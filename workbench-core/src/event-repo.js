@@ -183,7 +183,7 @@ export function createEventRepo(store, options = {}) {
 const PATCHABLE = [
   'title', 'description', 'location', 'allDay',
   'startDate', 'endDate', 'start', 'end', 'timeZone',
-  'recurrence', 'importance', 'tags', 'source', 'status',
+  'recurrence', 'excludeDates', 'importance', 'tags', 'source', 'status',
 ]
 
 function mergePatch(current, patch) {
@@ -201,6 +201,8 @@ function mergePatch(current, patch) {
     end: current.end ?? undefined,
     timeZone: current.timeZone ?? undefined,
     recurrence: current.recurrence ?? undefined,
+    // 单次例外必须随行携带，否则 update 会把已排除的实例全部"复活"
+    excludeDates: current.excludeDates ?? [],
     importance: current.importance,
     tags: current.tags,
     source: current.source,

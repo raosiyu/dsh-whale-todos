@@ -94,6 +94,12 @@ export function validateEventInput(input, path = 'event') {
       end: optional(wallClock, undefined),
       timeZone: optional(ianaTimeZone, undefined),
       recurrence: optional(recurrenceValidator, undefined),
+      /**
+       * **单次例外（WP5）**：被排除的重复实例日期（RRULE EXDATE 语义）。
+       * 拖拽「只改这一次」时，把原日期加入这里，再新建一个独立事件承载新时间。
+       * 没有它就只能改整个系列 —— 用户要的「单次」无法表达。
+       */
+      excludeDates: optional(arrayOf(isoDateString, { max: 400 }), []),
       importance: optional(oneOf(IMPORTANCE_LEVELS), 'normal'),
       tags: optional(arrayOf(nonEmptyString, { max: 32 }), []),
       source: optional(oneOf(EVENT_SOURCES), 'local'),
@@ -120,6 +126,9 @@ export function validateEventInput(input, path = 'event') {
     }
     if (base.recurrence !== undefined) {
       // 全天重复允许，但时区无意义；不额外限制
+    }
+    if (base.excludeDates !== undefined && base.excludeDates.length > 0 && base.recurrence === undefined) {
+      throw validationError('excludeDates 只对重复事件有意义（单次事件没有可排除的实例）', { path })
     }
     return base
   }
@@ -170,6 +179,8 @@ export function normalizeEventInput(input) {
     out.endDate = null
   }
   out.recurrence = input.recurrence === undefined ? null : input.recurrence
+  // 单次例外：去重 + 排序，保证同一语义只有一种序列化结果
+  out.excludeDates = [...new Set(input.excludeDates ?? [])].sort()
   if (input.uid !== undefined) out.uid = input.uid
   return out
 }

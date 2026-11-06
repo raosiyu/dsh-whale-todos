@@ -108,6 +108,14 @@ export function expandEvent(event, window) {
 
       produced += 1
       const occurrenceEndMs = occurrenceStartMs + durationMs
+      /**
+       * **单次例外（WP5）**：被 excludeDates 排除的实例不产出。
+       * count 仍然消耗（与 RFC5545 一致：COUNT 数的是规则产出的实例，
+       * 不是「排除后剩下的」），否则排除一次会让系列整体后移。
+       */
+      if (Array.isArray(event.excludeDates) && event.excludeDates.includes(date)) {
+        continue
+      }
       if (occurrenceEndMs > windowStart) {
         const key = `${event.uid ?? event.id}:${date}`
         if (!seen.has(key)) {
