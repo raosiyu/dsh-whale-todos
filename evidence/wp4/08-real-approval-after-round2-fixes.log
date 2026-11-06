@@ -1,0 +1,3 @@
+审批结果 = {"ok":true,"value":{"approved":true,"token":"3f821b68a864bc7d68c75aa05b308ec572afeb959befc12fbd8c125c3916d7dd"},"op":"requestApproval"}
+真 ApprovalService.request 被调用（审计事件）= approval/asked,approval/decided
+✅ PASS 真审批通道可达

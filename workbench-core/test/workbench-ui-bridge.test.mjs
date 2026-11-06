@@ -36,7 +36,7 @@ function parseCommand(line) {
  * 最小真 Host Context：只提供 commands.register / provide / effect，
  * 与 dsh-commands 的 execute 契约拼起来跑 handler。
  */
-function makeHost(rootDir) {
+function makeHost(rootDir, options = {}) {
   const commands = new Map()
   let provided = undefined
   let effectCleanup = undefined
@@ -47,7 +47,8 @@ function makeHost(rootDir) {
         return () => commands.delete(def.name)
       },
     },
-    approval: undefined,
+    // approval 必须**在 apply() 之前**就绪：apply 会立刻读取它
+    get: (name) => (name === 'approval' ? options.approval : undefined),
     provide(name, value) { if (name === 'workbench') provided = value },
     effect(fn) {
       // 真 ctx.effect 是 generator 形式；这里取第一个 yield 的 disposer
@@ -89,28 +90,27 @@ function makeHost(rootDir) {
     }
   }
 
-  return { ctx, execute, getService: () => provided }
+  return { ctx, execute, getService: () => provided, config: { approval: options.approval } }
 }
 
 /**
- * Client 侧 callHost 的解码（与 client.js 的 callHost **同语义**）：
- * 真 Remote 信封 → value.result.text → JSON 业务对象。
+ * **直接使用 client.js 的真 callHost**（复审 N1）。
+ *
+ * 之前这里是一份「复刻的 decode()」，结果把 client.js 的 callHost 退回旧扁平
+ * 解码时测试仍 12/12 全绿 —— 真 bug 复活而无人报警。现在直接 import 真实现，
+ * 让 client.js 的解码回归**必然**让本测试变红。
  */
-function decode(result) {
-  if (result.ok === false) return { ok: false, error: result.error }
-  const envelope = result.value
-  const command = envelope !== null && typeof envelope === 'object' ? envelope.result : undefined
-  const text = command !== null && typeof command === 'object' && typeof command.text === 'string'
-    ? command.text
-    : (typeof envelope === 'string' ? envelope : undefined)
-  if (typeof text === 'string' && text !== '') {
-    try {
-      const v = JSON.parse(text)
-      if (v !== null && typeof v === 'object') return v
-    } catch { /* 原样返回 */ }
-  }
-  if (command?.kind === 'error') return { ok: false, error: { code: 'command_error', message: text } }
-  return { ok: true, value: text }
+// 直接 import 共享模块（浏览器与 Node 同一份实现）
+const { callHost: realCallHost } = await import('../../packages/workbench-ui/host-call.mjs')
+assert.ok(typeof realCallHost === 'function', 'host-call.mjs 必须导出 callHost')
+
+/** 用真 callHost 解码一个真 Remote 信封 */
+async function decode(result) {
+  return realCallHost(
+    { remote: { commands: { execute: async () => result } } },
+    'session-decode',
+    { op: 'event.list', payload: {} },
+  )
 }
 
 const call = async (host, sessionId, req) =>
@@ -141,7 +141,7 @@ test('WP4：Client→Host→Storage 全链路（创建/查询/编辑/待办/审�
   await withTmp(async (dir) => {
     const rootDir = join(dir, 'data')
     const host = makeHost(rootDir)
-    apply(host.ctx, { rootDir })
+    apply(host.ctx, { rootDir, ...host.config })
     const svc = host.getService()
     assert.ok(svc !== undefined, 'ctx.provide("workbench") 必须挂上')
     assert.equal(svc.describe().mode, 'host')
@@ -249,7 +249,7 @@ test('WP4：AI 工具与 UI 共用同一 Host Service（双向一致性）', asy
   await withTmp(async (dir) => {
     const rootDir = join(dir, 'data')
     const host = makeHost(rootDir)
-    apply(host.ctx, { rootDir })
+    apply(host.ctx, { rootDir, ...host.config })
     const svc = host.getService()
 
     // UI 创建
@@ -277,7 +277,7 @@ test('WP4：冲突提示与重复事件展开来自真实 Host Service（非本�
   await withTmp(async (dir) => {
     const rootDir = join(dir, 'data')
     const host = makeHost(rootDir)
-    apply(host.ctx, { rootDir })
+    apply(host.ctx, { rootDir, ...host.config })
 
     // 真实业务规则：event.create 本身会拒绝时间冲突（conflict），
     // 所以冲突的真实来源是「编辑已有事件」或导入。这里先建两条不重叠的，
@@ -327,7 +327,7 @@ test('WP4：子任务与 AI 会话关联数据可经 Host Service 往返', async
   await withTmp(async (dir) => {
     const rootDir = join(dir, 'data')
     const host = makeHost(rootDir)
-    apply(host.ctx, { rootDir })
+    apply(host.ctx, { rootDir, ...host.config })
 
     // 带子任务 + 来源会话标记的真实 Task
     const task = {
@@ -353,7 +353,7 @@ test('WP4：真 Remote 信封必须解出业务数据（旧扁平解码会失败
     ok: true,
     value: { commandId: 'c1', result: { kind: 'success', text: '{"ok":true,"value":[1,2,3]}' } },
   }
-  const decoded = decode(realEnvelope)
+  const decoded = await decode(realEnvelope)
   assert.equal(decoded.ok, true)
   assert.deepEqual(decoded.value, [1, 2, 3], '必须解出数组而不是整个 envelope')
 
@@ -366,7 +366,7 @@ test('WP4：真 Remote 信封必须解出业务数据（旧扁平解码会失败
     ok: true,
     value: { commandId: 'c2', result: { kind: 'error', text: 'boom' } },
   }
-  const errDecoded = decode(errEnvelope)
+  const errDecoded = await decode(errEnvelope)
   assert.equal(errDecoded.ok, false, 'kind:error 不得被当成成功')
 })
 
@@ -409,4 +409,168 @@ test('WP4：待办删除不再调用不存在的 task.delete；审批保留 rece
 test('WP4：TaskForm 编辑保留 subtasks / sourceSessionId（不丢字段）', () => {
   const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
   assert.match(client, /\.\.\.\(initial \?\? \{\}\),/, '编辑必须展开原字段')
+})
+
+
+test('WP4：真 callHost 对真 Remote 信封与业务错误码都正确（变异可被抓）', async () => {
+  const { callHost: real } = await import('../../packages/workbench-ui/host-call.mjs')
+
+  // 成功信封 → 解出业务数组
+  const okRes = await real(
+    { remote: { commands: { execute: async () => ({
+      ok: true,
+      value: { commandId: 'c1', result: { kind: 'success', text: '{"ok":true,"value":[1,2]}' } },
+    }) } } },
+    's1', { op: 'event.list' },
+  )
+  assert.equal(okRes.ok, true)
+  assert.deepEqual(okRes.value, [1, 2])
+
+  // 业务错误码（宿主把错误编码在 kind:success 的 text 里）必须可见
+  const bizErr = await real(
+    { remote: { commands: { execute: async () => ({
+      ok: true,
+      value: { commandId: 'c2', result: { kind: 'success', text: '{"ok":false,"error":{"code":"confirmation-required","message":"需要审批"}}' } },
+    }) } } },
+    's1', { op: 'event.delete' },
+  )
+  assert.equal(bizErr.ok, false, '业务错误码不得被吞')
+  assert.equal(bizErr.error.code, 'confirmation-required')
+
+  // 命令级 error kind 也必须有明确出口
+  const cmdErr = await real(
+    { remote: { commands: { execute: async () => ({
+      ok: true,
+      value: { commandId: 'c3', result: { kind: 'error', text: 'boom' } },
+    }) } } },
+    's1', { op: 'event.list' },
+  )
+  assert.equal(cmdErr.ok, false)
+  assert.equal(cmdErr.error.code, 'command_error')
+
+  // **变异反证**：旧扁平解码在真信封下会失败——本测试若退回旧解码必红
+  const naive = { ok: true, value: { commandId: 'c1', result: { kind: 'success', text: '{"ok":true,"value":[1,2]}' } } }
+  const naiveDecoded = (() => {
+    const text = naive.value !== undefined ? naive.value : naive.text
+    if (typeof text === 'string' && text !== '') {
+      try { const v = JSON.parse(text); if (v !== null && typeof v === 'object') return v } catch { /* */ }
+    }
+    return { ok: true, value: text }
+  })()
+  assert.equal(Array.isArray(naiveDecoded.value), false, '旧解码在真信封下静默产生非数组')
+})
+
+test('WP4：已软删的待办不出现在 task.list（服务层过滤）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir, ...host.config })
+    const svc = host.getService()
+
+    // 新建待办（无需审批）
+    const created = await call(host, 's1', {
+      op: 'task.upsert', payload: { task: { id: 't-del', title: '待删除', done: false } },
+    })
+    assert.equal(created.ok, true, JSON.stringify(created))
+    let rows = await call(host, 's1', { op: 'task.list', payload: {} })
+    assert.equal(rows.value.length, 1, '新建后应可见')
+
+    // 软删需要审批：无 token 必须被拒
+    const noToken = await call(host, 's1', {
+      op: 'task.upsert', payload: { task: { id: 't-del', title: '待删除', deleted: true } },
+    })
+    assert.equal(noToken.ok, false, '软删无凭证必须被拒')
+    assert.equal(noToken.error.code, 'confirmation-required')
+
+    // 有审批凭证才能删
+    const approval = await call(host, 's1', {
+      op: 'requestApproval', payload: { approvalOp: 'task.upsert', target: 't-del', summary: 'delete task' },
+    })
+    // 隔离环境无 answerer → fail closed，故这里断言"未批准时删不掉"
+    assert.equal(approval.ok, false, '无 answerer 时不得批准')
+
+    // 用**真实审批流程**完成软删：host 模式 + 注入一个会批准的 requester
+    const approvedHost = makeHost(join(dir, 'data2'), { approval: { request: async () => 'allowed-once' } })
+    apply(approvedHost.ctx, { rootDir: join(dir, 'data2'), ...approvedHost.config })
+    await call(approvedHost, 's1', {
+      op: 'task.upsert', payload: { task: { id: 't-del', title: '待删除', done: false } },
+    })
+    const appr = await call(approvedHost, 's1', {
+      op: 'requestApproval', payload: { approvalOp: 'task.upsert', target: 't-del', summary: 'delete task' },
+    })
+    assert.equal(appr.ok, true, '有批准 answerer 时应签发 token')
+    const token = appr.value?.token
+    assert.equal(typeof token, 'string', '应拿到审批 token')
+    const del = await call(approvedHost, 's1', {
+      op: 'task.upsert',
+      payload: { task: { id: 't-del', title: '待删除', deleted: true, deletedAt: new Date().toISOString() } },
+      approvalToken: token,
+    })
+    assert.equal(del.ok, true, `带 token 的软删应成功：${JSON.stringify(del)}`)
+
+    // 服务层过滤：已软删的待办不得出现在默认列表
+    rows = await call(approvedHost, 's1', { op: 'task.list', payload: {} })
+    assert.equal(rows.value.length, 0, '已软删的待办不得出现在列表')
+    const withDeleted = await call(approvedHost, 's1', { op: 'task.list', payload: { includeDeleted: true } })
+    assert.equal(withDeleted.value.length, 1, 'includeDeleted 时应可见')
+  })
+})
+
+test('WP4：软删待办需要真实审批凭证（token 缺失/伪造均被拒）', async () => {
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir, ...host.config })
+    const hostService = host.getService()
+    // 业务门面的 execute 在 forSession() 上（host-service 本身只有 invoke/listOps）
+    const svc = hostService.forSession('s1')
+    svc.execute('task.upsert', { task: { id: 't-x', title: 'x', done: false } }, { actor: 'test' })
+
+    assert.throws(
+      () => svc.execute('task.upsert', { task: { id: 't-x', title: 'x', deleted: true } }, { actor: 'test' }),
+      (e) => e?.code === 'confirmation-required',
+      '软删必须要求审批',
+    )
+    assert.throws(
+      () => svc.execute('task.upsert', { task: { id: 't-x', title: 'x', deleted: true } }, { actor: 'test', approvalToken: 'forged' }),
+      (e) => e?.code === 'confirmation-required',
+      '伪造 token 必须被拒',
+    )
+    // host 模式**无 answerer** → fail closed：申请不到 token（这是正确行为）
+    const noAnswerer = await svc.requestApproval('task.upsert', { target: 't-x', summary: 'delete task' })
+    assert.equal(noAnswerer.approved, false, '无 answerer 时不得批准')
+    assert.equal(noAnswerer.token, undefined, '无 answerer 时不得签发 token')
+    // 新建/编辑不受影响（授权要求「创建和完成待办」顺畅）
+    assert.doesNotThrow(
+      () => svc.execute('task.upsert', { task: { id: 't-y', title: 'y' } }, { actor: 'test' }),
+      '新建待办不应要求审批',
+    )
+    assert.doesNotThrow(
+      () => svc.execute('task.upsert', { task: { id: 't-y', title: 'y2', done: true } }, { actor: 'test' }),
+      '完成待办不应要求审批',
+    )
+  })
+})
+
+test('WP4：UI 侧跳过已删除待办（静态 + 行为双证）', () => {
+  const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
+  // filteredTasks 必须跳过 deleted
+  assert.match(client, /t\?\.deleted === true \|\| \(typeof t\?\.deletedAt === 'string' && t\.deletedAt !== ''\)\) return false/,
+    'filteredTasks 必须跳过已删除待办')
+  // taskBucket 必须把 deleted 归入独立的 deleted 桶
+  assert.match(client, /return 'deleted'/, 'taskBucket 必须识别已删除待办')
+})
+
+test('WP4：UI 的 sessionId 必须来自 sessions store（不得回退到无效来源）', () => {
+  const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
+  // 断言必须**精确到实际取值处**：初始 useState 的初值表达式与订阅内的 read()。
+  // 之前只断言 /retainedBy\?\.mainView/，两处都匹配，变异改一处仍绿（复审口径的
+  // 「测试没约束到」缺口）。
+  assert.match(
+    client,
+    /const row = snap\?\.byId\s*\n\s*\? Object\.values\(snap\.byId\)\.find\(\(r\) => \(r\?\.retainedBy\?\.mainView \?\? 0\) > 0\)\s*\n\s*: undefined\s*\n\s*return row\?\.id \?\? props\.sessionId \?\? undefined/,
+    '初始 sessionId 必须来自 sessions store 的 retainedBy.mainView 行',
+  )
+  assert.match(client, /ctx\.sessions\?\.list\?\.getSnapshot/, '必须读 sessions store')
+  assert.match(client, /list\.subscribe\(read\)/, '必须订阅会话变化')
 })

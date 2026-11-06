@@ -20,6 +20,8 @@ window.__ModuleLoader__.load({
   id: '@local/dsh-workbench-ui',
   factory(require) {
     const React = require('react')
+    // 共享的 Client→Host 调用实现（与测试同一份）
+    const { callHost } = require('./host-call.mjs')
     const h = React.createElement
     const { useState, useEffect, useCallback, useMemo, useRef } = React
 
@@ -130,6 +132,8 @@ window.__ModuleLoader__.load({
     }
 
     function taskBucket(t, now) {
+      // 已软删的待办不进任何桶（复审 MAJOR：删除后仍出现在列表里）
+      if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return 'deleted'
       if (t.done === true) return 'done'
       const due = typeof t.dueAt === 'string' && t.dueAt !== '' ? new Date(t.dueAt) : null
       if (due !== null && !Number.isNaN(due.getTime()) && sameDay(due, now)) return 'today'
@@ -142,41 +146,13 @@ window.__ModuleLoader__.load({
      * 唯一 Client→Host 通道：真 commands.execute。
      * 返回 {ok, value, error}；失败**不静默**，抛给调用方显示。
      */
-    async function callHost(ctx, sessionId, req) {
-      const line = `/workbench ${JSON.stringify(req)}`
-      const result = await ctx.remote.commands.execute(sessionId, line, [])
-      if (result === undefined || result === null) {
-        return { ok: false, error: { code: 'no_result', message: 'command returned no result' } }
-      }
-      // 真 `ctx.remote.commands.execute` 的 Remote 信封（最终 Review 实锤）：
-      //   { ok: true, value: { commandId, result: { kind: 'success'|'error', text } } }
-      // 证据：dsh-client-ui-commands/lib/client.js:1718-1724 访问
-      // `result.value.result`；dsh-commands/lib/typert.remote-client.js 的
-      // commands/execute result schema；gateway encodeRpcResult 原样透传。
-      // 旧实现把 result.value 当业务 JSON 字符串，真形状下它是对象 →
-      // UI 静默空列表、命令级错误被吞。
-      if (result.ok === false) {
-        return { ok: false, error: result.error ?? { code: 'command_failed', message: 'command failed' } }
-      }
-      const envelope = result.value
-      const command = envelope !== null && typeof envelope === 'object'
-        ? envelope.result
-        : undefined
-      const text = command !== null && typeof command === 'object' && typeof command.text === 'string'
-        ? command.text
-        : (typeof envelope === 'string' ? envelope : undefined)
-      if (typeof text === 'string' && text !== '') {
-        try {
-          const decoded = JSON.parse(text)
-          if (decoded !== null && typeof decoded === 'object') return decoded
-        } catch { /* 非 JSON 文本按原样返回 */ }
-      }
-      // 命令级 error kind 也必须有明确出口，不能静默当成成功
-      if (command?.kind === 'error') {
-        return { ok: false, error: { code: 'command_error', message: text ?? 'command failed' } }
-      }
-      return { ok: true, value: text }
-    }
+    // 调用逻辑在共享模块 host-call.mjs（浏览器与 Node 共用同一份实现；
+    // 见该文件注释：此前测试用复刻实现，真 bug 复活时测试仍全绿）。
+
+    // 供测试直接 import 本模块验证真实解码（复审 N1：
+    // 测试用复刻的 decode() 会让真 bug 复活而测试全绿）。
+    // 挂在 window 上仅为测试取用；生产路径不依赖它。
+    const __test = { callHost }
 
     // --------------------------------------------------------------- 组件
     function StatusBar({ loading, error, onRetry }) {
@@ -459,6 +435,7 @@ window.__ModuleLoader__.load({
         const q = search.trim().toLowerCase()
         const now = new Date()
         return tasks.filter((t) => {
+          if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return false
           if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false
           return taskBucket(t, now) === taskFilter
         })
@@ -544,7 +521,11 @@ window.__ModuleLoader__.load({
           // （只有 task.list/task.upsert）。待办删除改为 task.upsert 打软删
           // 标记（业务层整行替换但保留任意字段），并用 event.delete 的真实
           // 审批指纹；不臆造未实现的 op。
-          const op = 'event.delete'   // 审批只认 DANGEROUS_OPS 里的真实 op
+          // **审批指纹必须与实际操作一致**：审批凭证按 (op,target,digest) 绑定，
+          // 用错 op 会得到 fingerprint-mismatch。
+          //  - 日程删除 → op = event.delete
+          //  - 待办软删 → op = task.upsert（真实在 DANGEROUS_OPS 里，且软删确实走它）
+          const op = kind === 'task' ? 'task.upsert' : 'event.delete'
           const detail = { target: id, summary: `Delete ${kind} ${id}` }
           const approval = await request({
             op: 'requestApproval',
@@ -711,6 +692,8 @@ window.__ModuleLoader__.load({
     // --------------------------------------------------------------- 注册
     return {
       inject: ['slots', 'remote', 'sessions'],
+      /** 仅供测试取用真实实现（见 __test 注释）。 */
+      __test,
       apply(ctx) {
         // factory 内不产生副作用；注册都在 apply 里，ctx.effect 负责清理
         ctx.effect(() => {

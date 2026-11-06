@@ -250,5 +250,54 @@
     "file": "workbench-core/src/host-map.js",
     "from": "        scope: state.indexMeta?.[hostId]?.scope ?? '',",
     "to": "        scope: '',"
+  },
+  {
+    "id": "W1",
+    "name": "WP4：callHost 退回扁平解码（真信封下静默空列表）",
+    "file": "packages/workbench-ui/host-call.mjs",
+    "from": "  const command = envelope !== null && typeof envelope === 'object' ? envelope.result : undefined",
+    "to": "  const command = undefined"
+  },
+  {
+    "id": "W2",
+    "name": "WP4：approval.request 丢 receiver（真审批永不签发 token）",
+    "file": "packages/workbench-ui/index.js",
+    "from": "    ? (req) => approval.request(req)",
+    "to": "    ? (req) => approval.request.call(undefined, req)"
+  },
+  {
+    "id": "W3",
+    "name": "WP4：初始 sessionId 不从 sessions store 取（UI 拿不到会话）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          const row = snap?.byId\n            ? Object.values(snap.byId).find((r) => (r?.retainedBy?.mainView ?? 0) > 0)\n            : undefined\n          return row?.id ?? props.sessionId ?? undefined",
+    "to": "          return undefined"
+  },
+  {
+    "id": "W4",
+    "name": "WP4：已软删待办仍进列表（删除对用户无效）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          if (t?.deleted === true || (typeof t?.deletedAt === 'string' && t.deletedAt !== '')) return false\n          if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false",
+    "to": "          if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false"
+  },
+  {
+    "id": "W5",
+    "name": "WP4：service task.list 不过滤已删除（删除后仍可见）",
+    "file": "workbench-core/src/service.js",
+    "from": "      return store.collection('tasks')\n        .filter((task) => includeDeleted || !isTaskDeleted(task))",
+    "to": "      return store.collection('tasks')"
+  },
+  {
+    "id": "W6",
+    "name": "WP4：软删待办不需审批（删除绕过审批门）",
+    "file": "workbench-core/src/service.js",
+    "from": "      if (isSoftDelete) {\n        requireConfirmation('task.upsert', meta, { target: task.id })\n      }",
+    "to": ""
+  },
+  {
+    "id": "W7",
+    "name": "WP4：TaskForm 编辑丢字段（subtasks/sourceSessionId 消失）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          ...(initial ?? {}),\n          id: initial?.id ?? `t-${Date.now()}",
+    "to": "          id: initial?.id ?? `t-${Date.now()}"
   }
 ]

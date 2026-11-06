@@ -265,7 +265,11 @@ export function applyWorkbenchHostService(ctx, config = {}) {
   }
   const service = createWorkbenchHostService({
     rootDir: config.rootDir,
-    requestApproval: config.approval?.request,
+    // 传**保留 receiver** 的包装（真 ApprovalService.request 用 this.decide/this.ctx），
+    // 词汇映射由 createWorkbenchHostService 内部的 hostRequest 统一做（真词汇 allowed-once）。
+    requestApproval: config.approval?.request !== undefined
+      ? (req) => config.approval.request(req)
+      : undefined,
     mode: config.mode ?? 'host',
     currentAgent: config.currentAgent,
   })

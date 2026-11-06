@@ -375,7 +375,17 @@ export function createWorkbenchService(options) {
     'store.audit': (payload = {}) => events.auditLog({ entityId: payload.entityId }),
 
     // ---- Task 门面（不改既有数据，只做统一入口） ---------------------------
-    'task.list': () => store.collection('tasks'),
+    /**
+     * 列出待办。**默认过滤已删除**（deleted/deletedAt），与 Event 侧
+     * `listActive()` 的语义一致（event-repo.js:170-172）。
+     *
+     * 复审发现：软删后待办仍出现在列表里 → 删除功能对用户完全无效。
+     */
+    'task.list': (payload = {}) => {
+      const includeDeleted = payload.includeDeleted === true
+      return store.collection('tasks')
+        .filter((task) => includeDeleted || !isTaskDeleted(task))
+    },
     'task.upsert': (payload, meta) => {
       const task = payload?.task
       if (task === null || typeof task !== 'object' || Array.isArray(task)) {
@@ -383,6 +393,25 @@ export function createWorkbenchService(options) {
       }
       if (typeof task.id !== 'string' || task.id === '') {
         throw validationError('task.id 必须是非空字符串')
+      }
+      /**
+       * **条件审批**（复审 MAJOR 修复）：
+       *
+       * 复审发现软删绕过审批门（`task.upsert` 从不调 requireConfirmation，
+       * token 可伪造）。但不能一律审批——新建待办是正常路径（授权要求
+       * 「快速创建」「创建和完成待办」顺畅），一律要审批会把体验打崩。
+       *
+       * 语义对齐 Event 侧（`event.create` 不在危险清单，`event.update` 需要）：
+       *   - **新建**待办 → 不需要审批
+       *   - **编辑/完成**既有待办 → 不需要审批（授权要求「创建和完成待办」顺畅）
+       *   - **软删**待办（deleted/deletedAt）→ 需要审批（破坏性）
+       *
+       * 指纹用 task.id，凭证仍只能由宿主签发。
+       */
+      const isSoftDelete = task.deleted === true
+        || (typeof task.deletedAt === 'string' && task.deletedAt !== '')
+      if (isSoftDelete) {
+        requireConfirmation('task.upsert', meta, { target: task.id })
       }
       store.mutate((draft) => {
         const index = draft.tasks.findIndex((row) => row.id === task.id)
@@ -452,6 +481,13 @@ export function createWorkbenchService(options) {
       return Object.keys(ops).sort()
     },
   }
+}
+
+/** 待办是否已被软删（deleted 标记或 deletedAt 时间戳）。 */
+function isTaskDeleted(task) {
+  if (task === null || typeof task !== 'object') return false
+  if (task.deleted === true) return true
+  return typeof task.deletedAt === 'string' && task.deletedAt !== ''
 }
 
 function requireId(payload, field) {

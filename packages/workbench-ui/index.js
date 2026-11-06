@@ -87,12 +87,19 @@ export function apply(ctx, config = {}) {
   // without inject」在隔离 profile 里让整个插件无法激活。
   // 缺失时 createWorkbenchHostService 会 fail-closed（危险操作拿不到 token），
   // 与 dsh-user-approval 的 'unavailable' 语义一致。
-  const approval = typeof ctx.get === 'function' ? ctx.get('approval') : undefined
+  // approval 来源：**config.approval 优先**（与 workbench-core 的
+  // applyWorkbenchHostService 一致），ctx.get('approval') 作为兜底
+  // （宿主直接 provide 了 approval 服务时可用）。
+  const approval = config.approval
+    ?? (typeof ctx.get === 'function' ? ctx.get('approval') : undefined)
   // **最终 Review BLOCKER 修复**：不能把 `approval.request` 当裸函数抽出——
   // 真 ApprovalService.request 内部用 `this.decide(...)` / `this.ctx`，
   // 裸调用会抛 "Cannot read properties of undefined (reading 'decide')"。
   // 真消费者（dsh-tools:3551）都是 `approval.request({...})` 绑定调用。
   // 这里传一个保留 receiver 的箭头包装。
+  // **词汇由 workbench-core 的 hostRequest 统一映射**（真宿主返回
+  // 'allowed-once'|'rejected'|'cancelled'|'unavailable'；gate 认 'approved'/'denied'）。
+  // 这里只保证 receiver 不丢（真 ApprovalService.request 内部用 this.decide/this.ctx）。
   const requestApproval = (approval !== undefined && typeof approval.request === 'function')
     ? (req) => approval.request(req)
     : undefined
