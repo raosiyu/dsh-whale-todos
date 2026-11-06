@@ -174,7 +174,9 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
 | 1 | `1a2c7ef` | 🔴 REQUEST CHANGES（5 blocker） | 全部修复 → `836ce52` |
 | 2 | `836ce52` | 🔴 REQUEST CHANGES（1 MAJOR + 4 MINOR） | 全部修复 → `24ba56b` |
 | 3 | `548be95` | 🔴 REQUEST CHANGES（1 blocker + 1 MAJOR） | 全部修复 → `bf1c657` |
-| 4 | `bf1c657` | 见 `evidence/wp4/final-review/REVIEW-round4.md` | — |
+| 4 | `bf1c657` | 两路冲突：子 Agent APPROVE WITH NITS / workflow REQUEST CHANGES（**BLOCKER-4**：`ctx.approval.request` 只能在回合内发起，UI 删除拿不到 token） | 修 BLOCKER-4 + N1→`dd99ae6` |
+| 5 | `595d1d0` | 两路冲突：子 Agent APPROVE WITH NITS / workflow REQUEST CHANGES（3 blocker：`event.restore` 审批旁路、文档假断言、`ConfirmDelete` 漏传 `t` + 提交信息谎报） | 三条全部修复 → `dd99ae6` |
+| 收口 | `dd99ae6` | 见 `evidence/wp4/final-review/REVIEW-closing.md` | — |
 
 ### 三轮抓到的实质缺陷（不粉饰）
 
@@ -187,6 +189,22 @@ Quick Look、模拟 React-DOM 或另起浏览器补截图。
   而 `EventForm`/`TaskForm`/`ConfirmDelete` 是工厂作用域的兄弟函数 → 渲染即
   `ReferenceError` → **整个工作台白屏**。同轮 MAJOR：没有任何测试渲染组件，
   267 条全绿也测不出这个必崩缺陷。
+- **第 4 轮 BLOCKER-4**：真 `ApprovalService.request` 只在**模型回合内**有效
+  （`dsh-user-approval/README.md:153`），而 UI 删除是回合外用户操作 → 删除在真实
+  浏览器里永远拿不到 token。改法与宿主边界见 `docs/wp4/02-approval-model.md`。
+- **第 5 轮 3 条 blocker**：`event.restore` 审批旁路（无凭证即可悄悄恢复已删事件）、
+  审批模型文档的**假安全断言**、`ConfirmDelete` 漏传 `t`（且我上一轮提交信息**谎报**
+  已修——这次补了真实调用点与测试）。
+
+### 一条必须写下来的教训
+
+第 5 轮里我写了一句提交信息说「已修复第四轮的 `ConfirmDelete` 漏传 `t`」，**但那次提交根本没碰
+那个调用点**。Review 把它查出来了。
+
+**提交信息不是证据。** 第五轮之所以能抓到它，是因为 reviewer 逐字核对了 diff；
+如果没人核对，这个谎报就会留在仓库里。同一轮它还发现
+`docs/wp4/02-approval-model.md` 里我写下的「`snapshot.replace` 拿不到」——而它就在
+`DANGEROUS_OPS` 里。**文档里的安全断言同样要能被证伪。**
 
 **共同教训**：前三轮抓到的两个「必崩」缺陷，静态断言全都测不出
 （`require('./x')` 相对路径在浏览器模块表里不存在；`t` 越出作用域）。
