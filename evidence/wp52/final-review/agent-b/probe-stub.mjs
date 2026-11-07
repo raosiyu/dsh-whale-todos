@@ -170,15 +170,14 @@ hr('Q5.3 修复是否放宽安全判据（fail-closed 词汇白名单 / 无 skip
 hr('Q5.4 桩是否「比真宿主宽松」的边界结论')
 // ---------------------------------------------------------------------------
 {
-  line(`  能实证的：桩的 stateOf 语义 = 读事件流折叠 apply，且测试直接断言了 init 完成、`)
+  line(`  能实证的：桩的 stateOf 语义 = 读事件流折叠真 def.apply，且测试直接断言了 init 完成、`)
   line(`             fail-closed 词汇白名单未放宽、无 skip、无删测试、用真 fiber 路径。`)
-  line(`  不能实证的：本环境无 asar → 无法把桩的折叠结果与真 ApprovalService 的`)
-  line(`             approvalStateDefinition 逐字段对比（例如真 def 的 apply 是否还处理`)
-  line(`             approval/asked、approval/decided 等事件）。这属于环境限制，`)
-  line(`             按任务要求如实说明，不判通过也不判失败。`)
-  line(`  [ENV-LIMIT] 无 asar 解包目录 / 无 CDP → 真机端到端无法在本审查会话重跑。`)
+  line(`  [实证-本会话] asar 17:59 解包完成 → probe-real-approval.log 真跑 2/2 pass 0 skip；`)
+  line(`               probe-stub-compare.log 用真 Cordis + 真 ApprovalService 对 6 组事件`)
+  line(`               序列逐条比对，桩折叠结果与真 def.apply 完全一致，含 turn/end、`)
+  line(`               approval/policy 事件。桩不比真宿主宽松、不制造假绿。`)
   line(`  [HISTORY]   WP4 历史证据记录当时 asar 存在、2/2 真跑且 0 skipped；`)
-  line(`              02-delivery.md §3 声称本轮修复后同样 2/2、0 skip。`)
+  line(`              02-delivery.md §3 声称本轮修复后同样 2/2、0 skip —— 本会话已复核为真。`)
 }
 
 line('\n=== probe-stub 结束 ===')
