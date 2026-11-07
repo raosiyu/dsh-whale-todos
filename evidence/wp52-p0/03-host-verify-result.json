@@ -1,0 +1,112 @@
+{
+  "pid": 31178,
+  "sessionId": "session-bba1bc1d-1c83-41a3-8266-4f8c2831fd28",
+  "results": [
+    {
+      "scope": "a::b",
+      "rounds": [
+        {
+          "created": 0,
+          "unchanged": 0,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        }
+      ],
+      "hostActive": 1
+    },
+    {
+      "scope": "proj:sub",
+      "rounds": [
+        {
+          "created": 0,
+          "unchanged": 0,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        }
+      ],
+      "hostActive": 1
+    },
+    {
+      "scope": "x:y:z",
+      "rounds": [
+        {
+          "created": 0,
+          "unchanged": 0,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        }
+      ],
+      "hostActive": 1
+    },
+    {
+      "scope": "中文:作用域",
+      "rounds": [
+        {
+          "created": 0,
+          "unchanged": 0,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        }
+      ],
+      "hostActive": 1
+    },
+    {
+      "scope": "",
+      "rounds": [
+        {
+          "created": 0,
+          "unchanged": 0,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        },
+        {
+          "created": 0,
+          "unchanged": 1,
+          "failed": 0
+        }
+      ],
+      "hostActive": 1
+    }
+  ],
+  "allOk": false
+}

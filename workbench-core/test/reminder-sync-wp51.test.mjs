@@ -22,6 +22,7 @@ import {
   identityOfHostRecord,
   ownershipOf,
   IDENTITY_MARK_OPEN,
+  IDENTITY_FORMAT_V2,
   MAX_REMINDER_PROMPT,
   MAX_REMINDER_TITLE,
   recordOf,
@@ -118,16 +119,38 @@ const mkEvent = (id, title, start, extra = {}) => ({
 
 // ---------------------------------------------------------------- 身份与标题
 
-test('reminderIdentity：身份含类型 + scope + id，不含时间与标题', () => {
-  // 空 scope 用 '_' 占位，避免与真实 scope 值歧义
-  assert.equal(reminderIdentity('task', 't1'), 'task:_:t1')
-  assert.equal(reminderIdentity('event-start', 'e1'), 'event-start:_:e1')
+test('reminderIdentity：身份含类型 + scope + id，不含时间与标题，且带版本标识', () => {
+  // WP5.2-P0：格式改为 `wb2.<kind>.<b64url(scope)>.<b64url(entityId)>`
+  const id0 = reminderIdentity('task', 't1')
+  assert.ok(id0.startsWith(`${IDENTITY_FORMAT_V2}.`), `必须带版本前缀，实际 ${id0}`)
+  assert.equal(id0.split('.').length, 4, '段数固定为 4')
   // 带 scope：不同 scope 必须算出不同身份（审查 P0-4）
-  assert.equal(reminderIdentity('task', 't1', 'projA'), 'task:projA:t1')
   assert.notEqual(reminderIdentity('task', 't1', 'projA'), reminderIdentity('task', 't1', 'projB'))
   assert.notEqual(reminderIdentity('task', 't1', 'projA'), reminderIdentity('task', 't1'))
+  assert.notEqual(reminderIdentity('task', 't1', ''), reminderIdentity('task', 't1', '_'),
+    '空 scope 与真实 scope "_" 必须可区分（旧格式在此撞车）')
   // 同一实体的身份恒定 —— 改期/改标题只走 update，不换身份
   assert.equal(reminderIdentity('task', 't1', 's'), reminderIdentity('task', 't1', 's'))
+})
+
+test('WP5.2-P0：任意 scope/entityId 的编码解码必须完全一致（含冒号与 Unicode）', () => {
+  const scopes = ['', '_', 'projA', 'a::b', 'proj:sub', 'x:y:z', '中文作用域',
+    'with space', 'dots.in.scope', 'emoji🙂', 'a.b::c', 'tab\there', ']]', '[[wb:']
+  const ids = ['t1', 'a::b', 'id:with:colons', '中文id', 'x.y', 'a]]b']
+  for (const sc of scopes) {
+    for (const eid of ids) {
+      const id = reminderIdentity('task', eid, sc)
+      const d = decodeIdentity(id)
+      assert.ok(d !== null, `必须可解：scope=${JSON.stringify(sc)} id=${JSON.stringify(eid)}`)
+      assert.equal(d.kind, 'task')
+      assert.equal(d.scope, sc, `scope 往返失败：${JSON.stringify(sc)}`)
+      assert.equal(d.entityId, eid, `entityId 往返失败：${JSON.stringify(eid)}`)
+      assert.notEqual(d.legacyAmbiguous, true, 'v2 不得标记为歧义')
+    }
+  }
+  // event-start 同样成立
+  const ev = reminderIdentity('event-start', 'e:1', 'a::b')
+  assert.deepEqual(decodeIdentity(ev), { kind: 'event-start', scope: 'a::b', entityId: 'e:1' })
 })
 
 test('reminderTitle：空标题兜底、超长截断到 Host 上限 120', () => {
@@ -141,8 +164,8 @@ test('reminderTitle：空标题兜底、超长截断到 Host 上限 120', () => 
 })
 
 test('encodePrompt / identityOfHostRecord：标记可往返，且不会被正文里的字样误判', () => {
-  const encoded = encodePrompt('正文', 'task:t1')
-  assert.equal(identityOfHostRecord({ prompt: encoded }), 'task:t1')
+  const encoded = encodePrompt('正文', reminderIdentity('task','t1'))
+  assert.equal(identityOfHostRecord({ prompt: encoded }), reminderIdentity('task','t1'))
   // 非本插件写入的记录（无标记）必须返回 null，绝不误删
   assert.equal(identityOfHostRecord({ prompt: '用户自己建的提醒' }), null)
   assert.equal(identityOfHostRecord({}), null)
@@ -151,13 +174,30 @@ test('encodePrompt / identityOfHostRecord：标记可往返，且不会被正文
   assert.equal(identityOfHostRecord({ prompt: '[[wb:task:t9]] 后面的正文' }), null)
 })
 
-test('decodeIdentity：能解出类型、scope 与实体 id（兼容旧两段格式）', () => {
-  assert.deepEqual(decodeIdentity('task:_:t1'), { kind: 'task', scope: '', entityId: 't1' })
-  assert.deepEqual(decodeIdentity('task:projA:t1'), { kind: 'task', scope: 'projA', entityId: 't1' })
-  assert.deepEqual(decodeIdentity('event-start:_:e1'), { kind: 'event-start', scope: '', entityId: 'e1' })
-  // 旧格式（无 scope）仍能解，scope 视为空
-  assert.deepEqual(decodeIdentity('task:t1'), { kind: 'task', scope: '', entityId: 't1' })
+test('decodeIdentity：v2 无歧义；v1 旧格式可识别但标记 legacyAmbiguous', () => {
+  // v2：干净解出
+  assert.deepEqual(decodeIdentity(reminderIdentity('task', 't1', 'projA')),
+    { kind: 'task', scope: 'projA', entityId: 't1' })
+
+  // v1 三段，scope 无歧义 → 不标记
+  assert.deepEqual(decodeIdentity('task:projA:t1'),
+    { kind: 'task', scope: 'projA', entityId: 't1' })
+
+  // v1 三段，`_` 占位与真实 scope `_` 撞车 → 标记歧义（安全侧）
+  assert.equal(decodeIdentity('task:_:t1').legacyAmbiguous, true)
+  assert.equal(decodeIdentity('event-start:_:e1').legacyAmbiguous, true)
+
+  // v1 两段（不含第二个冒号）：必然是「无 scope」，但 entityId 边界仍不可知 → 标记歧义
+  assert.equal(decodeIdentity('task:t1').legacyAmbiguous, true)
+  // v1 三段且 scope 名、id 都不含冒号：按 v1 规范解释为 scope='a', id='b'（无歧义）
+  assert.deepEqual(decodeIdentity('task:a:b'), { kind: 'task', scope: 'a', entityId: 'b' })
+  // v1 三段但 id 自身含冒号 → 与「无 scope」撞车 → 标记歧义
+  assert.equal(decodeIdentity('task:projA:a:b').legacyAmbiguous, true)
+
   assert.equal(decodeIdentity('nonsense'), null)
+  assert.equal(decodeIdentity(''), null)
+  assert.equal(decodeIdentity('wb2.bad'), null, 'v2 段数不足必须拒绝')
+  assert.equal(decodeIdentity('wb2.unknown.aS5.dA'), null, '未知 kind 必须拒绝')
 })
 
 // ---------------------------------------------------------------- 期望集合推导
@@ -204,41 +244,42 @@ test('reminderForEvent：全天日程不提醒，非法 start 显式上报', () 
 // ---------------------------------------------------------------- 差异
 
 test('diffReminders：只对变化项产出 update，未变化进 unchanged', () => {
+  const K = reminderIdentity('task', 't1')
   const existing = [{
     id: 'h1',
     title: 'A',
-    prompt: encodePrompt('待办「A」到期了。', 'task:t1'),
+    prompt: encodePrompt('待办「A」到期了。', K),
     scheduledAt: '2026-11-08T12:00:00.000Z',
   }]
-  const same = new Map([['task:t1', {
-    identity: 'task:t1', title: 'A', prompt: '待办「A」到期了。',
+  const same = new Map([[K, {
+    identity: K, title: 'A', prompt: '待办「A」到期了。',
     fireAtMs: Date.parse('2026-11-08T12:00:00.000Z'),
   }]])
   const d1 = diffReminders(existing, same)
   assert.equal(d1.toUpdate.length, 0)
   assert.equal(d1.toCreate.length, 0)
   assert.equal(d1.toDelete.length, 0)
-  assert.deepEqual(d1.unchanged, ['task:t1'])
+  assert.deepEqual(d1.unchanged, [K])
 
   // **W52 锁**：比较基准必须是**编码后**的 prompt。
   //
   // 实测修复前（拿 want.prompt 直接比），同一份数据每次 reconcile 都被判成
   // 「需要更新」：R2/R3 恒为 updated:2，幂等彻底失效。
   // 这里的判据是反向的：Host 上已有的就是编码后的文本，因此**必须判为未变化**。
-  const d2 = diffReminders([{ ...existing[0], prompt: encodePrompt('待办「A」到期了。', 'task:t1') }], same)
+  const d2 = diffReminders([{ ...existing[0], prompt: encodePrompt('待办「A」到期了。', K) }], same)
   assert.equal(d2.toUpdate.length, 0, '编码后的 prompt 与自身相等 → 不得 update')
-  assert.deepEqual(d2.unchanged, ['task:t1'])
+  assert.deepEqual(d2.unchanged, [K])
 
   // 而正文真的变了，仍然要 update（否则修幂等就修成了「永不更新」）
-  const d3 = diffReminders([{ ...existing[0], prompt: encodePrompt('正文已改', 'task:t1') }], same)
+  const d3 = diffReminders([{ ...existing[0], prompt: encodePrompt('正文已改', K) }], same)
   assert.equal(d3.toUpdate.length, 1, '正文变化必须 update')
 
   // 改期 → update
-  const moved = new Map([['task:t1', { ...same.get('task:t1'), fireAtMs: Date.parse('2026-11-09T12:00:00.000Z') }]])
+  const moved = new Map([[K, { ...same.get(K), fireAtMs: Date.parse('2026-11-09T12:00:00.000Z') }]])
   assert.equal(diffReminders(existing, moved).toUpdate.length, 1)
 
   // 改标题 → update
-  const renamed = new Map([['task:t1', { ...same.get('task:t1'), title: 'A2' }]])
+  const renamed = new Map([[K, { ...same.get(K), title: 'A2' }]])
   assert.equal(diffReminders(existing, renamed).toUpdate.length, 1)
 
   // 期望为空 → delete
@@ -441,7 +482,8 @@ test('desiredFrom：task 与 event 同时参与，身份不串', async () => {
     events: [mkEvent('e1', '日程', '2026-11-09T09:00:00')],
   })
   assert.equal(problems.length, 0)
-  assert.deepEqual([...desired.keys()].sort(), ['event-start:_:e1', 'task:_:t1'])
+  assert.deepEqual([...desired.keys()].sort(),
+    [reminderIdentity('event-start', 'e1'), reminderIdentity('task', 't1')].sort())
 })
 
 // ---------------------------------------------------------------- X10 补测
@@ -483,7 +525,7 @@ test('P0-1：不得跨 session 删除别人的提醒（catalog 是全表）', as
   // session-B 已有一条本插件提醒
   await sched.create('session-B', {
     title: 'B 的提醒',
-    prompt: encodePrompt('B 正文', 'task:_:tb'),
+    prompt: encodePrompt('B 正文', reminderIdentity('task', 'tb')),
     at: '2026-11-10T12:00:00.000Z',
   })
   const bRow = [...sched.rows.values()][0]
@@ -528,27 +570,27 @@ test('P0-1：update 返回 updated:false 时必须计入 failed', async () => {
 
 test('P0-2：超长正文截断后，身份标记仍必须完整保留', () => {
   const longBody = 'x'.repeat(3000)
-  const encoded = encodePrompt(longBody, 'task:_:t1')
+  const encoded = encodePrompt(longBody, reminderIdentity('task','t1'))
   assert.ok(encoded.length <= MAX_REMINDER_PROMPT, '长度仍受控')
-  assert.equal(identityOfHostRecord({ prompt: encoded }), 'task:_:t1',
+  assert.equal(identityOfHostRecord({ prompt: encoded }), reminderIdentity('task','t1'),
     '截断只能截正文，标记必须保留 —— 否则该记录永远认不出、永远删不掉')
   assert.ok(encoded.includes('[[wb:'), '标记左半可见')
   assert.ok(encoded.trimEnd().endsWith(']]'), '标记右半可见')
 })
 
 test('P0-2：正文正好等于预算时必须原样保留，不被误截', () => {
-  const tagLen = ` ${IDENTITY_MARK_OPEN}task:_:t1]]`.length
+  const tagLen = ` ${IDENTITY_MARK_OPEN}${reminderIdentity('task','t1')}]]`.length
   const body = 'y'.repeat(MAX_REMINDER_PROMPT - tagLen)
-  const encoded = encodePrompt(body, 'task:_:t1')
+  const encoded = encodePrompt(body, reminderIdentity('task','t1'))
   assert.equal(encoded.length, MAX_REMINDER_PROMPT)
-  assert.equal(identityOfHostRecord({ prompt: encoded }), 'task:_:t1')
+  assert.equal(identityOfHostRecord({ prompt: encoded }), reminderIdentity('task','t1'))
 })
 
 test('P0-3：用户手写的纯文本标记不被认领（必须带不可见前缀）', () => {
   // 自然打字出来的（无零宽前缀）→ 不认领，避免误删用户自建提醒
   assert.equal(identityOfHostRecord({ prompt: '我的提醒 [[wb:task:victim]]' }), null)
   // 本插件写的（带前缀）→ 认领
-  assert.equal(identityOfHostRecord({ prompt: encodePrompt('x', 'task:_:t1') }), 'task:_:t1')
+  assert.equal(identityOfHostRecord({ prompt: encodePrompt('x', reminderIdentity('task','t1')) }), reminderIdentity('task','t1'))
 })
 
 test('P0-4：不同 scope 的同一实体互不覆盖', async () => {
@@ -573,9 +615,9 @@ test('P0-4：不同 scope 的同一实体互不覆盖', async () => {
 // ============================== WP5.2：身份标记只做识别，不做认证
 
 test('WP5.2：ownershipOf 分级 —— 只有自洽的才允许删', () => {
-  const owned = encodePrompt('x', 'task:_:t1')
-  const otherScope = encodePrompt('x', 'task:projB:t1')
-  const otherKind = encodePrompt('x', 'event-start:_:t1')
+  const owned = encodePrompt('x', reminderIdentity('task', 't1'))
+  const otherScope = encodePrompt('x', reminderIdentity('task', 't1', 'projB'))
+  const otherKind = encodePrompt('x', reminderIdentity('event-start', 't1'))
 
   // 自洽 → owned
   assert.equal(ownershipOf({ prompt: owned }, { scope: '' }).level, 'owned')
@@ -649,8 +691,8 @@ test('WP5.2：删除的唯一依据是「本同步器创建过」，不是标记
   const sync = createReminderSync({ schedule: sched, now: () => NOW })
 
   // 三种记录都带完美自洽的标记，但都不是本同步器建的
-  await sched.create('s1', { title: 'A', prompt: encodePrompt('x', 'task:_:a'), at: '2026-11-20T10:00:00.000Z' })
-  await sched.create('s1', { title: 'B', prompt: encodePrompt('x', 'task:_:b'), at: '2026-11-20T11:00:00.000Z' })
+  await sched.create('s1', { title: 'A', prompt: encodePrompt('x', reminderIdentity('task', 'a')), at: '2026-11-20T10:00:00.000Z' })
+  await sched.create('s1', { title: 'B', prompt: encodePrompt('x', reminderIdentity('task', 'b')), at: '2026-11-20T11:00:00.000Z' })
   const ids = [...sched.rows.keys()]
   assert.equal(ids.length, 2)
 
@@ -703,7 +745,7 @@ test('WP5.2：白名单必须跨进程存活（否则重启后永远清不掉孤
   const sync1 = createReminderSync({ schedule: sched1, now: () => NOW, ownershipFor })
   await sync1.reconcile('s1', { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] })
   assert.equal(sched1.rows.size, 1)
-  assert.deepEqual(disk.get('s1|'), ['task:_:t1'], '创建必须落盘')
+  assert.deepEqual(disk.get('s1|'), [reminderIdentity('task','t1')], '创建必须落盘')
 
   // 进程 2：全新实例，读同一份磁盘 —— 必须认得这条是自己的
   const sched2 = fakeSchedule()
@@ -721,7 +763,7 @@ test('WP5.2：加载失败时退化为空集 = 少删，不得多删', async () 
     save: () => { throw new Error('disk on fire') },
   })
   const sched = fakeSchedule()
-  await sched.create('s1', { title: 'A', prompt: encodePrompt('x', 'task:_:t1'), at: '2026-11-20T10:00:00.000Z' })
+  await sched.create('s1', { title: 'A', prompt: encodePrompt('x', reminderIdentity('task','t1')), at: '2026-11-20T10:00:00.000Z' })
   const id = [...sched.rows.keys()][0]
 
   const sync = createReminderSync({ schedule: sched, now: () => NOW, ownershipFor: badFor })
@@ -742,7 +784,7 @@ test('WP5.2：不同 scope 的白名单互不共享（A 的授权不能给 B 用
   const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
 
   await sync.reconcile('s1', data, 'projA')
-  assert.deepEqual(disk.get('s1|projA'), ['task:projA:t1'])
+  assert.deepEqual(disk.get('s1|projA'), [reminderIdentity('task','t1','projA')])
   assert.equal(disk.get('s1|projB'), undefined, 'B 不该有 A 的记录')
 
   // projB 对空数据对账：不得删除 A 的
@@ -789,7 +831,7 @@ test('WP5.2/Z4：读失败时白名单为空集，不得信任任何记录', asy
     save: () => {},
   })
   const sched = fakeSchedule()
-  await sched.create('s1', { title: '用户自建', prompt: encodePrompt('x', 'task:_:victim'), at: '2026-11-20T10:00:00.000Z' })
+  await sched.create('s1', { title: '用户自建', prompt: encodePrompt('x', reminderIdentity('task', 'victim')), at: '2026-11-20T10:00:00.000Z' })
   const id = [...sched.rows.keys()][0]
 
   const sync = createReminderSync({ schedule: sched, now: () => NOW, ownershipFor: badFor })
@@ -809,7 +851,7 @@ test('WP5.2/Y15：跨 session 的记录不进入本 session 的 diff', async () 
   const sched = fakeSchedule()
   await sched.create('session-B', {
     title: 'B 的提醒',
-    prompt: encodePrompt('B 正文', 'task:_:tb'),
+    prompt: encodePrompt('B 正文', reminderIdentity('task', 'tb')),
     at: '2026-11-10T12:00:00.000Z',
   })
   const sync = createReminderSync({ schedule: sched, now: () => NOW })
@@ -857,8 +899,8 @@ test('WP5.2/Z2-b：同一 session 下不同 scope 不得共享白名单（真正
   const b = saves.find((s) => s.scope === 'projB')
   assert.ok(a !== undefined, 'projA 必须落盘')
   assert.ok(b !== undefined, 'projB 必须落盘')
-  assert.deepEqual(a.ids, ['task:projA:t1'])
-  assert.deepEqual(b.ids, ['task:projB:t1'], '两个 scope 的 identity 不得混在一起')
+  assert.deepEqual(a.ids, [reminderIdentity('task','t1','projA')])
+  assert.deepEqual(b.ids, [reminderIdentity('task','t1','projB')], '两个 scope 的 identity 不得混在一起')
   assert.equal(disk.get('s1|projA').length, 1)
   assert.equal(disk.get('s1|projB').length, 1)
 })
@@ -882,4 +924,125 @@ test('WP5.2/审查8：被安全排除的记录必须上报（不静默）', asyn
     assert.ok(typeof o.id === 'string')
     assert.ok(typeof o.reason === 'string' || o.reason === null)
   }
+})
+
+// ================================ WP5.2-P0：身份编码与重复投递修复
+
+test('WP5.2-P0：含冒号/Unicode/特殊字符的 scope 必须编码解码完全一致', () => {
+  const scopes = ['', '_', 'projA', 'a::b', 'proj:sub', 'x:y:z', '中文:作用域',
+    'with space', 'dots.in.scope', 'emoji🙂', 'a.b::c', 'tab\there', ']]', '[[wb:', 'a/b?c#d%d']
+  const entityIds = ['t1', 'a::b', 'id:with:colons', '中文id', 'x.y', 'a]]b', 'e/1?2#3', '']
+  for (const sc of scopes) {
+    for (const eid of entityIds) {
+      if (eid === '') continue // 空 entityId 不属于合法输入
+      const id = reminderIdentity('task', eid, sc)
+      const d = decodeIdentity(id)
+      assert.ok(d !== null, `必须可解 scope=${JSON.stringify(sc)} id=${JSON.stringify(eid)}`)
+      assert.equal(d.kind, 'task')
+      assert.equal(d.scope, sc, `scope 往返失败 ${JSON.stringify(sc)}`)
+      assert.equal(d.entityId, eid, `entityId 往返失败 ${JSON.stringify(eid)}`)
+      assert.notEqual(d.legacyAmbiguous, true, 'v2 不得标记歧义')
+    }
+  }
+})
+
+test('WP5.2-P0：空 scope 与真实 scope "_" 必须产生不同身份（旧格式在此撞车）', () => {
+  const a = reminderIdentity('task', 't1', '')
+  const b = reminderIdentity('task', 't1', '_')
+  assert.notEqual(a, b, '空 scope 与 "_" 必须可区分')
+  assert.equal(decodeIdentity(a).scope, '')
+  assert.equal(decodeIdentity(b).scope, '_')
+})
+
+test('WP5.2-P0：身份必须带版本标识，且段数固定', () => {
+  const id = reminderIdentity('task', 't1', 'a::b')
+  assert.ok(id.startsWith(`${IDENTITY_FORMAT_V2}.`), `必须带版本前缀，实际 ${id}`)
+  assert.equal(id.split('.').length, 4, '段数固定为 4（base64url 不含 .）')
+})
+
+test('WP5.2-P0：含冒号 scope 连续 reconcile 不得重复 create（核心回归）', async () => {
+  for (const scope of ['a::b', 'proj:sub', 'x:y:z', '中文:作用域', '']) {
+    const sched = fakeSchedule()
+    const sync = createReminderSync({ schedule: sched, now: () => NOW })
+    const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
+
+    const r1 = await sync.reconcile('s1', data, scope)
+    const r2 = await sync.reconcile('s1', data, scope)
+    const r3 = await sync.reconcile('s1', data, scope)
+
+    assert.equal(r1.created, 1, `scope=${JSON.stringify(scope)} 首次应建 1 条`)
+    assert.equal(sched.calls.create.length, 1,
+      `scope=${JSON.stringify(scope)} 三次 reconcile 只能 create 1 次（否则重复投递）`)
+    assert.equal(sched.rows.size, 1, `scope=${JSON.stringify(scope)} Host 只能有 1 条 active`)
+    assert.equal(r2.unchanged, 1)
+    assert.equal(r3.unchanged, 1)
+  }
+})
+
+test('WP5.2-P0：跨进程重启后身份仍一致，不重复创建', async () => {
+  const disk = new Map()
+  const ownershipFor = (sid, sc) => ({
+    load: () => disk.get(`${sid}|${sc}`) ?? [],
+    save: (ids) => disk.set(`${sid}|${sc}`, [...ids]),
+  })
+  const scope = 'a::b'
+  const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
+
+  const s1 = fakeSchedule()
+  const sync1 = createReminderSync({ schedule: s1, now: () => NOW, ownershipFor })
+  await sync1.reconcile('s1', data, scope)
+  assert.equal(s1.rows.size, 1)
+  assert.deepEqual(disk.get(`s1|${scope}`), [reminderIdentity('task', 't1', scope)])
+
+  // 新实例模拟重启：共享磁盘 + 共享 Host 数据
+  const s2 = fakeSchedule()
+  for (const row of s1.rows.values()) s2.rows.set(row.id, { ...row })
+  const sync2 = createReminderSync({ schedule: s2, now: () => NOW, ownershipFor })
+  const r2 = await sync2.reconcile('s1', data, scope)
+  assert.equal(r2.created, 0, '重启后不得重复创建')
+  assert.equal(r2.unchanged, 1)
+  assert.equal(s2.rows.size, 1, 'Host 上仍只有 1 条')
+})
+
+test('WP5.2-P0：v1 坏记录无法确认归属时不得删除（保守）', async () => {
+  const sched = fakeSchedule()
+  // v1 旧格式，scope 含冒号 → 边界已丢失
+  await sched.create('s1', {
+    title: '旧提醒',
+    prompt: '正文 \u200B\u2060[[wb:task:a::b:t1]]',
+    at: '2026-11-08T12:00:00.000Z',
+  })
+  const oldId = [...sched.rows.keys()][0]
+
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+  const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
+  const r = await sync.reconcile('s1', data, 'a::b')
+
+  assert.equal(r.legacyMigrated, 0, '归属不可确认时不得迁移/删除')
+  assert.equal(sched.rows.has(oldId), true, '旧记录必须保留')
+  assert.ok(r.legacyKept.some((x) => x.id === oldId), '旧记录必须被上报')
+  // 但新记录只建 1 条，后续不再重复
+  assert.equal(r.created, 1)
+  const r2 = await sync.reconcile('s1', data, 'a::b')
+  assert.equal(r2.created, 0)
+  /**
+   * `sched.calls.create` 里含「塞旧记录」那 1 次 + 新建 v2 的 1 次 = 2。
+   * 这里要断言的是**reconcile 自身只建了 1 条**，所以看 report 而非调用总数。
+   */
+  assert.equal(r.created + r2.created, 1, 'v2 幂等：两次 reconcile 合计只建 1 条新记录')
+  assert.equal(sched.rows.size, 2, 'Host 上应为「1 条旧记录 + 1 条 v2 新记录」')
+})
+
+test('WP5.2-P0：ownershipOf 必须把 v1 歧义记录判 suspect（否则旧坏记录会被当 owned 误删）', () => {
+  // v1 三段 + `_` 占位（歧义）
+  assert.equal(ownershipOf({ prompt: '\u200B\u2060[[wb:task:_:t1]]' }, { scope: '' }).level, 'suspect')
+  // v1 两段（歧义）
+  assert.equal(ownershipOf({ prompt: '\u200B\u2060[[wb:task:t1]]' }, { scope: '' }).level, 'suspect')
+  // v1 三段但 id 含冒号（歧义）
+  assert.equal(ownershipOf({ prompt: '\u200B\u2060[[wb:task:projA:a:b]]' }, { scope: 'projA' }).level, 'suspect')
+  // 理由必须是 legacy-identity-ambiguous，便于上层识别
+  const own = ownershipOf({ prompt: '\u200B\u2060[[wb:task:_:t1]]' }, { scope: '' })
+  assert.equal(own.reason, 'legacy-identity-ambiguous')
+  // 对照：v2 干净身份必须判 owned（不能被上面误伤）
+  assert.equal(ownershipOf({ prompt: encodePrompt('x', reminderIdentity('task', 't1')) }, { scope: '' }).level, 'owned')
 })

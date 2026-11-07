@@ -1,0 +1,23 @@
+  使用一手源码: /private/tmp/wp4r3/asar/dsh/node_modules/@deepseek-ai/dsh-schedule/lib/index.js
+[PASS] 至少有一份 dsh-schedule 一手源码可核对
+
+========== D1 drive() 全表扫描 + 按 record.id 去重（不是按 prompt/identity） ==========
+  drive 全表 active 扫描=true  handled 去重键=record.id=true  group 分流=true
+[PASS] drive() 按 task.record.id 逐条处理，重复注册的不同 id 不会被合并
+
+========== D2 batchSessionOf：一次性 at 任务不 batch（各自独立投递） ==========
+  batchSessionOf 仅对 recurring session 任务返回 sessionId=true
+[PASS] 一次性 at 任务 batchSessionOf→undefined → group=[task] → 独立 send()
+  reminder-sync 源码: /Users/sylas/Developer/dsh-workbench/workbench-core/src/reminder-sync.js
+  reminder-sync create 用 at=true update 用 kind:'at'=true
+[PASS] WP5.2 提醒是一次性 at 任务（非 recurring）→ 不 batch
+
+========== D3 结论链 ==========
+  含冒号 scope（probe-scope-colon 实证 3 次写 → 3 条 active 提醒，不同 id、同 scheduledAt）
+  + drive() 全表扫 active、按 record.id 去重、at 任务不 batch（一手源码）
+  + deliverDue 每个 group 一次 send() → 每个 group 一条 user/message
+  = 到点后同一提醒内容产生 3 条独立 user/message → 真实重复投递（P0）
+  注：不是「一条 batch 消息里列 3 条」——那需要 recurring + target.kind==="session"，
+      本插件的 at 任务不满足，故不合并。
+
+=== probe-delivery-semantics 结束 ===

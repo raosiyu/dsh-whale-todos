@@ -865,13 +865,6 @@
     "to": "  const m = /\\[\\[wb:([^\\]]+)\\]\\]\\s*$/.exec(prompt)"
   },
   {
-    "id": "Y19",
-    "name": "wp51：identity 不含 scope（不同 scope 互相覆盖）",
-    "file": "workbench-core/src/reminder-sync.js",
-    "from": "  return `${kind}:${scopeKey}:${String(entityId)}`",
-    "to": "  return `${kind}:${String(entityId)}`"
-  },
-  {
     "id": "Y20",
     "name": "wp52：ownershipOf 不校验 scope（跨 scope 互相删除）",
     "file": "workbench-core/src/reminder-sync.js",
@@ -933,5 +926,33 @@
     "file": "workbench-core/src/reminder-sync.js",
     "from": "          level: own.level,",
     "to": "          level: 'unknown',"
+  },
+  {
+    "id": "P1",
+    "name": "wp52-p0：identity 退回冒号拼接（scope 含冒号即重复创建）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "  return `${IDENTITY_FORMAT_V2}.${kind}.${b64urlEncode(scope === '' ? '' : String(scope))}.${b64urlEncode(String(entityId))}`",
+    "to": "  return `${kind}:${scope === '' ? '_' : String(scope)}:${String(entityId)}`"
+  },
+  {
+    "id": "P2",
+    "name": "wp52-p0：v2 解码忽略版本前缀（老正则解新格式）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "  if (identity.startsWith(`${IDENTITY_FORMAT_V2}.`)) {",
+    "to": "  if (false) {"
+  },
+  {
+    "id": "P3",
+    "name": "wp52-p0：空 scope 与 _ 占位符重新撞车",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "  return `${IDENTITY_FORMAT_V2}.${kind}.${b64urlEncode(scope === '' ? '' : String(scope))}.${b64urlEncode(String(entityId))}`",
+    "to": "  return `${IDENTITY_FORMAT_V2}.${kind}.${b64urlEncode(scope === '' ? '_' : String(scope))}.${b64urlEncode(String(entityId))}`"
+  },
+  {
+    "id": "P4",
+    "name": "wp52-p0：v1 歧义不标记（旧坏记录被当 owned 误删）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "  if (parts.legacyAmbiguous === true) {\n    return { level: 'suspect', identity, reason: 'legacy-identity-ambiguous' }\n  }",
+    "to": "  if (false) {\n    return { level: 'suspect', identity, reason: 'legacy-identity-ambiguous' }\n  }"
   }
 ]

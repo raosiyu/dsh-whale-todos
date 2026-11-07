@@ -102,10 +102,60 @@ export function reminderIdentity(kind, entityId, scope = '') {
    * 实体就会算出同一个 identity → 后一轮把前一轮的记录 update 掉 →
    * **两个 scope 的提醒互相踩踏，且不报错**。
    *
-   * scope 为空时用固定占位 `_`，避免 `''` 与某种 scope 值产生歧义。
+   * ## 为什么不再用 `kind:scope:entityId` 拼接（WP5.2-P0）
+   *
+   * 拼接有两个不可修复的歧义：
+   *  1. scope 自身含冒号 → `a::b` 被 `decodeIdentity` 的 `([^:]*)` 截成 `a`；
+   *  2. 空 scope 用 `_` 占位 → 真实 scope 就叫 `_` 时与空 scope 撞成同一个身份。
+   *
+   * 两者都会让「自家记录」解不出正确 scope → `ownershipOf` 判 `suspect` →
+   * 每轮 reconcile 都重新 `create`，而 Host 的 `drive()` 按 `record.id`
+   * 去重、`at` 任务不 batch，于是**到点重复投递 N 次**。
+   *
+   * ## 新格式：带版本标识的定长段编码
+   *
+   *   `wb2.<kind>.<b64url(scope)>.<b64url(entityId)>`
+   *
+   * - `wb2` 是版本标识，旧 `kind:scope:entityId` 与 `kind:entityId` 可被识别；
+   * - base64url 字母表不含 `.`，所以**任意** scope / entityId（含冒号、Unicode、
+   *   换行、`]]` 等）都不会破坏分段，且解码后逐字节还原；
+   * - 空 scope 编码成空串，不再是占位符，`''` 与 `'_'` 各自有唯一编码。
+   *
+   * 不可逆风险为零：base64url 是标准可逆编码，仅作用域内使用。
+   *
+   * @param {'task'|'event-start'} kind
+   * @param {string} entityId
+   * @param {string} [scope]
+   * @returns {string}
    */
-  const scopeKey = scope === '' ? '_' : String(scope)
-  return `${kind}:${scopeKey}:${String(entityId)}`
+  return `${IDENTITY_FORMAT_V2}.${kind}.${b64urlEncode(scope === '' ? '' : String(scope))}.${b64urlEncode(String(entityId))}`
+}
+
+/** 新版身份格式的版本前缀。 */
+export const IDENTITY_FORMAT_V2 = 'wb2'
+
+/** 合法的提醒实体类型。 */
+export const IDENTITY_KINDS = Object.freeze(['task', 'event-start'])
+
+/**
+ * 标准 base64url 编码（RFC 4648 §5），无填充。
+ *
+ * 字母表 `A-Za-z0-9-_` 不含 `.`，这正是它能安全用作分段分隔的理由。
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function b64urlEncode(text) {
+  return Buffer.from(String(text), 'utf8').toString('base64url')
+}
+
+/**
+ * base64url 解码；非法输入抛错由调用方兜住。
+ * @param {string} text
+ * @returns {string}
+ */
+function b64urlDecode(text) {
+  return Buffer.from(String(text), 'base64url').toString('utf8')
 }
 
 /**
@@ -330,6 +380,17 @@ export function ownershipOf(row, context = {}) {
     // 有标记但格式不对：可能是用户照着写的，也可能格式演进过 —— 不确定就保留
     return { level: 'suspect', identity, reason: 'undecodable-identity' }
   }
+  /**
+   * v1 旧格式本身有损（含冒号 scope 已写坏、`_` 占位与真实 scope `_` 撞车）。
+   * 解出来的 scope 不可全信 → 一律 `suspect`，走保守路径。
+   *
+   * 为什么是 `suspect` 而不是直接 `foreign`：若是我们自己早先写的旧记录，
+   * 判 foreign 会让它永远清不掉（孤儿）；判 suspect 至少能被上报、被人工处置，
+   * 同时**不会**被当作 owned 去删。
+   */
+  if (parts.legacyAmbiguous === true) {
+    return { level: 'suspect', identity, reason: 'legacy-identity-ambiguous' }
+  }
   if (context.scope !== undefined) {
     const wantScope = context.scope === '' ? '' : String(context.scope)
     if (parts.scope !== wantScope) {
@@ -369,15 +430,71 @@ export function recordOf(entry) {
  * @returns {{ kind: 'task'|'event-start', entityId: string } | null}
  */
 export function decodeIdentity(identity) {
-  if (typeof identity !== 'string') return null
-  // 新格式 `kind:scope:entityId`；兼容旧格式 `kind:entityId`（scope 视为空）
+  if (typeof identity !== 'string' || identity === '') return null
+
+  /**
+   * ## v2：无歧义，直接解
+   *
+   * `wb2.<kind>.<b64url(scope)>.<b64url(entityId)>`
+   *
+   * 段数固定为 4，base64url 不含 `.`，所以 split('.') 不会切错。
+   */
+  if (identity.startsWith(`${IDENTITY_FORMAT_V2}.`)) {
+    const parts = identity.split('.')
+    if (parts.length !== 4) return null
+    const [, kind, scopeB64, entityB64] = parts
+    if (!IDENTITY_KINDS.includes(kind)) return null
+    try {
+      return { kind, scope: b64urlDecode(scopeB64), entityId: b64urlDecode(entityB64) }
+    } catch {
+      // 非法 base64 → 当作认不出的旧记录，交给调用方按 suspect 保留
+      return null
+    }
+  }
+
+  /**
+   * ## v1：有损格式，只能尽力而为
+   *
+   * 存在两种历史写法，且**本身就有歧义**：
+   *   - 三段：`kind:scope:entityId`（空 scope 写作 `_`）
+   *   - 两段：`kind:entityId`（更早，无 scope）
+   *
+   * `a::b` 这类含冒号 scope 在三段格式里**已经写坏**（存进去的字符串本身
+   * 丢失了边界），任何解码都无法还原原 scope。因此这里只做**保守解码**：
+   * 能确定就返回，不能确定返回 null，由 `ownershipOf` 判 `suspect` 保留，
+   * 绝不因为解错而误删或误判 owned。
+   *
+   * 空 scope 的 `_` 占位与真实 scope `_` 无法区分 —— 这是 v1 的固有缺陷，
+   * 归类为 `suspect` 是安全侧：宁可重建一条新格式记录，也不误删用户数据。
+   */
   const m3 = /^(task|event-start):([^:]*):(.+)$/.exec(identity)
   if (m3 !== null) {
-    return { kind: m3[1], scope: m3[2] === '_' ? '' : m3[2], entityId: m3[3] }
+    const scopeRaw = m3[2]
+    const rest = m3[3]
+    /**
+     * `kind:A:B` 同时可能是「scope=A, id=B」与「无 scope, id=A:B」两种写法，
+     * 单看字符串**无法判定**是哪种 —— 这是 v1 的固有歧义。
+     *
+     * 唯一可判定为**无歧义**的情形：原样是 `kind:<非空且非'_'的scope>:<不含冒号的id>`
+     * 且该 scope 不是空占位。除此之外一律标记 `legacyAmbiguous`，
+     * 走 `suspect` 保守路径（保留、不删、不当作 owned）。
+     */
+    const idLooksAtomic = !rest.includes(':')
+    const scopeLooksReal = scopeRaw !== '' && scopeRaw !== '_'
+    if (idLooksAtomic && scopeLooksReal) {
+      return { kind: m3[1], scope: scopeRaw, entityId: rest }
+    }
+    return {
+      kind: m3[1],
+      scope: scopeRaw === '_' ? '' : scopeRaw,
+      entityId: rest,
+      legacyAmbiguous: true,
+    }
   }
   const m2 = /^(task|event-start):(.+)$/.exec(identity)
   if (m2 === null) return null
-  return { kind: m2[1], scope: '', entityId: m2[2] }
+  // 两段格式：entityId 自身可能含冒号，无法判断原始边界 → 标记歧义
+  return { kind: m2[1], scope: '', entityId: m2[2], legacyAmbiguous: true }
 }
 
 /**
@@ -586,6 +703,55 @@ export function createReminderSync(options) {
   }
 
   /**
+   * 收集「可安全迁移的 v1 旧格式记录」（WP5.2-P0 要求 3）。
+   *
+   * ## 为什么要单独一条通道
+   *
+   * v1 的 `kind:scope:entityId` 在 scope 含冒号时**已经写坏**，`decodeIdentity`
+   * 只能标 `legacyAmbiguous` 并判 `suspect`。而 `ownHostRecords` 只返回 `owned`，
+   * 所以这些旧记录永远进不了差异计算 —— 结果是：
+   *
+   *   旧记录（v1）留在 Host + 本轮又建一条新记录（v2）
+   *   → 到点两条都 due → **仍然重复投递**
+   *
+   * 因此必须有一条受控的迁移通道把它们清掉。
+   *
+   * ## 安全边界（严格）
+   *
+   * 只收集同时满足以下条件的记录，缺一不可：
+   *  1. 标记能被 `identityOfHostRecord` 解出（是我们写的格式）；
+   *  2. `decodeIdentity` 标了 `legacyAmbiguous`（确实是 v1 旧格式）；
+   *  3. **sessionId 与本次一致**（不碰别人的）；
+   *  4. 解出的 kind 是合法类型。
+   *
+   * 即便满足，**也不在这里删** —— 交由 `reconcile` 在确认「v2 新记录已存在」
+   * 之后才删，见下方 `legacyToRemove` 逻辑。找不到归属的一律保留。
+   *
+   * @returns {Promise<Array<{id: string, identity: string}>>}
+   */
+  async function legacyHostRecords(sessionId, scope = '') {
+    const all = await schedule.catalog()
+    const rows = Array.isArray(all) ? all : []
+    const out = []
+    for (const row of rows) {
+      if (row.sessionId !== sessionId) continue
+      const identity = identityOfHostRecord(row)
+      if (identity === null) continue
+      const parts = decodeIdentity(identity)
+      if (parts === null || parts.legacyAmbiguous !== true) continue
+      if (!IDENTITY_KINDS.includes(parts.kind)) continue
+      /**
+       * v1 解出的 scope 不可信（正是它坏了）。这里不按 scope 精确匹配，
+       * 只保留「可能与本 scope 相关」的记录 —— 判定交给后面的
+       * 「同名实体在新格式里确实已存在」这一步，那才是真正的安全闸门。
+       */
+      out.push({ id: row.id, identity, decoded: parts })
+    }
+    void scope
+    return out
+  }
+
+  /**
    * 对齐：把 Host 上的提醒改造成与当前数据一致。
    *
    * 执行顺序刻意是 **create → update → delete**：
@@ -606,6 +772,8 @@ export function createReminderSync(options) {
       created: 0, updated: 0, deleted: 0, unchanged: 0,
       kept: [],
       observed: [],
+      legacyMigrated: 0,
+      legacyKept: [],
       failed: [],
       problems: [],
       catalogAvailable: true,
@@ -742,6 +910,83 @@ export function createReminderSync(options) {
           reason: String(error?.code ?? error?.message ?? error),
         })
       }
+    }
+
+    /**
+     * ---------------------------------------------------------------
+     * v1 → v2 受控迁移（WP5.2-P0 要求 3）
+     * ---------------------------------------------------------------
+     *
+     * 目的：清掉「已写坏的 v1 旧记录」，否则它和本轮新建的 v2 记录会同时
+     * 到点各投递一次，等于 P0 换了个形式复发。
+     *
+     * **三道闸门，缺一不可**：
+     *  1. 旧记录必须能被识别为我们写的 v1 格式（`legacyHostRecords` 已筛）；
+     *  2. 同一 (kind, entityId) 的 **v2 新记录必须已经存在于 Host 上**
+     *     —— 先建后删，任何时刻都不存在「删了还没建好」的空窗；
+     *  3. 删除走的是 `schedule.delete({sessionId, id})`，Host 侧 sessionId
+     *     不匹配会返回 `{deleted:false}`，我们检查返回值，不计假成功。
+     *
+     * 不满足 2 的一律**保留**并记入 `report.legacyKept`：宁可留旧记录，
+     * 也不在没有替代品时删掉它（那会让提醒彻底消失）。
+     */
+    report.legacyMigrated = 0
+    report.legacyKept = []
+    try {
+      const legacy = await legacyHostRecords(sessionId, scope)
+      if (legacy.length > 0) {
+        // 当前 Host 上现存的 v2 身份集合（用于闸门 2）
+        const liveV2 = new Set()
+        for (const row of await schedule.catalog()) {
+          if (row.sessionId !== sessionId) continue
+          const idt = identityOfHostRecord(row)
+          if (idt === null) continue
+          if (idt.startsWith(`${IDENTITY_FORMAT_V2}.`)) liveV2.add(idt)
+        }
+        for (const oldRow of legacy) {
+          /**
+           * **含冒号的 v1 记录无法可靠还原 entityId**：
+           *
+           *   `task:a::b:t1` → { scope:'a', entityId:':b:t1' }   ← 边界已丢
+           *
+           * 也就是说「这条旧记录对应哪个实体」在字符串层面**已经不可知**。
+           * 拿这个错位的 entityId 去算 v2 身份，只会得到一个对不上的 key，
+           * 于是永远匹配不到替代品。
+           *
+           * 更危险的是：如果我们换个宽松闸门（比如「本 scope 已有 v2 记录
+           * 就删旧记录」），就可能删掉一条其实对应**另一个实体**的旧记录 ——
+           * 那是误删，用户那条提醒会真的消失。
+           *
+           * 所以：**不删**。统一记入 `legacyKept` 上报，交人工/后续工具处置。
+           * 同时新记录走 v2 身份，不会因为旧记录存在而重复创建
+           * （这正是本次 P0 修复的核心）。
+           */
+          const wantV2 = reminderIdentity(oldRow.decoded.kind, oldRow.decoded.entityId, scope)
+          if (!liveV2.has(wantV2)) {
+            report.legacyKept.push({
+              id: oldRow.id,
+              identity: oldRow.identity,
+              reason: oldRow.decoded.legacyAmbiguous === true && oldRow.identity.includes('::')
+                ? 'v1-boundary-lost'
+                : 'no-v2-replacement',
+            })
+            continue
+          }
+          try {
+            const res = await schedule.delete({ sessionId, id: oldRow.id })
+            if (res !== null && typeof res === 'object' && res.deleted === false) {
+              report.legacyKept.push({ id: oldRow.id, identity: oldRow.identity, reason: String(res.code ?? 'delete-not-applied') })
+            } else {
+              report.legacyMigrated += 1
+            }
+          } catch (error) {
+            report.legacyKept.push({ id: oldRow.id, identity: oldRow.identity, reason: String(error?.code ?? error?.message ?? error) })
+          }
+        }
+      }
+    } catch (error) {
+      // 迁移失败不影响主流程，但要可见
+      report.legacyKept.push({ id: null, identity: null, reason: `legacy-scan-failed: ${String(error?.message ?? error)}` })
     }
 
     report.unchanged = plan.unchanged.length
