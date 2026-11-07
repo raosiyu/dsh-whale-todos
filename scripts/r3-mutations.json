@@ -498,7 +498,7 @@
   {
     "name": "WP5-UI：主列表不再排除已归档待办（B2 双渲染）",
     "file": "packages/workbench-ui/client.js",
-    "from": "    if (t?.archived === true) return false",
+    "from": "    if (task?.archived === true) return false",
     "to": "    if (false) return false"
   },
   {
@@ -528,14 +528,14 @@
   {
     "name": "WP5-UI：排序索引基退回未排序数组（B4 写错顺序）",
     "file": "packages/workbench-ui/client.js",
-    "from": "        const groupRows = tasks\n          .filter((t) => (t.project ?? null) === groupId && t.archived !== true)\n          .sort(byOrder)",
-    "to": "        const groupRows = tasks\n          .filter((t) => (t.project ?? null) === groupId && t.archived !== true)"
+    "from": "        const groupRows = tasks\n          .filter((task) => (task.project ?? null) === groupId && task.archived !== true)\n          .sort(byOrder)",
+    "to": "        const groupRows = tasks\n          .filter((task) => (task.project ?? null) === groupId && task.archived !== true)"
   },
   {
     "name": "WP5-UI：ICS 计数本地重算且 unsupported 硬写 0（B5）",
     "file": "packages/workbench-ui/client.js",
-    "from": "    unsupported: Number(c.unsupported ?? 0),",
-    "to": "    unsupported: 0,"
+    "from": "    unsupported,\n    degraded,",
+    "to": "    unsupported: 0,\n    degraded,"
   },
   {
     "name": "core：series 移动不给脏母体补时区（null 永久留在盘上）",
@@ -560,8 +560,8 @@
     "id": "W36",
     "name": "WP5-UI：buildIcsCounts 丢弃 degraded（降级条目被当成新增）",
     "file": "packages/workbench-ui/client.js",
-    "from": "    degraded: Number(c.degraded ?? 0),",
-    "to": "    degraded: 0,"
+    "from": "    degraded,\n    removed: Number(c.removed ?? 0),",
+    "to": "    degraded: 0,\n    removed: Number(c.removed ?? 0),"
   },
   {
     "id": "W37",
@@ -637,8 +637,8 @@
     "id": "W47",
     "name": "ui：buildIcsCounts 用 skip 兜底 duplicate（「重复0/跳过1」显示成重复0）",
     "file": "packages/workbench-ui/client.js",
-    "from": "    duplicate: Number(c.duplicate ?? 0),\n    skip: Number(c.skip ?? 0),",
-    "to": "    duplicate: Number(c.duplicate ?? c.skip ?? 0),\n    skip: Number(c.skip ?? 0),"
+    "from": "    duplicate,\n    skip,",
+    "to": "    duplicate: Number(c.duplicate ?? c.skip ?? 0),\n    skip,"
   },
   {
     "id": "W48",
@@ -702,5 +702,40 @@
     "from": "onClick: () => setSelected({ kind: 'task', ...row }) }, '…'),",
     "to": "onClick: () => setSelected({ kind: 'task', ...t }) }, '…'),",
     "desc": "ui：详情按钮展开 t（函数对象），选中项为空"
+  },
+  {
+    "name": "W57",
+    "file": "packages/workbench-ui/client.js",
+    "from": "onClick: () => toggleTask(row),",
+    "to": "onClick: () => toggleTask(t),",
+    "desc": "ui：完成按钮把本地化函数 t 当待办传（t 是函数，task.id 缺失 → 完成/重开 100% 失败）"
+  },
+  {
+    "name": "W58",
+    "file": "packages/workbench-ui/client.js",
+    "from": "const target = tasks.find((x) => x.id === id) ?? { id }",
+    "to": "const t = tasks.find((x) => x.id === id) ?? { id }",
+    "desc": "ui：删除路径用 t 作局部变量，遮蔽翻译函数 → 同作用域 t(…) 全部 TypeError"
+  },
+  {
+    "name": "W59",
+    "file": "packages/workbench-ui/client.js",
+    "from": "return (tasks ?? []).filter((task) => {",
+    "to": "return (tasks ?? []).filter((t) => {",
+    "desc": "ui：纯数据过滤退回 t 变量名（本文件约定 t 只表示翻译函数）"
+  },
+  {
+    "id": "W60",
+    "name": "ui：ICS 计数把服务端兼容字段 skip 原样透出（冲突被重复数成跳过）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "  const skip = Math.max(0, Number(c.skip ?? 0) - duplicate - conflict - unsupported)",
+    "to": "  const skip = Number(c.skip ?? 0)"
+  },
+  {
+    "id": "W61",
+    "name": "ui：ICS 计数 skip 扣减漏掉 conflict（冲突仍被重复计数）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "  const skip = Math.max(0, Number(c.skip ?? 0) - duplicate - conflict - unsupported)",
+    "to": "  const skip = Math.max(0, Number(c.skip ?? 0) - duplicate - unsupported)"
   }
 ]

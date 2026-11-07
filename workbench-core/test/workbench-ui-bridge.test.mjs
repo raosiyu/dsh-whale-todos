@@ -613,8 +613,10 @@ test('WP4：UI 侧跳过已删除待办（静态 + 行为双证）', () => {
   // 并要求所有过滤点都复用它 —— 比原先「某处出现过这个正则」更强。
   assert.match(client, /function isSoftDeleted\(t\) \{\s*\n\s*return t\?\.deleted === true \|\| \(typeof t\?\.deletedAt === 'string' && t\.deletedAt !== ''\)/,
     '必须存在唯一的 isSoftDeleted 实现')
-  // 过滤点必须调用它，不得再抄一遍条件
-  const callSites = (client.match(/isSoftDeleted\(t\)/g) ?? []).length
+  // 过滤点必须调用它，不得再抄一遍条件。
+  // 实参名不锁死：本文件约定 `t` 只表示翻译函数，数据变量叫 task/row，
+  // 所以这里统计任意实参的调用点，否则改名就会误伤这条断言。
+  const callSites = (client.match(/isSoftDeleted\(\w+\)/g) ?? []).length
   assert.ok(callSites >= 3, `isSoftDeleted 至少被 3 处复用（filteredTasks / archivedTasks / taskBucket），实际 ${callSites} 处`)
   // taskBucket 必须把 deleted 归入独立的 deleted 桶
   assert.match(client, /return 'deleted'/, 'taskBucket 必须识别已删除待办')

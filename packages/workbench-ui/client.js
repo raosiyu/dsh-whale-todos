@@ -94,6 +94,34 @@ window.__ModuleLoader__.load({
       "openDetails": "Details of {title}",
       "complete": "Complete",
       "reopen": "Reopen",
+      "noActiveSession": "No active session; open the workbench from a conversation",
+      "missingSourceDate": "Missing source date for this occurrence; reload and retry",
+      "allDay": "All day",
+      "time": "Time",
+      "date": "Date",
+      "repeat": "Repeat",
+      "priority": "Priority",
+      "priorityLow": "Low",
+      "priorityNormal": "Normal",
+      "priorityHigh": "High",
+      "confirmDelete": "Confirm delete",
+      "approvalNotGranted": "Host approval was not granted",
+      "taskReopened": "Task reopened",
+      "taskCompleted": "Task completed",
+      "deletedAfterApproval": "Deleted after Host approval",
+      "edit": "Edit",
+      "deleteAction": "Delete…",
+      "close": "Close",
+      "deleteSummary": "Delete {kind}",
+      "confirmDeleteHint": "This requires Host approval before deleting “{label}”.",
+      "requestingApproval": "Requesting approval…",
+      "requestApprovalDelete": "Request approval & delete",
+      "fieldTitle": "Title",
+      "dueAtLabel": "Due (ISO instant)",
+      "nothingToUndo": "Nothing to undo",
+      "nothingToRedo": "Nothing to redo",
+      "archiveHint": "Archive this task",
+      "new": "New",
       "fieldId": "ID",
       "untitledEvent": "untitled event",
       "selectToSeeDetails": "Select an event or task to see details",
@@ -237,6 +265,34 @@ window.__ModuleLoader__.load({
       "openDetails": "查看 {title} 详情",
       "complete": "完成",
       "reopen": "重新打开",
+      "noActiveSession": "没有活动会话，请从对话中打开鲸鱼待办",
+      "missingSourceDate": "这个实例缺少源日，请刷新后重试",
+      "allDay": "全天",
+      "time": "时间",
+      "date": "日期",
+      "repeat": "重复",
+      "priority": "优先级",
+      "priorityLow": "低",
+      "priorityNormal": "普通",
+      "priorityHigh": "高",
+      "confirmDelete": "确认删除",
+      "approvalNotGranted": "宿主审批未通过",
+      "taskReopened": "待办已重新打开",
+      "taskCompleted": "待办已完成",
+      "deletedAfterApproval": "已通过宿主审批删除",
+      "edit": "编辑",
+      "deleteAction": "删除…",
+      "close": "关闭",
+      "deleteSummary": "删除{kind}",
+      "confirmDeleteHint": "删除“{label}”需要宿主审批。",
+      "requestingApproval": "正在申请审批…",
+      "requestApprovalDelete": "申请审批并删除",
+      "fieldTitle": "标题",
+      "dueAtLabel": "到期时间（ISO 时刻）",
+      "nothingToUndo": "没有可撤销的操作",
+      "nothingToRedo": "没有可重做的操作",
+      "archiveHint": "归档这个待办",
+      "new": "新建",
       "fieldId": "ID",
       "untitledEvent": "未命名日程",
       "selectToSeeDetails": "选中一个日程或待办查看详情",
@@ -514,12 +570,12 @@ function isSoftDeleted(t) {
  */
 function filterTasksForView(tasks, { search = '', taskFilter, now } = {}) {
   const q = String(search ?? '').trim().toLowerCase()
-  return (tasks ?? []).filter((t) => {
-    if (isSoftDeleted(t)) return false
+  return (tasks ?? []).filter((task) => {
+    if (isSoftDeleted(task)) return false
     // 归档 = 收起来，不是删掉；但主列表也不该再显示它
-    if (t?.archived === true) return false
-    if (q !== '' && !String(t.title ?? '').toLowerCase().includes(q)) return false
-    return taskBucket(t, now ?? new Date()) === taskFilter
+    if (task?.archived === true) return false
+    if (q !== '' && !String(task.title ?? '').toLowerCase().includes(q)) return false
+    return taskBucket(task, now ?? new Date()) === taskFilter
   })
 }
 
@@ -624,15 +680,32 @@ function buildIcsCounts(serverCounts) {
    *   真实值（缺省 0）即可；硬写 0 会和 snapshot.preview 的
    *   removedEvents/removedTasks 自相矛盾。
    */
+  const duplicate = Number(c.duplicate ?? 0)
+  const conflict = Number(c.conflict ?? 0)
+  const unsupported = Number(c.unsupported ?? 0)
+  const degraded = Number(c.degraded ?? 0)
+  /**
+   * 服务端的 `skip` 是**兼容字段**，定义是「非 create 的总数」：
+   *   skip = duplicate + conflict + unsupported
+   * （见 service.js 的 event.previewIcs：`plan.filter(x => x.action !== 'create')`）
+   *
+   * UI 把 duplicate / conflict / unsupported 各自单独成行，若再把原始 skip
+   * 原样显示，同一条会被数两次。实测 2 条冲突 → 「冲突 2」+「跳过 2」，
+   * 用户以为 4 条有问题，实际只有 2 条。
+   *
+   * 所以这里只保留**真正「其它原因」**的部分：从 skip 里扣掉已经单独
+   * 展示的三类。扣成负数说明服务端口径变了，钳到 0 并在测试里锁住。
+   */
+  const skip = Math.max(0, Number(c.skip ?? 0) - duplicate - conflict - unsupported)
   return {
     create: Number(c.create ?? 0),
     // duplicate 不得拿 skip 兜底：服务端给了 duplicate:0 / skip:1 时，
     // 兜底会把「跳过 1 条」显示成「重复 0 条」，用户以为没有重复，实际有 1 条被跳过。
-    duplicate: Number(c.duplicate ?? 0),
-    skip: Number(c.skip ?? 0),
-    conflict: Number(c.conflict ?? 0),
-    unsupported: Number(c.unsupported ?? 0),
-    degraded: Number(c.degraded ?? 0),
+    duplicate,
+    skip,
+    conflict,
+    unsupported,
+    degraded,
     removed: Number(c.removed ?? 0),
   }
 }
@@ -651,13 +724,13 @@ function byOrder(a, b) {
   return ao - bo
 }
 
-function taskBucket(t, now) {
+function taskBucket(task, now) {
       // 已软删的待办不进任何桶（复审 MAJOR：删除后仍出现在列表里）
-      if (isSoftDeleted(t)) return 'deleted'
-      if (t.done === true) return 'done'
-      const due = typeof t.dueAt === 'string' && t.dueAt !== '' ? new Date(t.dueAt) : null
+      if (isSoftDeleted(task)) return 'deleted'
+      if (task.done === true) return 'done'
+      const due = typeof task.dueAt === 'string' && task.dueAt !== '' ? new Date(task.dueAt) : null
       if (due !== null && !Number.isNaN(due.getTime()) && sameDay(due, now)) return 'today'
-      if (t.status === 'in_progress') return 'doing'
+      if (task.status === 'in_progress') return 'doing'
       return 'planned'
     }
 
@@ -878,10 +951,10 @@ function taskBucket(t, now) {
           },
           onDragEnd: () => set(null),
         },
-          h('span', null, e.allDay === true ? 'All day' : fmtTime(e.start)),
+          h('span', null, e.allDay === true ? t('allDay') : fmtTime(e.start)),
           h('span', { style: { flex: 1 } }, e.title || '(untitled)'),
-          e.recurrence ? h('span', { className: 'wb-badge' }, 'Repeat') : null,
-          e.conflict === true ? h('span', { className: 'wb-badge' }, 'Conflict') : null)
+          e.recurrence ? h('span', { className: 'wb-badge' }, t('repeat')) : null,
+          e.conflict === true ? h('span', { className: 'wb-badge' }, t('fieldConflict')) : null)
         const more = h('button', {
           className: 'wb-btn', type: 'button',
           'aria-label': t('openLabel').replace('{title}', e.title || t('untitledEvent')),
@@ -1024,15 +1097,15 @@ function taskBucket(t, now) {
         onSave(payload)
       }
       return h('form', { className: 'wb-form', onSubmit: submit },
-        h('label', null, 'Title',
+        h('label', null, t('fieldTitle'),
           h('input', { className: 'wb-input', value: title, onChange: (e) => setTitle(e.target.value), required: true, autoFocus: true })),
-        h('label', null, 'Date',
+        h('label', null, t('date'),
           h('input', { className: 'wb-input', type: 'date', value: date, onChange: (e) => setDate(e.target.value) })),
-        h('label', null, 'All day',
+        h('label', null, t('allDay'),
           h('input', { type: 'checkbox', checked: allDay, onChange: (e) => setAllDay(e.target.checked), style: { minHeight: '44px', minWidth: '44px' } })),
-        allDay ? null : h('label', null, 'Time',
+        allDay ? null : h('label', null, t('time'),
           h('input', { className: 'wb-input', type: 'time', value: time, onChange: (e) => setTime(e.target.value) })),
-        h('label', null, 'Description',
+        h('label', null, t('fieldDescription'),
           h('input', { className: 'wb-input', value: description, onChange: (e) => setDescription(e.target.value) })),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { className: 'wb-btn wb-btn-primary', type: 'submit', disabled: saving }, saving ? t('saving') : t('save')),
@@ -1067,16 +1140,16 @@ function taskBucket(t, now) {
         onSave(next)
       }
       return h('form', { className: 'wb-form', onSubmit: submit },
-        h('label', null, 'Title',
+        h('label', null, t('fieldTitle'),
           h('input', { className: 'wb-input', value: title, onChange: (e) => setTitle(e.target.value), required: true, autoFocus: true })),
-        h('label', null, 'Due (ISO instant)',
+        h('label', null, t('dueAtLabel'),
           h('input', { className: 'wb-input', value: dueAt, onChange: (e) => setDueAt(e.target.value), placeholder: '2026-11-10T09:00:00Z' })),
         formError === null ? null : h('div', { className: 'wb-preview-warn', role: 'alert' }, formError),
-        h('label', null, 'Priority',
+        h('label', null, t('priority'),
           h('select', { className: 'wb-input', value: priority, onChange: (e) => setPriority(e.target.value) },
-            h('option', { value: 'low' }, 'Low'),
-            h('option', { value: 'normal' }, 'Normal'),
-            h('option', { value: 'high' }, 'High'))),
+            h('option', { value: 'low' }, t('priorityLow')),
+            h('option', { value: 'normal' }, t('priorityNormal')),
+            h('option', { value: 'high' }, t('priorityHigh')))),
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
           h('button', { className: 'wb-btn wb-btn-primary', type: 'submit', disabled: saving }, saving ? t('saving') : t('save')),
           h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel'))))
@@ -1084,12 +1157,12 @@ function taskBucket(t, now) {
 
     function ConfirmDelete({ label, onConfirm, onCancel, approving, t = defaultT }) {
       useEscapeClose(onCancel)
-      return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Confirm delete' },
+      return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('confirmDelete') },
         h('div', { className: 'wb-overlay-panel' },
           h('h2', null, t('delete'), '?'),
-          h('p', null, `This requires Host approval before deleting “${label}”.`),
+          h('p', null, t('confirmDeleteHint').replace('{label}', label)),
           h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-            h('button', { className: 'wb-btn wb-btn-danger', type: 'button', disabled: approving, onClick: onConfirm }, approving ? 'Requesting approval…' : 'Request approval & delete'),
+            h('button', { className: 'wb-btn wb-btn-danger', type: 'button', disabled: approving, onClick: onConfirm }, approving ? t('requestingApproval') : t('requestApprovalDelete')),
             h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel')))))
     }
 
@@ -1191,7 +1264,7 @@ function taskBucket(t, now) {
        */
       const load = useCallback(async (keepFeedback = false) => {
         if (typeof sessionId !== 'string' || sessionId === '') {
-          setError('No active session; open the workbench from a conversation')
+          setError(t('noActiveSession'))
           return
         }
         setLoading(true)
@@ -1355,10 +1428,10 @@ function taskBucket(t, now) {
        */
       const groupedTasks = useMemo(() => {
         const groups = new Map()
-        for (const t of filteredTasks) {
-          const key = t.project ?? null
+        for (const task of filteredTasks) {
+          const key = task.project ?? null
           if (!groups.has(key)) groups.set(key, [])
-          groups.get(key).push(t)
+          groups.get(key).push(task)
         }
         const rows = []
         for (const [project, list] of groups) {
@@ -1376,11 +1449,11 @@ function taskBucket(t, now) {
       /** 已归档的待办单独一区：它们仍在库里、仍可被 AI 读到，只是收起来了。 */
       const archivedTasks = useMemo(() => {
         const q = search.trim().toLowerCase()
-        return tasks.filter((t) => {
-          if (t?.archived !== true) return false
+        return tasks.filter((task) => {
+          if (task?.archived !== true) return false
           // deleted 优先：归档后又删掉的，不再显示在归档区
-          if (isSoftDeleted(t)) return false
-          return q === '' || String(t.title ?? '').toLowerCase().includes(q)
+          if (isSoftDeleted(task)) return false
+          return q === '' || String(task.title ?? '').toLowerCase().includes(q)
         })
       }, [tasks, search])
 
@@ -1388,9 +1461,9 @@ function taskBucket(t, now) {
       const nudgeTask = async (groupId, id, delta) => {
         // 与渲染、reorderTasks 共用同一个比较器，避免索引基漂移
         const rows = tasks
-          .filter((t) => (t.project ?? null) === groupId && t.archived !== true)
+          .filter((task) => (task.project ?? null) === groupId && task.archived !== true)
           .sort(byOrder)
-        const i = rows.findIndex((t) => t.id === id)
+        const i = rows.findIndex((task) => task.id === id)
         const j = i + delta
         if (i < 0 || j < 0 || j >= rows.length) return
         await reorderTasks(groupId, id, rows[j].id)
@@ -1517,10 +1590,10 @@ function taskBucket(t, now) {
          * 而 tasks 数组是存储序。两个基不一致时拼出的 ids 不是用户意图。
          */
         const groupRows = tasks
-          .filter((t) => (t.project ?? null) === groupId && t.archived !== true)
+          .filter((task) => (task.project ?? null) === groupId && task.archived !== true)
           .sort(byOrder)
-        const from = groupRows.findIndex((t) => t.id === fromId)
-        const to = groupRows.findIndex((t) => t.id === toId)
+        const from = groupRows.findIndex((task) => task.id === fromId)
+        const to = groupRows.findIndex((task) => task.id === toId)
         if (from < 0 || to < 0) return
         const next = [...groupRows]
         const [moved] = next.splice(from, 1)
@@ -1654,9 +1727,9 @@ function taskBucket(t, now) {
             panel.text,
             t('importSummary').replace('{kind}', panel.kind.toUpperCase()),
           ))
-          if (approval.ok !== true) throw new Error(approval.error?.message ?? 'Host approval was not granted')
+          if (approval.ok !== true) throw new Error(approval.error?.message ?? t('approvalNotGranted'))
           const token = approval.value?.token
-          if (typeof token !== 'string' || token === '') throw new Error('Host approval was not granted')
+          if (typeof token !== 'string' || token === '') throw new Error(t('approvalNotGranted'))
           /**
            * approvalToken 必须在**顶层**，不能塞进 payload。
            *
@@ -1713,12 +1786,12 @@ function taskBucket(t, now) {
         }
       }
 
-      const toggleTask = async (t) => {
+      const toggleTask = async (task) => {
         setError(null)
         try {
-          const r = await request({ op: 'task.upsert', payload: { task: { ...t, done: t.done !== true } } })
+          const r = await request({ op: 'task.upsert', payload: { task: { ...task, done: task.done !== true } } })
           if (r.ok !== true) throw new Error(r.error?.message ?? 'task.upsert failed')
-          setNotice(t.done === true ? 'Task reopened' : 'Task completed')
+          setNotice(task.done === true ? t('taskReopened') : t('taskCompleted'))
           await load(true)
         } catch (e) { setError(String(e?.message ?? e)) }
       }
@@ -1740,7 +1813,8 @@ function taskBucket(t, now) {
           //  - 日程删除 → op = event.delete
           //  - 待办软删 → op = task.upsert（真实在 DANGEROUS_OPS 里，且软删确实走它）
           const op = kind === 'task' ? 'task.upsert' : 'event.delete'
-          const detail = { target: id, summary: `Delete ${kind} ${id}` }
+          // summary 会进宿主审批弹窗，必须是用户看得懂的中文，不能拼英文
+          const detail = { target: id, summary: t('deleteSummary').replace('{kind}', kind === 'task' ? t('kindTask') : t('kindEvent')) }
           /**
            * 用户已在确认对话框点了「删除」→ 该动作本身就是授权。
            * 凭证由**宿主**签发（绑定 op+target+digest、一次性、不可伪造）。
@@ -1754,18 +1828,19 @@ function taskBucket(t, now) {
             payload: { approvalOp: op, ...detail },
           })
           if (approval.ok !== true) {
-            throw new Error(approval.error?.message ?? 'Host approval was not granted')
+            throw new Error(approval.error?.message ?? t('approvalNotGranted'))
           }
           const token = approval.value?.token
           if (typeof token !== 'string' || token === '') {
-            throw new Error(approval?.error?.message ?? 'Host approval was not granted')
+            throw new Error(approval?.error?.message ?? t('approvalNotGranted'))
           }
           let r
           if (kind === 'task') {
-            const t = tasks.find((x) => x.id === id) ?? { id }
+            // 变量名不能叫 t：本地化函数 t 在同一作用域，`t('…')` 会被这个局部变量吃掉
+            const target = tasks.find((x) => x.id === id) ?? { id }
             r = await request({
               op: 'task.upsert',
-              payload: { task: { ...t, deleted: true, deletedAt: new Date().toISOString() } },
+              payload: { task: { ...target, deleted: true, deletedAt: new Date().toISOString() } },
               approvalToken: token,
             })
           } else {
@@ -1774,7 +1849,7 @@ function taskBucket(t, now) {
           if (r.ok !== true) throw new Error(r.error?.message ?? `delete failed`)
           setConfirming(null)
           setSelected(null)
-          setNotice('Deleted after Host approval')
+          setNotice(t('deletedAfterApproval'))
           await load(true)
         } catch (e) {
           setError(String(e?.message ?? e))
@@ -1868,7 +1943,7 @@ function taskBucket(t, now) {
           h('div', { className: 'wb-main wb-scroll' },
             editing !== null
               ? h('div', { className: 'wb-dialog' },
-                  h('h2', null, editing.data?.id !== undefined ? 'Edit' : 'New', ' ', editing.kind),
+                  h('h2', null, editing.data?.id !== undefined ? t('edit') : t('new'), ' ', editing.kind === 'event' ? t('kindEvent') : t('kindTask')),
                   editing.kind === 'event'
                     ? h(EventForm, { initial: editing.data, saving, t, onSave: saveEvent, onCancel: () => setEditing(null) })
                     : h(TaskForm, { initial: editing.data, saving, t, onSave: saveTask, onCancel: () => setEditing(null) }))
@@ -1977,7 +2052,7 @@ function taskBucket(t, now) {
                             h('button', {
                               className: 'wb-row-main', type: 'button',
                               'aria-label': `${row.done === true ? t('reopen') : t('complete')} ${row.title}`,
-                              onClick: () => toggleTask(t),
+                              onClick: () => toggleTask(row),
                             },
                               h('span', { 'aria-hidden': true }, row.done === true ? '☑' : '☐'),
                               h('span', { style: { flex: 1, textDecoration: row.done === true ? 'line-through' : 'none' } }, row.title),
@@ -2044,12 +2119,12 @@ function taskBucket(t, now) {
                       h('button', {
                         className: 'wb-btn', type: 'button',
                         onClick: () => setEditing({ kind: selected.kind === 'task' ? 'task' : 'event', data: selected }),
-                      }, 'Edit'),
+                      }, t('edit')),
                       h('button', {
                         className: 'wb-btn wb-btn-danger', type: 'button',
                         onClick: () => setConfirming({ kind: selected.kind ?? 'event', id: selected.id, label: selected.title ?? '' }),
-                      }, 'Delete…'),
-                      h('button', { className: 'wb-btn', type: 'button', onClick: () => setSelected(null) }, 'Close'))))),
+                      }, t('deleteAction')),
+                      h('button', { className: 'wb-btn', type: 'button', onClick: () => setSelected(null) }, t('close')))))),
 
         confirming !== null
           ? h(ConfirmDelete, {
@@ -2082,7 +2157,7 @@ function taskBucket(t, now) {
                  */
                 if (pending.occurrenceDate === null || pending.occurrenceDate === undefined) {
                   setMoveDialog(null)
-                  setError('Missing source date for this occurrence; reload and retry')
+                  setError(t('missingSourceDate'))
                   return
                 }
                 moveEventToDate(

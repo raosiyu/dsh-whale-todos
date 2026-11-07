@@ -22,8 +22,8 @@ DSH 的日历 + 待办面板插件：侧边栏叫**鲸鱼待办**。
 
 ```bash
 bash scripts/wp1-setup.sh                          # 可复现构建环境（含原生 binding 自愈）
-cd workbench-core && node --test test/*.test.mjs   # 核心域：370 / 370 pass
-node scripts/r3-mutate.mjs evidence/wp5/01-mutation.log   # 变异测试：102 / 102 CAUGHT，0 真空 0 跳过
+cd workbench-core && node --test test/*.test.mjs   # 核心域：371 / 371 pass
+node scripts/r3-mutate.mjs evidence/wp5/01-mutation.log   # 变异测试：107 / 107 CAUGHT，0 真空 0 跳过
 cd workbench-core && node demo/demo.mjs            # 功能演示
 ```
 

@@ -56,9 +56,21 @@ W35 缺陷是：`nudgeEventDay` 首行判 `sel.kind !== 'event'` 而三处选中
 | 点「归档」报 `错误: id 或 ids 必须提供` | 状态栏原文，Host 拒收 `id: undefined` | 行变量已改名，但按钮里残留 `setArchived(t.id, true)`、`...t`（`t.id` 恒为 undefined） | 改 `setArchived(row.id, true)`、`...row` |
 | 归档折叠区标题 `分组（1）` | 语义错误：里面装的是**已归档**待办 | 误用 `t('grouped')`（「分组」）当折叠区标题 | 新增 `t('archivedSection')`（已归档 / Archived），并删掉变死键的 `grouped` |
 
-另修 4 处真机才看得见的英文残留：`Complete`/`Reopen`（完成按钮 aria）、`Details of …`（详情按钮 aria）、
-`Task`/`Event`/`(untitled)`/`ID`/`Due`/`Start`/`Description`/`Repeats`/`Subtasks`/`Conflict`/`AI session`
-（详情面板整块标签）—— 全部接 `t`，`LOCALE` 从 119 键扩到 **136 键/语言，死键 0（除白名单 `meta`）**。
+另修真机才看得见的英文残留，分三批：
+
+| 批次 | 残留 | 位置 |
+| --- | --- | --- |
+| 第一批 | `Complete`/`Reopen`、`Details of …` | 待办行的完成按钮、详情按钮 aria |
+| 第二批 | `Task`/`Event`/`(untitled)`/`ID`/`Due`/`Start`/`Description`/`Repeats`/`Subtasks`/`Conflict`/`AI session` | 右侧详情面板整块标签 |
+| 第三批 | `Title`/`All day`/`Time`/`Date`/`Description`/`Priority`/`Low`/`Normal`/`High`、`Due (ISO instant)`、`Repeat`/`Conflict` 徽标、`Confirm delete`、`Host approval was not granted`、`Task reopened`/`Task completed`、`Deleted after Host approval`、`Edit`/`New` | 两个表单的全部标签、AgendaList 徽标、删除确认、审批失败提示、操作回执 |
+
+`LOCALE` 从 119 键扩到 **154 键/语言，死键 0（除白名单 `meta`）**。
+最后用三条精确扫描确认渲染路径零英文：`h(…, null, '英文')` 标签、`'aria-label': '英文'`、`setNotice/setError('英文')` —— 均 0 条。
+
+> 第三批里挖出一个**和前面同源的 `t` 遮蔽**：`const toggleTask = async (t) => { … }`
+> 形参又叫 `t`，里面 `t.done` 是拿字段（合法），但一旦有人在这个函数里加一句
+> `t('…')` 就会立刻崩 —— 而 `setNotice` 的两个分支正好写成了英文硬编码，
+> 说明当时的改动已经踩在这条边界上。已改名 `task` 并把文案接 `t`。
 
 **这三条为什么 368 全绿没抓到**：没有任何测试**真的渲染**组件。`makeReact()` 的 `useState`
 返回 no-op setter、`useEffect` 是空函数，组件树根本跑不起来，所以「渲染时 `t` 被遮蔽」这类
@@ -68,6 +80,85 @@ W35 缺陷是：`nudgeEventDay` 首行判 `sel.kind !== 'event'` 而三处选中
 > 教训再确认一次：**字符串存在 ≠ 行为正确，测试全绿 ≠ 界面能用。**
 > 这三条里，白屏会让整个功能不可用，归档报错会让「归档」这个 WP5 验收项直接失败 ——
 > 而它们在修复前的全量测试里全是绿的。
+
+## 1.8 主路径真机复验（修复后，同 session 不重导航）
+
+第三轮审查的 BLOCKER 修完后，逐条在真机走了一遍，每步都对照磁盘。
+**全部在同一个 session 内完成**（重导航会换 shard，数据看不见）。
+
+| 交互 | 真机表现 | 磁盘证据 |
+| --- | --- | --- |
+| 待办「完成」 | 点 checkbox 后行移出「计划中」，提示「已完成」 | `排序验证B.done: false → true`（mtime 11:07:58） |
+| 详情面板按钮 | 三个按钮从 `Edit` / `Delete…` / `Close` 变「编辑 / 删除… / 关闭」 | — |
+| 删除确认框 | 「This requires Host approval…」→「删除“排序验证D”需要宿主审批。」；按钮「申请审批并删除」 | — |
+| 删除（走审批） | 提示「已通过宿主审批删除」，列表 3→2，撤销 13→14 | `D.deleted=true`，`deletedAt` 有值，undo 深度 +1 |
+| 撤销 | 提示「已撤销上一步」，D 回列表，2→3，重做按钮由灰变亮 | `D.deleted` 回到 `undefined`；`undo=13 / redo=1` |
+| 重做 | 提示「已重做」，D 再次消失，撤销 14 | `D.deleted=true`，`deletedAt` 与原值**逐字节一致**；`undo=14 / redo=0` |
+| 键盘下移排序 | A 从第 1 行挪到第 2 行 | `A.order: 0→1`、`B.order: 1→0`、`C.order: 2`；undo 新增 `task.reorder` |
+| 刷新后一致性 | 撤销步数 15、顺序 A/C 与磁盘一致 | 与磁盘 `undo=15`、order 值完全对齐 |
+| 归档 | 提示「已归档」，A 移出主列表，出现「▸ 已归档（1）」 | `A.archived=true`；undo 新增 `task.archive` |
+| 展开归档区 + 恢复 | 归档行显示「恢复」按钮，点击后 A 回主列表 | `A.archived` 回到 `undefined`；undo 新增 `task.unarchive` |
+
+> **归档恢复走的是 `task.archive` + `{archived:false}`**，不是不存在的
+> `task.unarchive` handler。undo 的 label 是 `task.unarchive` 但 op 是
+> `task.archive` —— 这正是 `service.js:902/909` 的设计，两者不能混为一谈。
+
+### 本轮真机又抓到的残留（第 8、9 批）
+
+审查和测试都没发现，只有真机看得到：
+
+| 批次 | 位置 | 问题 |
+| --- | --- | --- |
+| 第八批 | 详情面板操作区 | `Edit` / `Delete…` / `Close` 三个按钮硬编码英文；`Delete ${kind} ${id}` 的审批摘要也是英文，会原样弹给用户看 |
+| 第九批 | 删除确认框 | `This requires Host approval before deleting “…”`、`Requesting approval…`、`Request approval & delete` 三处英文 |
+
+处置：全部接 `t()`，新增 6 个 locale 键（`edit` / `deleteAction` / `close` /
+`deleteSummary` / `confirmDeleteHint` / `requestingApproval` / `requestApprovalDelete`），
+`LOCALE` 154→**163** 键/语言，死键仍只有 `meta`。
+
+### 导入预览的计数重复（真机 + 服务端双向确认）
+
+准备了一份含「1 条重复 UID + 1 条新增 + 2 条冲突」的 ICS，
+先用服务端 `event.previewIcs` 直接跑：
+
+```
+counts: {"create":1,"duplicate":0,"conflict":2,"degraded":0,"unsupported":0,"skip":2}
+```
+
+问题在 `skip` 的定义：`service.js:568` 是
+`plan.filter((x) => x.action !== 'create').length`，也就是
+**skip = duplicate + conflict + unsupported**，是个兼容字段。
+而 UI 把 duplicate / conflict / unsupported 各自单独成行后，又把原始
+`skip` 原样显示 —— 同一条被数两次：2 条冲突显示成「冲突 2」+「跳过 2」，
+用户以为 4 条有问题。
+
+处置：`buildIcsCounts` 里从 `skip` 扣掉已单独展示的三类，钳到 0；
+新增测试锁住「新增+冲突+重复+不支持+跳过 = 服务端总条目数，不得翻倍」，
+并加变异 **W60**（原样透出 skip）与 **W61**（漏扣 conflict）防止回退。
+
+## 1.7 第三轮独立审查：主路径上又漏了两次（冻结副本实证）
+
+第三轮审查（`git archive 8d95491` 冻结副本）判 **REQUEST CHANGES / 1 BLOCKER**。
+它没靠读代码猜，而是把 payload 打到真实 service 复现：
+
+| 项 | 结论 | 实证 |
+| --- | --- | --- |
+| 待办完成/重开 100% 失败 | **BLOCKER** | `toggleTask(t)` 把本地化**函数**当待办传，实际发出 `{"task":{"done":true}}`，Host 回 `task.id 必须是非空字符串`；改成 `toggleTask(row)` 即成功 |
+| 删除路径同样遮蔽 | 同源第六处 | `const t = tasks.find(...)` 用 `t` 作局部变量，同作用域 `t('approvalNotGranted')` / `t('deletedAfterApproval')` 全崩 |
+| 3 个 locale 键未定义 | MINOR | `nothingToUndo` / `nothingToRedo` / `archiveHint` 被 `t()` 调用但 LOCALE 里没有，`defaultT` 回落成键名 → 真机直接显示字面量 |
+| 两条结构守卫覆盖不足 | MAJOR | 只认 `(t) =>` 与 `t.xxx`，抓不到「把 `t` 当实参传递」「`const t =` 遮蔽」；`toggleTask(t)` 在切片内却漏判 |
+| 证据不同步 | MAJOR | 提交的 `01-mutation.log` 停在 `CAUGHT: 100`，W55/W56 缺席，与 `03-delivery.md` 声称的 102 不符 |
+
+处置不是再补三个特例。同类缺陷已经出现 **七次**，每次守卫都只覆盖刚看到的那一种写法。
+这次改成**语法约定 + 无条件判据**：全文件 `t` 只允许表示翻译函数；
+数据变量一律叫 `task` / `row` / `target`。据此把 11 处纯数据函数的 `t` 全部改名，
+再写一条不依赖作用域分析的全文件守卫（含 `used ⊆ defined` 反向断言，
+堵住「用了没定义的键」这个洞）。五种形态逐一注入验证全部捕获：
+`toggleTask(t)` / `const t = tasks.find` / `setArchived(t.id)` / `...t` / mapper 形参退回 `t`。
+
+> 这一轮的教训比前两轮更硬：**前两轮把「字符串存在」当行为正确，
+> 第三轮的 370/370 + 102/102 又把「结构扫描」当行为正确。
+> 真机主路径（点完成、点删除）依然是唯一能证伪的 oracle。**
 
 ## 2. 撤销 / 重做（真实按钮，含归档语义回滚）
 

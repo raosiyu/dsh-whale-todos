@@ -473,7 +473,8 @@ test('WP5-UI：moveDialog 不许拿落点兜底源日（M-1 调用点护栏）',
   assert.doesNotMatch(body, /occurrenceDate:\s*pending\.occurrenceDate\s*\?\?\s*pending\.dateKey/,
     '不许用落点兜底源日（会把落点记进 EXDATE，静默写坏数据）')
   assert.match(body, /occurrenceDate:\s*pending\.occurrenceDate/, '必须直接用源日')
-  assert.match(body, /Missing source date/, '源日缺失必须当场报错，不许静默兜底')
+  // 文案已本地化，锁的是「必须报错」这个行为 + 它用的 locale 键，不是英文句子本身
+  assert.match(body, /setError\(t\('missingSourceDate'\)\)/, '源日缺失必须当场报错，不许静默兜底')
   assert.ok(fn.length >= 0, 'moveDialog 区域存在')
 })
 
@@ -886,9 +887,37 @@ test('WP5-UI：ICS 计数一律取服务端值，不本地重算（B5）', () =>
 
   const bothSkip = buildIcsCounts({ create: 0, duplicate: 2, skip: 3 })
   assert.equal(bothSkip.duplicate, 2, '两者都有时各自保留')
-  assert.equal(bothSkip.skip, 3)
+  assert.equal(bothSkip.skip, 1, 'skip 是「非 create 总数」，必须扣掉已单独成行的 duplicate')
   // 缺失字段要回落 0，不能 NaN
   assert.deepEqual(buildIcsCounts(undefined), { create: 0, duplicate: 0, skip: 0, conflict: 0, unsupported: 0, degraded: 0, removed: 0 })
+
+  /**
+   * **真机暴露的重复计数**：服务端 `skip` 的定义是「非 create 的总数」，
+   * 即 skip = duplicate + conflict + unsupported（见 service.js 的
+   * `plan.filter((x) => x.action !== 'create').length`）。
+   * UI 把这三类各自单独成行，若再把原始 skip 原样显示，同一条会被数两次。
+   *
+   * 实测：一份含 1 条重复 + 2 条冲突的 ICS，服务端回
+   * `{create:1, duplicate:0, conflict:2, skip:2}`，旧实现显示成
+   * 「冲突 2」+「跳过 2」= 用户以为 4 条有问题，实际只有 2 条。
+   */
+  const realServer = buildIcsCounts({ create: 1, duplicate: 0, conflict: 2, unsupported: 0, degraded: 0, skip: 2 })
+  assert.equal(realServer.conflict, 2, '冲突原样透出')
+  assert.equal(realServer.skip, 0, 'skip 必须扣掉 conflict，不得把冲突重复数成「跳过」')
+  assert.equal(realServer.create + realServer.conflict + realServer.duplicate + realServer.unsupported + realServer.skip, 3,
+    '新增+冲突+重复+不支持+跳过 = 服务端总条目数，不得翻倍')
+
+  // 三类细分齐全时，skip 归零
+  const allSplit = buildIcsCounts({ create: 0, duplicate: 1, conflict: 1, unsupported: 1, skip: 3 })
+  assert.equal(allSplit.skip, 0, 'duplicate+conflict+unsupported 已覆盖全部 skip 时，skip 必须为 0')
+
+  // 口径变化（skip 小于细分之和）不得出负数
+  const overSplit = buildIcsCounts({ create: 0, duplicate: 2, conflict: 2, unsupported: 0, skip: 1 })
+  assert.equal(overSplit.skip, 0, 'skip 扣成负数必须钳到 0，不能显示 -3')
+
+  // 真正的「其它原因」必须保留
+  const otherReason = buildIcsCounts({ create: 1, duplicate: 1, conflict: 0, unsupported: 0, skip: 3 })
+  assert.equal(otherReason.skip, 2, '未被细分的「其它原因」必须保留，不得一并清零')
 })
 
 test('WP5-UI：主列表不得显示已归档待办（B2 双渲染，行为断言）', () => {
@@ -994,4 +1023,95 @@ test('复审 M-1：待办行渲染不得把 t 当行对象用（真机「id 或 
     if (/\.\.\.t\b/.test(lines[j])) offenders.push(`${j + 1}: ${lines[j].trim().slice(0, 90)}`)
   }
   assert.deepEqual(offenders, [], `待办行不得用 t.xxx（t 是本地化函数）：\n${offenders.join('\n')}`)
+})
+
+test('复审 B-1：本地化函数 t 不得被当数据用（全文件无条件判据）', () => {
+  /**
+   * 这条守卫取代前面两条只覆盖 `(t) =>` 和 `t.xxx` 的窄判据。
+   *
+   * 背景：同一类缺陷在本轮出现 **七次** —— 待办行 mapper、归档行 mapper、
+   * `setArchived(t.id)`、`...t` 展开、`toggleTask = async (t) =>` 加调用点
+   * `toggleTask(t)`、`const t = tasks.find(...)`（删除路径）、以及 11 处
+   * 纯数据函数把 `t` 当待办对象。每次都是「本地化函数 t 被当数据」，
+   * 而每次的守卫都只覆盖刚看到的那一种写法，换个位置又漏。
+   *
+   * 前几版判据按「作用域内有没有 t('…')」来区分合法/非法，但那个区分做不到：
+   * `const weekdayLabels = (t) => […]` 的 `t` 本身**就是**翻译函数（合法），
+   * 而 `const toggleTask = async (t) => { … t.done … }` 的 `t` 是待办对象
+   * （非法），两者写法完全一样。靠作用域分析永远判不准。
+   *
+   * 所以改成**语法约定 + 无条件判据**：全文件 `t` 只允许表示翻译函数，
+   * 任何 `t.xxx` 属性访问、`...t` 展开、`const/let/var t =` 声明、
+   * 把 `t` 当裸实参传递，一律报错。数据变量请叫 `task` / `row` / `target`。
+   *
+   * 这条判据不依赖作用域分析，因此不可能漏（也不会误报——纯数据函数
+   * 已经把变量改成 task 了，见上一轮 11 处改名）。
+   */
+  const code = client
+  const { LOCALE } = loadClient().__test
+  const lines = code.split('\n')
+
+  const isComment = (s) => {
+    const tr = s.trim()
+    return tr.startsWith('//') || tr.startsWith('*') || tr.startsWith('/*')
+  }
+
+  const offenders = []
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+    if (isComment(line)) continue
+
+    // 豁免 1：定义翻译函数本身
+    if (/const\s+t\s*=\s*props\.t\s*\?\?\s*defaultT/.test(line)) continue
+    // 豁免 2：组件签名接收入参 `t = defaultT`
+    if (/\bt\s*=\s*defaultT\b/.test(line)) continue
+
+    // (a) 把 t 当对象 / 当数据
+    if (/\bt\.(id|title|done|dueAt|project|priority|status|subtasks|archived|order|label|data)\b/.test(line)) {
+      offenders.push(`${i + 1}: t.xxx 把函数当对象 — ${line.trim().slice(0, 80)}`)
+    }
+    if (/\.\.\.t\b/.test(line)) {
+      offenders.push(`${i + 1}: ...t 展开函数 — ${line.trim().slice(0, 80)}`)
+    }
+    // (b) 用 t 作变量名（除翻译函数定义与 defaultT 入参）
+    if (/\b(const|let|var)\s+t\s*=/.test(line)) {
+      offenders.push(`${i + 1}: 声明 t 覆盖翻译函数 — ${line.trim().slice(0, 80)}`)
+    }
+    /**
+     * (c) 把 t 当裸实参传递：`toggleTask(t)`。
+     *
+     * 这一条**必须**限定作用域：`isSoftDeleted(t)` 里的 t 是纯数据形参、
+     * `weekdayLabels(t)` 里的 t 是翻译函数本身，两者都合法。只有
+     * 「该函数体内确实调用了 t('…')，却又把 t 当数据传给别人」才是缺陷
+     * —— 那正是 `toggleTask(t)` 在 :2018 的形态（函数体内 setNotice(t('…'))）。
+     */
+    if (/\b\w+\(\s*t\s*\)/.test(line) && !/\bt\('([A-Za-z0-9_]+)'\)/.test(line)) {
+      // 找该行所属函数体的起止，判断体内有没有 t('…')
+      let start = i
+      for (let j = i; j >= Math.max(0, i - 120); j -= 1) {
+        if (/\b(function\s+\w+\s*\(|const\s+\w+\s*=\s*(async\s*)?\()/.test(lines[j])) { start = j; break }
+      }
+      let depth = 0
+      let end = start
+      let opened = false
+      for (let j = start; j < Math.min(lines.length, start + 120); j += 1) {
+        for (const ch of lines[j]) {
+          if (ch === '{') { depth += 1; opened = true } else if (ch === '}') depth -= 1
+        }
+        if (opened && depth === 0) { end = j; break }
+      }
+      const body = lines.slice(start, end + 1).join('\n')
+      if (/\bt\('([A-Za-z0-9_]+)'\)/.test(body)) {
+        offenders.push(`${i + 1}: 把本地化函数 t 当数据传递 — ${line.trim().slice(0, 80)}`)
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, [], `本地化函数 t 不得被当数据用：\n${offenders.join('\n')}`)
+
+  // 反向：用了未定义的键（defaultT 会回落成键名，真机显示字面量）
+  const used = new Set([...code.matchAll(/\bt\('([A-Za-z0-9_]+)'\)/g)].map((m) => m[1]))
+  const defined = new Set(Object.keys(LOCALE.en))
+  const undefinedKeys = [...used].filter((k) => !defined.has(k))
+  assert.deepEqual(undefinedKeys, [], `t('x') 用了 LOCALE 里没有的键，真机会显示字面量键名：${undefinedKeys.join(', ')}`)
 })

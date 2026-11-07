@@ -39,7 +39,7 @@
 | B-2 | BLOCKER | `buildArchiveRequest` 同为死代码 | 已修：`setArchived` 改调构造器 |
 | M-1 | MAJOR | `pending.occurrenceDate ?? pending.dateKey` 变异存活 | 已修：显式守卫，缺源日直接报错不出请求 |
 | M-2 | MAJOR | 服务端静默接受「落点冒充源日」 | 已修：`sameDayAsTarget && sameTime` 守卫 |
-| M-3 | MAJOR | 新增 locale 键全为**死键**，`MoveScopeDialog`/`ImportPreview` 仍硬编码中文 | 已修：全部接 `t()`，`LOCALE` 48→**136** 键/语言，死键 0（白名单 `meta` 除外） |
+| M-3 | MAJOR | 新增 locale 键全为**死键**，`MoveScopeDialog`/`ImportPreview` 仍硬编码中文 | 已修：全部接 `t()`，`LOCALE` **56→163** 键/语言（基线以 `d88f751` 实测为准），死键 0（白名单 `meta` 除外） |
 | M-4 | MAJOR | `workbench_import_preview` 描述指向不存在的 `workbench_import_apply` | 已修：改为说明「预览只读，真正导入只在 UI 内由用户确认」 |
 | m-1 | MINOR | `buildIcsCounts` 丢弃 `degraded`、硬写 `removed: 0` | 已修：两者都取服务端真实值 |
 | m-3 | MINOR | `AgendaList.onDragStart` 不带 `occurrenceDate` | 已修 |
@@ -51,7 +51,7 @@
 | 编号 | 级别 | 问题 | 处置 | 证据 |
 | --- | --- | --- | --- | --- |
 | B-1 | BLOCKER | 旧守卫 `sameDayAsTarget && sameTime` 允许「落点冒充源日 + 顺手改时刻」，服务端接受后静默损坏：`excludeDates` 记到落点日，源日实例还在，落点 09:00 被 10:00 顶掉 | 已修：`occurrenceDate === targetDate` 无条件拒绝 | 新测试 `复审 B-1…` 通过；变异 **W43 CAUGHT** |
-| M-1 | MAJOR | `MoveScopeDialog`/`ImportPreview`/`StatusBar` 未接 `t`，回落英文后内部中文混排；**真机进一步暴露** `今日 & next 7 days` 等 22 处硬编码 | 已修：`LOCALE` 100→106 键/语言，死键 0，全部渲染点传 `t`，提示/提醒条/aria 全部本地化 | 测试 34/35/36；渲染路径中文硬编码扫描 **0 处** |
+| M-1 | MAJOR | `MoveScopeDialog`/`ImportPreview`/`StatusBar` 未接 `t`，回落英文后内部中文混排；**真机进一步暴露** `今日 & next 7 days` 等 22 处硬编码 | 已修：`LOCALE` 当时口径 100→106、最终 154 键/语言，死键 0，全部渲染点传 `t`，提示/提醒条/aria 全部本地化 | 测试 34/35/36；渲染路径中文硬编码扫描 **0 处** |
 | m-1 | MINOR | `parseDueAt` 缺时区后缀校验，`'1'`/`'2026'` 等被 `Date.parse` 放行，落盘后被服务端拒 | 已修：加 `/(Z|[+-]\d{2}:?\d{2})$/` | 变异 **W48** |
 | m-2 | MINOR | `buildIcsCounts` 用 `duplicate ?? c.skip` 兜底，把「跳过」显示成「重复」 | 已修：`skip` 独立字段，独立行 | 测试 362 + 变异 **W47** |
 | m-3 | MINOR | `ImportPreview` 缺 `degraded` 行，降级解析条目混进「新增」 | 已修：独立 `degraded` 行 + 提示 | 测试 362 |
@@ -93,11 +93,11 @@ node --test workbench-core/test/workbench-ui-wp5.test.mjs
 ### 变异测试
 
 ```
-node scripts/r3-mutate.mjs /tmp/mut-wp5-round28.log
-CAUGHT: 102   VACUUM: 0    SKIP: 0
+node scripts/r3-mutate.mjs /tmp/mut-wp5-round34.log
+CAUGHT: 107   VACUUM: 0    SKIP: 0
 ```
 
-**102 个变异全部被捕获，0 真空、0 跳过。** 这是「保护点真的有测试约束」的硬证据，
+**107 个变异全部被捕获，0 真空、0 跳过。** 这是「保护点真的有测试约束」的硬证据，
 不是测试数量本身。日志：`evidence/wp5/01-mutation.log`。
 
 ### 真空补测（第二轮审查之外的自我发现）
@@ -126,10 +126,39 @@ CAUGHT: 102   VACUUM: 0    SKIP: 0
 | 「待办」视图白屏，console `TypeError: t is not a function` | 行变量 `(t) =>` 遮蔽了本地化函数 `t`；没有渲染测试，`t('archive')` 调不动也无人发现 | 扫「`t` 被当回调形参」的回调区间，且区间内真的出现 `t('…')` 才判红 | **W53** 待办行 / **W54** 归档行 |
 | 点「归档」报 `id 或 ids 必须提供` | 行变量改名 `row` 后残留 `setArchived(t.id, true)`、`...t`（`t.id` 恒 undefined），请求带着 undefined 打到 Host | 扫「行渲染区间内 `t.xxx` 属性访问 / `...t` 展开」 | **W55** 归档 id / **W56** 详情展开 |
 
+本地化在真机上又追出第三批残留（两个表单的全部标签、AgendaList 徽标、删除确认、
+审批失败提示、操作回执），`LOCALE` 扩到 154 键/语言。其中
+`const toggleTask = async (t) => { … }` 是**同源 `t` 遮蔽的第五次**：形参叫 `t`，
+里面 `t.done` 取字段是合法的，但任何 `t('…')` 都会崩，所以两个回执文案当时只能写英文。
+改名 `task` 后接 `t`。
+
 两条守卫都做了「注入 → 确认红 → 还原」验证；W55 第一次注入时**没红**，
 查明是我按行号改到了偏移后的错误行（真实位置 1998 而非常数的 1991），
 按真实锚点重注入后**准确红在 `not ok 42`**。这条弯路本身也是证据：
 按行号打补丁在长文件里必错，锚点必须每次现查。
+
+### 第三轮独立审查项处置
+
+第三轮结论：**REQUEST CHANGES（1 BLOCKER + 2 MAJOR + 2 MINOR）**。
+审查用 `git archive 8d95491` 冻结副本、把 payload 打到真实 service 复现，
+不是读代码猜。
+
+| 编号 | 级别 | 问题 | 处置 | 验证 |
+| --- | --- | --- | --- | --- |
+| B-1 | BLOCKER | `toggleTask(t)` 把本地化**函数**当待办传，实际发出 `{"task":{"done":true}}`，Host 回 `task.id 必须是非空字符串` —— **待办完成/重开主路径 100% 失败** | 调用点改 `toggleTask(row)`，形参已在上一步改名 `task` | 真机 payload 对照 + 新守卫注入捕获 |
+| M-1 | MAJOR | 两条结构守卫只认 `(t) =>` 与 `t.xxx`，抓不到「`t` 当实参传递」「`const t =` 遮蔽」 | 改为**语法约定 + 全文件无条件判据**：`t` 只表示翻译函数，数据变量一律 `task`/`row`/`target`；11 处纯数据 `t` 全部改名；新增 `used ⊆ defined` 反向断言 | 五种形态逐一注入 → 全部 CAUGHT → 还原后 43/43 |
+| M-2 | MAJOR | 提交的 `01-mutation.log` 停在 `CAUGHT: 100`，W55/W56 缺席 | 随每次改动重跑并同步日志 | 本轮日志 `CAUGHT: 107 / VACUUM: 0 / SKIP: 0`（见下，含 W57–W61 与五条锚点漂移修复） |
+| m-1 | MINOR | 3 个 `t()` 键未定义（`nothingToUndo`/`nothingToRedo`/`archiveHint`），真机显示字面量键名 | 补 3 键 + `used ⊆ defined` 断言 | 测试 43 |
+| m-2 | MINOR | 提交信息与 evidence 的 LOCALE 键数四个口径不一致 | 统一为「基线 56（`d88f751` 实测）→ 最终 154」 | 本段 |
+
+**同源缺陷累计七次**（待办行 mapper、归档行 mapper、`setArchived(t.id)`、`...t`、
+`toggleTask` 形参+调用点、删除路径 `const t =`、11 处纯数据函数）。
+前六次都是「看到一种写法补一条守卫」，第七次不再补特例，而是把根因
+（`t` 一词两义）从代码里删掉。删除路径 `const t = tasks.find(...)` 是
+审查之外自查发现的第六处，一并归入本次处置。
+
+> 关键认知：**「结构扫描全绿」与「行为正确」之间还差一次真机主路径点击。**
+> 第三轮 370/370 + 102/102 全绿时，点「完成」和点「删除」都是坏的。
 
 ### UI 契约脚本
 
