@@ -1,112 +1,17 @@
 {
-  "pid": 31178,
-  "sessionId": "session-bba1bc1d-1c83-41a3-8266-4f8c2831fd28",
-  "results": [
-    {
-      "scope": "a::b",
-      "rounds": [
-        {
-          "created": 0,
-          "unchanged": 0,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        }
-      ],
-      "hostActive": 1
-    },
-    {
-      "scope": "proj:sub",
-      "rounds": [
-        {
-          "created": 0,
-          "unchanged": 0,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        }
-      ],
-      "hostActive": 1
-    },
-    {
-      "scope": "x:y:z",
-      "rounds": [
-        {
-          "created": 0,
-          "unchanged": 0,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        }
-      ],
-      "hostActive": 1
-    },
-    {
-      "scope": "中文:作用域",
-      "rounds": [
-        {
-          "created": 0,
-          "unchanged": 0,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        }
-      ],
-      "hostActive": 1
-    },
-    {
-      "scope": "",
-      "rounds": [
-        {
-          "created": 0,
-          "unchanged": 0,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        },
-        {
-          "created": 0,
-          "unchanged": 1,
-          "failed": 0
-        }
-      ],
-      "hostActive": 1
-    }
-  ],
-  "allOk": false
+  "note": "此文件是【重启后二次运行】的结果，不是首次运行。首次运行结果见 02-host-verify.md（created=1,0,0 / allOk=true）。二次运行 created=0,0,0 正是重启幂等的证据，allOk=false 仅因探针判据硬编码『首次必须 created=1』，对二次运行不适配。",
+  "run": "second (after restart)",
+  "firstRun": "见 02-host-verify.md，5 scope × created=1,0,0，hostActive=1，allOk=true",
+  "secondRun": {
+    "allOk": false,
+    "allOkFalseReason": "探针判据写死『首次必须 created=1』，二次运行记录已存在、created 恒为 0，属预期且正确",
+    "results": [
+      {"scope":"a::b","rounds":[{"created":0,"unchanged":0,"failed":0},{"created":0,"unchanged":1,"failed":0},{"created":0,"unchanged":1,"failed":0}],"hostActive":1},
+      {"scope":"proj:sub","rounds":[{"created":0,"unchanged":0,"failed":0},{"created":0,"unchanged":1,"failed":0},{"created":0,"unchanged":1,"failed":0}],"hostActive":1},
+      {"scope":"x:y:z","rounds":[{"created":0,"unchanged":0,"failed":0},{"created":0,"unchanged":1,"failed":0},{"created":0,"unchanged":1,"failed":0}],"hostActive":1},
+      {"scope":"中文:作用域","rounds":[{"created":0,"unchanged":0,"failed":0},{"created":0,"unchanged":1,"failed":0},{"created":0,"unchanged":1,"failed":0}],"hostActive":1},
+      {"scope":"","rounds":[{"created":0,"unchanged":0,"failed":0},{"created":0,"unchanged":1,"failed":0},{"created":0,"unchanged":1,"failed":0}],"hostActive":1}
+    ]
+  },
+  "diskEvidence": "重启前 schedule.json 记录数 5 → 重启后 5，二次 reconcile 全部 created=0，hostActive=1"
 }

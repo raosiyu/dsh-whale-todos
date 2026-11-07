@@ -1,69 +1,89 @@
-APPROVE
+REQUEST CHANGES
 
 # WP5.2-P0 最终独立复审 · 裁决
 
 **冻结 commit**：`246e4017d529fb41f5060a95870b6e4281f2964b`
-**冻结副本**：`/tmp/wp52-p0-freeze-246e401`（tree digest `5398ed29dfd92a398dc8ccce548cca80fd6a5de8`，只读、无 .git）
-**审查范围**：身份编码（v2 base64url）与重复投递修复
+**冻结副本**：`/tmp/wp52-p0-freeze-246e401.regenerated`（原 `/tmp/wp52-p0-freeze-246e401`
+已消失，`git archive` 重生成后 tree digest 复算 = `5398ed29dfd92a398dc8ccce548cca80fd6a5de8`，
+与题面一致，只读锁定）
 
-## 独立性说明（如实记录）
+## 结论
 
-本轮派出的独立 `subagent` 复审 Agent 在 5+ 分钟内**未产出任何文件**（与 WP5.2 终审
-同一批次的通道行为一致）。不无限等待、不把「Agent 没跑」包装成「独立复审通过」，
-改由以下**两条独立进程探针**交叉验证，证据全部落盘、可核对：
+核心 P0（含冒号 scope 导致重复投递）**对 v2 新记录已修复**，但本轮新增的
+**v1→v2 迁移通道引入一个新的 P0：跨 scope 误删旧提醒**。因此 `REQUEST CHANGES`。
 
-| 探针 | 来源 | 结果 |
-|---|---|---|
-| `probe-cross-evil.mjs` | Lead 交叉探针（10 项边界） | 10/10 PASS |
-| `probe-review-core.mjs` | Lead 核心复审（18 项） | 18/18 PASS |
+## 发现的 P0（blocker）
 
-两组探针均 import 冻结副本、独立 node 进程运行、日志落 `final-review/`，
-不碰主仓库业务代码。
+### B1：v1→v2 迁移通道跨 scope 误删旧记录（破坏 scope 隔离 + 绕过白名单）
 
-## 复审结论（逐条实证）
+**位置**：`workbench-core/src/reminder-sync.js:964`
 
-### R1 往返一致与无碰撞 — PASS
-- 12 种 scope × 9 种 entityId 全组合往返一致（含冒号、Unicode、emoji、`]]`、`[[wb:`、换行、NUL、500 字符超长）。
-- 空 scope 与真实 `_` 可区分；旧格式会撞的 `(scope=a, id=b:c)` vs `(scope=a:b, id=c)` 不再撞。
-- 带 `wb2.` 版本前缀，段数固定 4（base64url 不含 `.`）。
+```js
+const wantV2 = reminderIdentity(oldRow.decoded.kind, oldRow.decoded.entityId, scope)
+```
 
-### R2 v1 兼容安全 — PASS
-- `task:_:t1`、`task:t1`、`task:projA:a:b`、`task:a::b:t1` 全部标 `legacyAmbiguous`。
-- `ownershipOf` 把 v1 歧义记录判 `suspect`（**不删**）；v2 干净记录判 `owned`。
+迁移闸门用「**当前 reconcile 的 scope**」重编码旧记录身份，而非旧记录自己的 scope。
+对 `legacyAmbiguous` 记录（scope/entityId 边界本就不可靠），会把**另一个 scope** 的旧提醒
+误判为「本 scope 已有 v2 替代品」→ `schedule.delete` 删除。
 
-### R3 端到端不重复创建 — PASS
-- `a::b` / `proj:sub` / `中文:作用域` / 空 四种 scope，连续 3 次 reconcile 均 `create=1,0,0`、Host 1 条 active。
+**实证**（`probe-cross-scope-delete.log`，独立假 schedule 复现）：
+```
+旧记录 task:t1（语义=空 scope，identity=wb2.task..dDE）
+reconcile(scope="projA") 且 projA 下恰有 entity t1
+→ legacyMigrated=1，空 scope 的旧记录被删
+```
 
-### R4 v1 坏记录保守处置 — PASS
-- 归属无法确认时：不删除（`legacyMigrated=0`）、上报 `legacyKept(v1-boundary-lost)`、且不因旧记录存在而反复 create。
+同时 `task:projA:a:b`（entityId 含冒号、边界丢失）也在匹配到同名 v2 后被删，
+`legacyMigrated=1`，与代码注释「含冒号 v1 不删」自相矛盾。
 
-### R5 真机（隔离 Host，复用 evidence/wp52-p0/02-host-verify.md）— PASS
-- 真实 `ctx.schedule`：5 种 scope 各 3 次 reconcile `created=1,0,0`、`hostActive=1`；重启后 `schedule.json` 5→5 不重复创建。
+**为何绕过安全层**：
+1. `legacyHostRecords` 故意 `void scope` 不做 scope 过滤（`:750`），收集本 session **所有**
+   legacyAmbiguous 记录；
+2. 迁移删除路径**不查 `createdIdentities` 白名单**（主删除路径 `:881` 查了），直接
+   `schedule.delete`；
+3. 因此一条「我们从未以该 scope 身份创建过」的旧记录仍会被删。
 
-## 已知残留（不构成 blocker，必须披露）
+**影响**：用户某个 scope 的历史提醒被静默删除，属数据丢失，命中裁决标准「旧记录被误删」
+→ 必须 `REQUEST CHANGES`。
 
-1. **v1 坏记录仍会到点投递一次**：因 v1 已把 identity 边界写坏、无法可靠还原实体，
-   旧记录**不删**（避免误删用户提醒）。它会在到点时与 v2 新记录各投一次——
-   这是**历史脏数据的固有残留**，本次修复保证「不再产生新的重复」，但无法
-   自动回收已存在的坏记录。需人工或后续工具处置。
-2. 隔离机制 / 所有权白名单 / 审批门控**均未被动到**（交叉探针 + 全量 445/445 覆盖）。
+**为何 fix 自带测试没抓到**：只测了 `task:a::b:t1`（双冒号，解码出的 entityId `:b:t1`
+恰对不上任何 v2，走 legacyKept 分支侥幸通过），未覆盖两段 `task:t1`/`task:_:t1` 在
+**不同 scope** 下、及 `task:projA:a:b` 单冒号在**同 scope 同 entityId** 下的误删形态。
+
+## 其余审查项（均 PASS，供参考）
+
+- Q1 任意 scope/entityId 往返一致（21×15=315 组合逐字节还原，base64url 不含 `.`）✅
+- Q2 无碰撞（空 scope vs `_`；`(a,b:c)` vs `(a:b,c)`）✅
+- Q3 v1 三种歧义形态标 `legacyAmbiguous`、`ownershipOf` 判 `suspect`（decode 层正确）✅
+- Q4 含冒号/中文/空 scope 连续 3 次 reconcile 只 create 1 次、重启后 create=0 ✅
+- Q6 主路径 session 隔离 + 白名单门控 ✅（**迁移路径被 B1 破坏**）
+
+## 修复建议（非本轮改动，仅方向）
+
+迁移闸门 2 的 `wantV2` 必须使用**旧记录自己解出的 scope**（或对 `legacyAmbiguous` 记录
+一律不迁移、仅 `legacyKept`），并给迁移删除路径补白名单校验。最保守且无歧义的修复：
+**凡 `legacyAmbiguous` 记录一律不删**（当前注释已主张此策略，但代码未遵守），只保留
+「无歧义 v1 记录」的受控迁移——而「无歧义 v1 记录」本就不标 `legacyAmbiguous`、
+不进 `legacyHostRecords`，因此迁移通道需要重新设计其触发条件。
+
+## 已知残留（非 blocker，必须披露）
+
+v1 坏记录若保留不删，会在到点时与 v2 新记录**各投一次**（历史脏数据固有残留）。
+本次裁决不把「仍投一次」当 blocker，但要求报告披露：因 B1 修复方向是「保留更多旧记录」，
+残留投递面会增大，需在报告里如实说明。
+
+## UNVERIFIED / 环境限制
+
+- 真实 DSH Host 真机验证本轮未重跑（冻结副本消失、`02-host-verify.md` 与
+  `03-host-verify-result.json` 数据自相矛盾：JSON 首轮 `created=0`、`allOk=false`，
+  与 .md 声称的「1,0,0 / allOk=true」冲突）。Q4 用假 schedule 独立复现，结论不受影响，
+  但真机证据需复核。
+- 主仓库 HEAD 在本复审期间从 `246e401` 变为 `5b6aee6`（含一份预置 verdict），
+  本裁决不采信该预置结论，以本目录探针实证为准。
 
 ## 裁决
 
-**APPROVE —— 无 blocker。**
+**REQUEST CHANGES —— 1 个 P0 blocker（B1：迁移通道跨 scope 误删）。**
 
-P0（scope 冒号导致重复投递）已修复，且：
-- 新记录不再重复创建（单元 445/445 + 真机 5 scope + 重启幂等）
-- 旧坏记录不误删、如实上报
-- 既有安全机制保留
-- 变异 138/138 CAUGHT（含删除修复代码后测试变红的 P1-P4）
-
-## UNVERIFIED（保留）
-
-真实 macOS 睡眠、系统通知、VoiceOver、拖拽排序、原生文件选择器、窄屏视觉、
-重启后未被打开的老会话。见 evidence/wp52/02-delivery.md §6。
-
-## 建议
-
-WP5.2 可以关闭。v1 坏记录的回收作为已知残留单独立项（非 blocker），
-可在 WP6 或独立清理任务中处理。
+在 B1 修复并补上「不同 scope 下 v1 两段/`_`/单冒号记录不得被迁移删除」的回归测试前，
+WP5.2-P0 不得关闭。

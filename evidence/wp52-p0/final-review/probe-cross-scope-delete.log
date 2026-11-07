@@ -1,0 +1,9 @@
+created        = 1
+legacyMigrated = 1 （>0 表示旧记录被迁移删除）
+legacyKept     = 0
+旧记录(task:t1, 空scope) 是否被删 = true
+删除调用明细 = [{"sessionId":"s1","id":"schedule-fake-1"}]
+本轮真正创建的是 = wb2.task.cHJvakE.dDE
+被删旧记录本应属于 = wb2.task..dDE (空 scope)
+结论：跨 scope 误删 = 是 ❌
+      白名单(空 scope 的 identity)从未登记 = wb2.task..dDE 却仍被删 = true

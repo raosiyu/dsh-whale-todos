@@ -1004,7 +1004,7 @@ test('WP5.2-P0：跨进程重启后身份仍一致，不重复创建', async () 
   assert.equal(s2.rows.size, 1, 'Host 上仍只有 1 条')
 })
 
-test('WP5.2-P0：v1 坏记录无法确认归属时不得删除（保守）', async () => {
+test('WP5.2-P0：v1 坏记录无法确认归属时，一律不删、不反复创建（保守，B1 回归）', async () => {
   const sched = fakeSchedule()
   // v1 旧格式，scope 含冒号 → 边界已丢失
   await sched.create('s1', {
@@ -1018,19 +1018,34 @@ test('WP5.2-P0：v1 坏记录无法确认归属时不得删除（保守）', asy
   const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
   const r = await sync.reconcile('s1', data, 'a::b')
 
-  assert.equal(r.legacyMigrated, 0, '归属不可确认时不得迁移/删除')
+  // 归属无法确认 → 绝不删（B1：迁移通道曾被误删，已移除）
   assert.equal(sched.rows.has(oldId), true, '旧记录必须保留')
-  assert.ok(r.legacyKept.some((x) => x.id === oldId), '旧记录必须被上报')
-  // 但新记录只建 1 条，后续不再重复
-  assert.equal(r.created, 1)
+  assert.equal(r.created, 1, '本轮仍会建 v2 新记录')
   const r2 = await sync.reconcile('s1', data, 'a::b')
-  assert.equal(r2.created, 0)
-  /**
-   * `sched.calls.create` 里含「塞旧记录」那 1 次 + 新建 v2 的 1 次 = 2。
-   * 这里要断言的是**reconcile 自身只建了 1 条**，所以看 report 而非调用总数。
-   */
-  assert.equal(r.created + r2.created, 1, 'v2 幂等：两次 reconcile 合计只建 1 条新记录')
-  assert.equal(sched.rows.size, 2, 'Host 上应为「1 条旧记录 + 1 条 v2 新记录」')
+  assert.equal(r2.created, 0, 'v2 幂等：不因旧记录存在而反复创建')
+  assert.equal(sched.rows.size, 2, 'Host 上为「1 条旧 v1 + 1 条 v2」')
+})
+
+test('WP5.2-P0/B1：跨 scope 的 v1 旧记录绝不能被删（迁移通道已移除的回归）', async () => {
+  const sched = fakeSchedule()
+  // 空 scope 时代的 v1 两段记录 task:t1（这是 B1 的误删目标）
+  await sched.create('s1', {
+    title: '空scope旧记录',
+    prompt: '正文 \u200B\u2060[[wb:task:t1]]',
+    at: '2026-11-08T12:00:00.000Z',
+  })
+  const oldId = [...sched.rows.keys()][0]
+
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+  // 在 scope=projA 下 reconcile，数据里恰有 t1
+  const r = await sync.reconcile('s1',
+    { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }, 'projA')
+
+  assert.equal(sched.rows.has(oldId), true,
+    'B1 回归：projA 的 reconcile 绝不得删空 scope 的 v1 旧记录')
+  assert.equal(sched.calls.delete.filter((d) => d.id === oldId).length, 0,
+    '对旧记录不得发起任何 delete 调用')
+  assert.equal(r.created, 1)
 })
 
 test('WP5.2-P0：ownershipOf 必须把 v1 歧义记录判 suspect（否则旧坏记录会被当 owned 误删）', () => {

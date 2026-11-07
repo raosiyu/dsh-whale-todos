@@ -1,0 +1,18 @@
+=== Q4: 含冒号 scope 连续 3 次 reconcile 只 create 1 次 ===
+  ✅ scope="a::b": created=1,0,0 且 Host 仅 1 条
+  ✅ scope="proj:sub": created=1,0,0 且 Host 仅 1 条
+  ✅ scope="x:y:z": created=1,0,0 且 Host 仅 1 条
+  ✅ scope="中文:作用域": created=1,0,0 且 Host 仅 1 条
+  ✅ scope="": created=1,0,0 且 Host 仅 1 条
+
+=== Q4b: 跨进程重启后不重复 create ===
+  ✅ 重启后 created=0 且 Host 仍 1 条
+
+=== Q6: 跨 session 隔离（Host 会话守卫必须拦住） ===
+  ✅ session 隔离：s2 reconcile 不删 s1 的记录
+
+=== Q6: 白名单门控（从未创建的 identity 不被删除） ===
+  ✅ 白名单门控：未登记 identity 的可疑记录不被删（kept）
+
+=== 汇总 ===
+PASS 8  FAIL 0

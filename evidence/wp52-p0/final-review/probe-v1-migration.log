@@ -1,0 +1,24 @@
+=== 场景 1：v1 两段记录 task:t1（scope=""）在 reconcile(scope="projA") 下 ===
+    created=1 legacyMigrated=1 legacyKept=0
+    旧记录 task:t1 (scope="") 是否被删：是 ❌
+  ❌ v1 两段记录 task:t1（scope=""）在 reconcile(scope="projA") 下【不被误删】  legacyMigrated=1, 旧记录被删=true
+
+=== 场景 2：v1 _ 占位记录 task:_:t1 在 reconcile(scope="_") vs scope="" ===
+    created=1 legacyMigrated=1 legacyKept=0
+    task:_:t1 是否被删：是
+    [观察] 旧记录删除行为：被删除
+
+=== 场景 3：v1 三段但 id 含冒号 task:projA:a:b（边界已丢）===
+    created=1 legacyMigrated=1 legacyKept=0 reason=undefined
+    task:projA:a:b 是否被删：是
+  ❌ v1 边界已丢记录 task:projA:a:b 不被删（保守保留）  legacyMigrated=1, 被删=true
+
+=== 场景 4：v1 三段无歧义 task:projA:t1 应被安全迁移 ===
+    created=1 legacyMigrated=0 legacyKept=0
+    [观察] 无歧义 v1 是否走迁移/删除：legacyMigrated=0
+
+=== 汇总 ===
+PASS 0  FAIL 2
+失败项：
+  - v1 两段记录 task:t1（scope=""）在 reconcile(scope="projA") 下【不被误删】
+  - v1 边界已丢记录 task:projA:a:b 不被删（保守保留）

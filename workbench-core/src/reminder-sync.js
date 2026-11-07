@@ -703,55 +703,6 @@ export function createReminderSync(options) {
   }
 
   /**
-   * 收集「可安全迁移的 v1 旧格式记录」（WP5.2-P0 要求 3）。
-   *
-   * ## 为什么要单独一条通道
-   *
-   * v1 的 `kind:scope:entityId` 在 scope 含冒号时**已经写坏**，`decodeIdentity`
-   * 只能标 `legacyAmbiguous` 并判 `suspect`。而 `ownHostRecords` 只返回 `owned`，
-   * 所以这些旧记录永远进不了差异计算 —— 结果是：
-   *
-   *   旧记录（v1）留在 Host + 本轮又建一条新记录（v2）
-   *   → 到点两条都 due → **仍然重复投递**
-   *
-   * 因此必须有一条受控的迁移通道把它们清掉。
-   *
-   * ## 安全边界（严格）
-   *
-   * 只收集同时满足以下条件的记录，缺一不可：
-   *  1. 标记能被 `identityOfHostRecord` 解出（是我们写的格式）；
-   *  2. `decodeIdentity` 标了 `legacyAmbiguous`（确实是 v1 旧格式）；
-   *  3. **sessionId 与本次一致**（不碰别人的）；
-   *  4. 解出的 kind 是合法类型。
-   *
-   * 即便满足，**也不在这里删** —— 交由 `reconcile` 在确认「v2 新记录已存在」
-   * 之后才删，见下方 `legacyToRemove` 逻辑。找不到归属的一律保留。
-   *
-   * @returns {Promise<Array<{id: string, identity: string}>>}
-   */
-  async function legacyHostRecords(sessionId, scope = '') {
-    const all = await schedule.catalog()
-    const rows = Array.isArray(all) ? all : []
-    const out = []
-    for (const row of rows) {
-      if (row.sessionId !== sessionId) continue
-      const identity = identityOfHostRecord(row)
-      if (identity === null) continue
-      const parts = decodeIdentity(identity)
-      if (parts === null || parts.legacyAmbiguous !== true) continue
-      if (!IDENTITY_KINDS.includes(parts.kind)) continue
-      /**
-       * v1 解出的 scope 不可信（正是它坏了）。这里不按 scope 精确匹配，
-       * 只保留「可能与本 scope 相关」的记录 —— 判定交给后面的
-       * 「同名实体在新格式里确实已存在」这一步，那才是真正的安全闸门。
-       */
-      out.push({ id: row.id, identity, decoded: parts })
-    }
-    void scope
-    return out
-  }
-
-  /**
    * 对齐：把 Host 上的提醒改造成与当前数据一致。
    *
    * 执行顺序刻意是 **create → update → delete**：
@@ -772,8 +723,6 @@ export function createReminderSync(options) {
       created: 0, updated: 0, deleted: 0, unchanged: 0,
       kept: [],
       observed: [],
-      legacyMigrated: 0,
-      legacyKept: [],
       failed: [],
       problems: [],
       catalogAvailable: true,
@@ -910,83 +859,6 @@ export function createReminderSync(options) {
           reason: String(error?.code ?? error?.message ?? error),
         })
       }
-    }
-
-    /**
-     * ---------------------------------------------------------------
-     * v1 → v2 受控迁移（WP5.2-P0 要求 3）
-     * ---------------------------------------------------------------
-     *
-     * 目的：清掉「已写坏的 v1 旧记录」，否则它和本轮新建的 v2 记录会同时
-     * 到点各投递一次，等于 P0 换了个形式复发。
-     *
-     * **三道闸门，缺一不可**：
-     *  1. 旧记录必须能被识别为我们写的 v1 格式（`legacyHostRecords` 已筛）；
-     *  2. 同一 (kind, entityId) 的 **v2 新记录必须已经存在于 Host 上**
-     *     —— 先建后删，任何时刻都不存在「删了还没建好」的空窗；
-     *  3. 删除走的是 `schedule.delete({sessionId, id})`，Host 侧 sessionId
-     *     不匹配会返回 `{deleted:false}`，我们检查返回值，不计假成功。
-     *
-     * 不满足 2 的一律**保留**并记入 `report.legacyKept`：宁可留旧记录，
-     * 也不在没有替代品时删掉它（那会让提醒彻底消失）。
-     */
-    report.legacyMigrated = 0
-    report.legacyKept = []
-    try {
-      const legacy = await legacyHostRecords(sessionId, scope)
-      if (legacy.length > 0) {
-        // 当前 Host 上现存的 v2 身份集合（用于闸门 2）
-        const liveV2 = new Set()
-        for (const row of await schedule.catalog()) {
-          if (row.sessionId !== sessionId) continue
-          const idt = identityOfHostRecord(row)
-          if (idt === null) continue
-          if (idt.startsWith(`${IDENTITY_FORMAT_V2}.`)) liveV2.add(idt)
-        }
-        for (const oldRow of legacy) {
-          /**
-           * **含冒号的 v1 记录无法可靠还原 entityId**：
-           *
-           *   `task:a::b:t1` → { scope:'a', entityId:':b:t1' }   ← 边界已丢
-           *
-           * 也就是说「这条旧记录对应哪个实体」在字符串层面**已经不可知**。
-           * 拿这个错位的 entityId 去算 v2 身份，只会得到一个对不上的 key，
-           * 于是永远匹配不到替代品。
-           *
-           * 更危险的是：如果我们换个宽松闸门（比如「本 scope 已有 v2 记录
-           * 就删旧记录」），就可能删掉一条其实对应**另一个实体**的旧记录 ——
-           * 那是误删，用户那条提醒会真的消失。
-           *
-           * 所以：**不删**。统一记入 `legacyKept` 上报，交人工/后续工具处置。
-           * 同时新记录走 v2 身份，不会因为旧记录存在而重复创建
-           * （这正是本次 P0 修复的核心）。
-           */
-          const wantV2 = reminderIdentity(oldRow.decoded.kind, oldRow.decoded.entityId, scope)
-          if (!liveV2.has(wantV2)) {
-            report.legacyKept.push({
-              id: oldRow.id,
-              identity: oldRow.identity,
-              reason: oldRow.decoded.legacyAmbiguous === true && oldRow.identity.includes('::')
-                ? 'v1-boundary-lost'
-                : 'no-v2-replacement',
-            })
-            continue
-          }
-          try {
-            const res = await schedule.delete({ sessionId, id: oldRow.id })
-            if (res !== null && typeof res === 'object' && res.deleted === false) {
-              report.legacyKept.push({ id: oldRow.id, identity: oldRow.identity, reason: String(res.code ?? 'delete-not-applied') })
-            } else {
-              report.legacyMigrated += 1
-            }
-          } catch (error) {
-            report.legacyKept.push({ id: oldRow.id, identity: oldRow.identity, reason: String(error?.code ?? error?.message ?? error) })
-          }
-        }
-      }
-    } catch (error) {
-      // 迁移失败不影响主流程，但要可见
-      report.legacyKept.push({ id: null, identity: null, reason: `legacy-scan-failed: ${String(error?.message ?? error)}` })
     }
 
     report.unchanged = plan.unchanged.length

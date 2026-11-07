@@ -1,0 +1,18 @@
+=== Q1: base64url 字母表不含 . ===
+  ✅ 任意 scope 编码产物不含 .（分段分隔符安全）
+
+=== Q1: 任意 scope/entityId 往返一致（逐字节还原）===
+  ✅ 全组合 21×15=315 往返一致
+
+=== Q2: 无碰撞 ===
+  ✅ 空 scope 与真实 "_" 身份不同
+  ✅ 空 scope 解码回 ""
+  ✅ "_" scope 解码回 "_"
+  ✅ v2 中 (scope=a,id=b:c) 与 (scope=a:b,id=c) 身份不同
+  ✅ (a, b:c) 解码 scope=a id=b:c
+  ✅ (a:b, c) 解码 scope=a:b id=c
+  ✅ 身份带版本前缀 wb2.
+  ✅ 段数固定为 4
+
+=== 汇总 ===
+PASS 10  FAIL 0

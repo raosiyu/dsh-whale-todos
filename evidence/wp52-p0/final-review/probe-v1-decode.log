@@ -1,0 +1,7 @@
+"task:_:t1" => decode= {"kind":"task","scope":"","entityId":"t1","legacyAmbiguous":true}  ownershipOf.level= suspect reason= legacy-identity-ambiguous
+"task:t1" => decode= {"kind":"task","scope":"","entityId":"t1","legacyAmbiguous":true}  ownershipOf.level= suspect reason= legacy-identity-ambiguous
+"task:projA:a:b" => decode= {"kind":"task","scope":"projA","entityId":"a:b","legacyAmbiguous":true}  ownershipOf.level= suspect reason= legacy-identity-ambiguous
+"task:a::b:t1" => decode= {"kind":"task","scope":"a","entityId":":b:t1","legacyAmbiguous":true}  ownershipOf.level= suspect reason= legacy-identity-ambiguous
+"event-start:_:e1" => decode= {"kind":"event-start","scope":"","entityId":"e1","legacyAmbiguous":true}  ownershipOf.level= suspect reason= legacy-identity-ambiguous
+task:projA:t1 => {"kind":"task","scope":"projA","entityId":"t1"}
+v2 (projA,t1) => {"kind":"task","scope":"projA","entityId":"t1"} owned when scope=projA: owned
