@@ -1,0 +1,17 @@
+=== V1: decodeIdentity 歧义标 legacyAmbiguous；ownershipOf 判 suspect（不删）===
+  ✅ decodeIdentity("task:_:t1") → legacyAmbiguous=true, ownershipOf=suspect
+  ✅ decodeIdentity("task:t1") → legacyAmbiguous=true, ownershipOf=suspect
+  ✅ decodeIdentity("task:projA:a:b") → legacyAmbiguous=true, ownershipOf=suspect
+  ✅ decodeIdentity("task:a::b:t1") → legacyAmbiguous=true, ownershipOf=suspect
+  ✅ decodeIdentity("event-start:_:e1") → legacyAmbiguous=true, ownershipOf=suspect
+
+=== V1: v2 干净记录判 owned（不受误伤） ===
+  ✅ v2 干净记录 (scope=projA) 判 owned
+  ✅ v2 记录 scope 不匹配时判 suspect（不误当 owned）
+
+=== RESTART: 白名单持久化后跨进程重启 create=0 ===
+  ✅ 重启后 created=0 且 Host 仍 1 条（scope="a::b"）
+  ✅ 白名单已持久化（disk 有 1 条 identity）
+
+=== 汇总 ===
+PASS 9  FAIL 0

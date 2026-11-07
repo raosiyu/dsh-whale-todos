@@ -1,0 +1,11 @@
+=== ISO-1: 跨 session 隔离（s2 reconcile 不删 s1 记录） ===
+  ✅ session 隔离：s2 reconcile 不删 s1 记录
+
+=== ISO-2: 白名单门控（从未登记 identity 不删，kept） ===
+  ✅ 白名单门控：未登记 identity 的可疑记录 kept 不删
+
+=== ISO-3: scope 隔离（不同 scope 同名实体互不踩踏） ===
+  ✅ scope 隔离：projA 与 projB 各 1 条（不互相 update 踩踏）
+
+=== 汇总 ===
+PASS 3  FAIL 0

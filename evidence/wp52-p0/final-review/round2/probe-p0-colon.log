@@ -1,0 +1,9 @@
+=== P0: 含冒号/中文/空 scope 连续 3 次 reconcile create=1,0,0 且 hostActive=1 ===
+  ✅ scope="a::b": created=1,0,0 且 hostActive=1
+  ✅ scope="proj:sub": created=1,0,0 且 hostActive=1
+  ✅ scope="x:y:z": created=1,0,0 且 hostActive=1
+  ✅ scope="中文:作用域": created=1,0,0 且 hostActive=1
+  ✅ scope="": created=1,0,0 且 hostActive=1
+
+=== 汇总 ===
+PASS 5  FAIL 0

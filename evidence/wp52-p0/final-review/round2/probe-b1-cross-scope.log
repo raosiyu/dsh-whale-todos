@@ -1,0 +1,29 @@
+=== B1-a: 跨 scope 的 v1 旧记录绝不被删、零 delete 调用 ===
+  ✅ 旧记录 "task:t1" (sem="") 在 scope="projA" 下仍保留
+  ✅   对该旧记录 delete 调用 = 0
+  ✅   全轮 delete 调用 = 0（任何旧记录都不得删）
+  ✅ 旧记录 "task:_:t1" (sem="") 在 scope="projA" 下仍保留
+  ✅   对该旧记录 delete 调用 = 0
+  ✅   全轮 delete 调用 = 0（任何旧记录都不得删）
+  ✅ 旧记录 "task:projA:a:b" (sem="projA") 在 scope="projA" 下仍保留
+  ✅   对该旧记录 delete 调用 = 0
+  ✅   全轮 delete 调用 = 0（任何旧记录都不得删）
+  ✅ 旧记录 "task:a::b:t1" (sem="a::b") 在 scope="a::b" 下仍保留
+  ✅   对该旧记录 delete 调用 = 0
+  ✅   全轮 delete 调用 = 0（任何旧记录都不得删）
+  ✅ 旧记录 "task:t1" (sem="") 在 scope="" 下仍保留
+  ✅   对该旧记录 delete 调用 = 0
+  ✅   全轮 delete 调用 = 0（任何旧记录都不得删）
+  ✅ 旧记录 "event-start:t1" (sem="") 在 scope="projA" 下仍保留
+  ✅   对该旧记录 delete 调用 = 0
+  ✅   全轮 delete 调用 = 0（任何旧记录都不得删）
+
+=== B1-b: 迁移通道彻底移除（report 无 legacyMigrated/legacyKept 字段） ===
+  ✅ reconcile report 不含 legacyMigrated 字段（迁移通道已移除）
+  ✅ reconcile report 不含 legacyKept 字段（迁移通道已移除）
+  report keys = sessionId,created,updated,deleted,unchanged,kept,observed,failed,problems,catalogAvailable
+
+=== B1-c: 迁移通道 3 个标记在 src + test 全树 0 命中 ===
+
+=== 汇总 ===
+PASS 20  FAIL 0

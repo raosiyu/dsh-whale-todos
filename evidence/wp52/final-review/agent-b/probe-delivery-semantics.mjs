@@ -58,7 +58,7 @@ hr('D2 batchSessionOf：一次性 at 任务不 batch（各自独立投递）')
   // 行号 642/645/678 完全对应）。所有行为探针已在冻结副本存在时跑完并固化日志。
   const SYNC_CANDIDATES = [
     '/tmp/wp52-freeze-e9b2b32/workbench-core/src/reminder-sync.js',
-    '/Users/sylas/Developer/dsh-workbench/workbench-core/src/reminder-sync.js',
+    '../../../../workbench-core/src/reminder-sync.js',
   ]
   const syncPath = SYNC_CANDIDATES.find((p) => existsSync(p))
   line(`  reminder-sync 源码: ${syncPath ?? 'NONE'}`)

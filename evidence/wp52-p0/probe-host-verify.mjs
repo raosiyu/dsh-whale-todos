@@ -30,7 +30,7 @@ export function apply(ctx) {
         log('session=' + sid)
 
         const { createReminderSync } = await import(
-          '/Users/sylas/Developer/dsh-workbench/workbench-core/src/reminder-sync.js'
+          '../../workbench-core/src/reminder-sync.js'
         )
         const sync = createReminderSync({ schedule: sub.schedule })
 

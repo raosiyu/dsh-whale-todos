@@ -1,0 +1,5 @@
+  PASS  B1.1 跨 scope reconcile 不删空 scope 旧记录
+  PASS  B1.2 对旧记录零 delete 调用
+  PASS  B1.3 仍建 v2 新记录
+  PASS  B1.4 含冒号 scope 三次 reconcile create=1,0,0
+B1 修复验证汇总: PASS=4 FAIL=0

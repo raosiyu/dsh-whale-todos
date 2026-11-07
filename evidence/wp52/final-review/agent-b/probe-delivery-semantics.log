@@ -8,7 +8,7 @@
 ========== D2 batchSessionOf：一次性 at 任务不 batch（各自独立投递） ==========
   batchSessionOf 仅对 recurring session 任务返回 sessionId=true
 [PASS] 一次性 at 任务 batchSessionOf→undefined → group=[task] → 独立 send()
-  reminder-sync 源码: /Users/sylas/Developer/dsh-workbench/workbench-core/src/reminder-sync.js
+  reminder-sync 源码: ../../../../workbench-core/src/reminder-sync.js
   reminder-sync create 用 at=true update 用 kind:'at'=true
 [PASS] WP5.2 提醒是一次性 at 任务（非 recurring）→ 不 batch
 
