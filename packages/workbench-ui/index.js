@@ -23,8 +23,38 @@
  */
 
 import { createWorkbenchHostService } from '../../workbench-core/src/index.js'
+import { createReminderSync } from '../../workbench-core/src/reminder-sync.js'
 
 export const name = 'workbench-ui'
+
+/**
+ * ## 关于 `schedule`（WP5.1 P0 提醒投递）
+ *
+ * 真实来源：`@deepseek-ai/dsh-schedule` 由 `dsh-web-app/cordis.patch.yml:125-126`
+ * 以 id `schedule` 挂载，Service 名同为 `schedule`（`lib/index.js:2612`
+ * `super(ctx,"schedule")`）。**该行默认 `disabled: true`**，必须由 profile 的
+ * overlay 行 `- id: schedule / disabled: false` 显式启用 —— 隔离实例实测：
+ *
+ *   [probe] schedule keys: ctx,name,typertRemote,retention,ready,initialized,chain,runtime,stopping
+ *   [probe] has create/catalog/history: function
+ *
+ * ### 为什么**不**把它写进 `inject`
+ *
+ * Cordis 的 `inject` 是**硬依赖**：`lib/index.js:676` 在缺服务时抛
+ * `cannot get property "x" without inject`，整个插件会停在
+ * `pending (waiting for service)`。而 `schedule` 在上游默认是 **disabled**，
+ * 若写进 inject，任何没显式启用它的 profile 都会让本插件**整体起不来** ——
+ * 提醒是增强项，不该成为日历/待办主功能的单点故障。
+ *
+ * 正确做法是 `ctx.get('schedule')`（`lib/index.js:762` 原文：
+ * "Read a service from the store without the inject requirement"，
+ * 缺失时返回 `undefined`）。这样：
+ *  - 启用时：提醒全量接入 Host 持久化投递；
+ *  - 未启用时：提醒同步**显式降级并上报**（不假装成功），其余功能照常。
+ *
+ * 注意 Cordis 的 `inject` **按服务名且不递归**，所以即使以后要改成硬依赖，
+ * 也必须在这行显式写出 `'schedule'`，不能指望从别的服务传递。
+ */
 export const inject = ['commands']
 
 /**
@@ -112,6 +142,97 @@ export function apply(ctx, config = {}) {
   // 唯一数据源：UI 与 AI 工具都从这里读
   ctx.provide('workbench', service)
 
+  /**
+   * ---------------------------------------------------------------
+   * WP5.1 · P0 提醒投递
+   * ---------------------------------------------------------------
+   *
+   * ## 用 `ctx.inject`，不用 `ctx.get`
+   *
+   * **实测过的坑**：在 `apply()` 的同步阶段调 `ctx.get('schedule')` 拿到的是
+   * `undefined` —— 此时 Cordis 还没把 schedule 的 fiber 置为 active
+   * （`_getImpl` 的 `strict` 分支要求 `impl.fiber.state === 2`）。
+   * 所有服务（含 `sessions`/`agents`）在那一步都是 undefined：
+   *
+   *   [svc] schedule → undefined
+   *   [svc] sessions → undefined
+   *   [svc] storageDomain → undefined
+   *
+   * 正确做法是 `ctx.inject(['schedule'], cb)`（`cordis/lib/index.js:1600`
+   * 原文 "Start a callback once the requested dependencies are available"）。
+   * 实测同一 profile 下改成 inject 后立刻拿到真服务：
+   *
+   *   [wait] schedule 服务就绪，keys: ctx,name,typertRemote,retention,ready,…
+   *   [wait] create: function | catalog: function
+   *
+   * 而且 `inject` 是**可选**的：schedule 没启用时回调不执行，
+   * `reminderSync` 保持 null，插件其余功能照常 —— 这正是我们要的降级语义。
+   */
+  let reminderSync = null
+  let reminderAttachState = 'pending'
+
+  /**
+   * 触发一次提醒对齐。
+   *
+   * **不依赖 UI 挂载**：调用点在 `handler` 内（写操作成功后）与 Host 启动时，
+   * 与「用户有没有打开面板」无关。这正是 P0 的硬要求。
+   *
+   * 对齐失败**不能**让写操作本身失败 —— 数据已经落盘，提醒是派生视图。
+   * 但失败必须被看见：写进 `lastReminderReport`，由 `reminder.status` 读出。
+   */
+  let lastReminderReport = { at: null, ok: null, report: null, reason: null }
+
+  const reconcileReminders = async (sessionId, scope = '') => {
+    if (reminderSync === null) {
+      lastReminderReport = {
+        at: new Date().toISOString(), ok: false, report: null,
+        reason: `schedule-service-${reminderAttachState}`,
+      }
+      return lastReminderReport
+    }
+    try {
+      const svc = service.forSession(sessionId, scope)
+      const tasksRaw = svc.execute('task.list', {}, {})
+      const eventsRaw = svc.execute('event.list', {}, {})
+      const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw?.tasks ?? [])
+      const events = Array.isArray(eventsRaw) ? eventsRaw : (eventsRaw?.events ?? [])
+      const report = await reminderSync.reconcile(sessionId, { tasks, events }, scope)
+      lastReminderReport = {
+        at: new Date().toISOString(),
+        ok: report.failed.length === 0 && report.catalogAvailable,
+        report,
+        reason: report.catalogAvailable ? null : 'catalog-unavailable',
+      }
+      return lastReminderReport
+    } catch (error) {
+      lastReminderReport = {
+        at: new Date().toISOString(),
+        ok: false,
+        report: null,
+        reason: String(error?.code ?? error?.message ?? error),
+      }
+      return lastReminderReport
+    }
+  }
+
+  /**
+   * 哪些写操作会改变「该有哪些提醒」。
+   *
+   * 只列真正影响 Event/Task 内容或身份的：`store.backup` 不改业务数据，
+   * `history.*` 会改（撤销可能删/改实体），`snapshot.replace`/`event.import`/
+   * `store.rollback` 是大范围替换，都必须重算。
+   *
+   * `task.reorder` 不改 dueAt/标题，理论上不影响提醒；但它便宜且幂等，
+   * 一并重算可以避免「排序后状态不一致」这类难以排查的边角。
+   */
+  const REMINDER_AFFECTING_OPS = new Set([
+    'event.create', 'event.update', 'event.restore', 'event.delete', 'event.bulkDelete',
+    'event.import', 'event.move',
+    'task.upsert', 'task.archive', 'task.reorder',
+    'snapshot.replace', 'store.rollback',
+    'history.undo', 'history.redo',
+  ])
+
   const handler = async (invocation) => {
     const parsed = parseWorkbenchRequest(invocation.rawInput)
     if (parsed.error !== undefined) {
@@ -129,6 +250,47 @@ export function apply(ctx, config = {}) {
 
     const { op, payload = {}, scope = '', approvalToken, agent } = parsed.req
     try {
+      /**
+       * **提醒诊断（只读）**。
+       *
+       * 暴露三件事：`schedule` 服务是否接上、最近一次对账的时间与结果、
+       * 以及失败原因。这不是调试遗留：没有它，用户无法区分
+       * 「提醒已注册」和「提醒根本没在工作」，而这两者的观感完全一样。
+       *
+       * 只读：不改数据、不写存储、不需要审批。
+       */
+      if (op === 'reminder.status') {
+        let hostCount = null
+        let hostError = null
+        if (reminderSync !== null) {
+          try {
+            hostCount = (await reminderSync.ownHostRecords()).length
+          } catch (error) {
+            hostError = String(error?.code ?? error?.message ?? error)
+          }
+        }
+        return encodeResult({
+          ok: true,
+          op,
+          value: {
+            serviceAvailable: reminderSync !== null,
+            lastReconcile: lastReminderReport,
+            hostReminderCount: hostCount,
+            hostError,
+          },
+        })
+      }
+      /**
+       * 手动触发一次对账（只读业务数据 + 写 Host 提醒）。
+       *
+       * 存在的理由：启动对账只覆盖「本进程已打开过的 session」，
+       * 重启后老会话要等它第一次写操作才对齐。这个入口让上层能在需要的
+       * 时候主动收敛一次，而不必改业务数据。
+       */
+      if (op === 'reminder.reconcile') {
+        const report = await reconcileReminders(sessionId, scope)
+        return encodeResult({ ok: true, op, value: report })
+      }
       /**
        * **用户显式确认**（UI 删除）：由宿主签发一次性凭证。
        *
@@ -176,6 +338,19 @@ export function apply(ctx, config = {}) {
         actor: 'ui',
         ...(agent !== undefined ? { agent } : {}),
       })
+
+      /**
+       * 写操作成功后对齐提醒。
+       *
+       * **必须 await**：不 await 的话，写操作返回时提醒还没注册好，
+       * 调用方紧接着读状态会看到旧值；而且对齐失败会变成 unhandled rejection。
+       * 但 `reconcileReminders` 内部已经吞掉可预期的错误并写进
+       * `lastReminderReport`，所以这里不会因为提醒问题让业务操作失败。
+       */
+      if (REMINDER_AFFECTING_OPS.has(op)) {
+        await reconcileReminders(sessionId, scope)
+      }
+
       return encodeResult({ ok: true, value, op })
     } catch (error) {
       return encodeResult({
@@ -198,4 +373,75 @@ export function apply(ctx, config = {}) {
       handler,
     })
   }, 'workbench-ui: command registration')
+
+
+  /**
+   * ---------------------------------------------------------------
+   * WP5.1 · 绑定 Host `schedule` 服务（**inject，不是 get**）
+   * ---------------------------------------------------------------
+   *
+   * 为什么必须 inject：`apply()` 的同步阶段 `ctx.get('schedule')` 返回
+   * undefined（fiber 还没 active），实测所有服务在那一步都是 undefined。
+   * `ctx.inject` 会等服务就绪再执行回调，实测立刻拿到真服务。
+   *
+   * 为什么是**可选**依赖：schedule 在上游默认 `disabled: true`。用
+   * `ctx.inject` 而不是模块级 `export const inject = [...]`，好处是
+   * 服务缺席时回调不执行、插件其余功能不受影响（模块级 inject 会让整个
+   * 插件卡在 pending）。这条差异是 P0 降级语义的实现基础。
+   *
+   * 兼容性：`ctx.inject` 只在真 Cordis Context 上存在。测试桩与极简宿主
+   * 可能没有这个方法 —— 此时**显式降级**为 `state='unsupported'`，
+   * 而不是抛错让整个插件挂掉。提醒是增强项，不该成为主功能的单点故障。
+   */
+  if (typeof ctx.inject !== 'function') {
+    reminderAttachState = 'unsupported'
+  } else {
+  ctx.inject(['schedule'], (sub) => {
+    const svc = sub.schedule
+    if (svc === null || svc === undefined
+      || typeof svc.create !== 'function' || typeof svc.catalog !== 'function') {
+      reminderAttachState = 'malformed'
+      return
+    }
+    reminderSync = createReminderSync({ schedule: svc })
+    reminderAttachState = 'attached'
+
+    /**
+     * 绑定成功后立刻对账一次（覆盖本进程已打开过的 session）。
+     *
+     * 放在这里而不是另一个 `ctx.effect`：后者可能在 schedule 就绪**之前**
+     * 跑完，那时 `reminderSync` 还是 null，对账会静默跳过。
+     */
+    const runStartup = async () => {
+      let opened = []
+      try {
+        opened = typeof service.openedSessions === 'function' ? service.openedSessions() : []
+      } catch (error) {
+        lastReminderReport = {
+          at: new Date().toISOString(), ok: false, report: null,
+          reason: `openedSessions-failed: ${String(error?.message ?? error)}`,
+        }
+        return
+      }
+      if (opened.length === 0) {
+        lastReminderReport = {
+          at: new Date().toISOString(), ok: null, report: null,
+          reason: 'no-opened-session-yet',
+        }
+        return
+      }
+      const results = []
+      for (const item of opened) {
+        results.push(await reconcileReminders(item.sessionId, item.scope))
+      }
+      lastReminderReport = {
+        at: new Date().toISOString(),
+        ok: results.every((r) => r.ok === true),
+        report: { sessions: results.length, results },
+        reason: null,
+      }
+    }
+    runStartup().catch(() => { /* 启动对账失败不阻塞插件 */ })
+  })
+  }
 }

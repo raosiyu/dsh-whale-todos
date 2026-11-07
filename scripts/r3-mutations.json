@@ -128,9 +128,9 @@
   {
     "id": "X12",
     "name": "删除失败不计入 failed",
-    "file": "workbench-core/src/schedule-adapter.js",
-    "from": "          if (res.ok === true) removed.push(key)\n          else failed.push({ key, reason: res.reason ?? 'delete-failed', op: 'remove' })",
-    "to": "          if (res.ok === true) removed.push(key)"
+    "file": "packages/workbench-ui/client.js",
+    "from": "  if (parsed.ok === true && parsed.value === undefined) return { kind: 'none' }",
+    "to": "  if (parsed.ok === true) return { kind: 'date', text: String(raw ?? '').slice(0, 10) }"
   },
   {
     "id": "X13",
@@ -737,5 +737,145 @@
     "file": "packages/workbench-ui/client.js",
     "from": "  const skip = Math.max(0, Number(c.skip ?? 0) - duplicate - conflict - unsupported)",
     "to": "  const skip = Math.max(0, Number(c.skip ?? 0) - duplicate - unsupported)"
+  },
+  {
+    "id": "Y1",
+    "name": "wp51：ICS 导入不查 UID，重复导入产生重复事件（回退幂等修复）",
+    "file": "workbench-core/src/service.js",
+    "from": "          if (uid !== null && knownUids.has(uid)) {",
+    "to": "          if (false) {"
+  },
+  {
+    "id": "Y2",
+    "name": "wp51：导入只在文件内去重，不与既有事件比对",
+    "file": "workbench-core/src/service.js",
+    "from": "      const knownUids = new Set(existing.map(uidOfEvent))",
+    "to": "      const knownUids = new Set()"
+  },
+  {
+    "id": "Y3",
+    "name": "wp51：预览与导入判重规则漂移（预览不查既有 UID）",
+    "file": "workbench-core/src/service.js",
+    "from": "      const knownUids = new Set(existing.map(uidOfEvent))\n      const plan = parsed.events.map((incoming) => {",
+    "to": "      const knownUids = new Set()\n      const plan = parsed.events.map((incoming) => {"
+  },
+  {
+    "id": "Y4",
+    "name": "wp51：导入不把新建事件的 UID 加进已知集合（文件内自重复漏网）",
+    "file": "workbench-core/src/service.js",
+    "from": "          if (createdUid !== null) knownUids.add(createdUid)",
+    "to": "          if (false) knownUids.add(createdUid)"
+  },
+  {
+    "id": "Y5",
+    "name": "wp51：导入跳过时不计数（静默吞掉）",
+    "file": "workbench-core/src/service.js",
+    "from": "        skipped: skipped.length,",
+    "to": "        skipped: 0,"
+  },
+  {
+    "id": "Y6",
+    "name": "wp51：提醒幂等比较用未编码 prompt（每次 reconcile 都 update）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "      && row.prompt === encodePrompt(want.prompt, want.identity)",
+    "to": "      && row.prompt === want.prompt"
+  },
+  {
+    "id": "Y7",
+    "name": "wp51：提醒时间比较恒为假（每次 reconcile 都 update）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "    const sameTime = Date.parse(String(row.scheduledAt)) === want.fireAtMs",
+    "to": "    const sameTime = false"
+  },
+  {
+    "id": "Y8",
+    "name": "wp51：catalog 读失败时继续写（重复注册风险）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "      report.catalogAvailable = false",
+    "to": "      report.catalogAvailable = true"
+  },
+  {
+    "id": "Y9",
+    "name": "wp51：非法 dueAt 静默丢弃（不写 problems）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "        problems.push({ entityId: String(task?.id ?? ''), reason: r.reason })",
+    "to": "        if (false) problems.push({ entityId: String(task?.id ?? ''), reason: r.reason })"
+  },
+  {
+    "id": "Y10",
+    "name": "wp51：已完成的待办不撤销提醒",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "  if (task.done === true) return { ok: true, value: null }",
+    "to": "  if (task.done === true) { /* 变异：不撤销已完成待办的提醒 */ }"
+  },
+  {
+    "id": "Y11",
+    "name": "wp51：导出按钮无防连点保护",
+    "file": "packages/workbench-ui/client.js",
+    "from": "        if (exporting !== null) return",
+    "to": "        if (false) return"
+  },
+  {
+    "id": "Y12",
+    "name": "wp51：坏 dueAt 直接截断展示（回退 P2 修复，绕过 parseDueAt 判定）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "  if (parsed.ok === true && parsed.value === undefined) return { kind: 'none' }",
+    "to": "  if (parsed.ok === true) return { kind: 'date', text: String(raw ?? '').slice(0, 10) }"
+  },
+  {
+    "id": "Y13",
+    "name": "wp51：无 UID 的 ICS 不走内容指纹（重复导入仍产生重复事件）",
+    "file": "workbench-core/src/service.js",
+    "from": "    const direct = uidOfEvent(incoming)",
+    "to": "    const direct = uidOfEvent(incoming)\n    if (true) return direct"
+  },
+  {
+    "id": "Y14",
+    "name": "wp51：导入创建时不写判重身份（uid 退回随机 id）",
+    "file": "workbench-core/src/service.js",
+    "from": "          const toCreate = identity === null ? validated : { ...validated, uid: identity }",
+    "to": "          const toCreate = validated"
+  },
+  {
+    "id": "Y15",
+    "name": "wp51：ownHostRecords 不按 sessionId 过滤（跨 session 误删/谎报）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "      if (row.sessionId !== sessionId) return false",
+    "to": "      if (false) return false"
+  },
+  {
+    "id": "Y16",
+    "name": "wp51：delete 返回值不检查（删失败也计成功）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "        if (res !== null && typeof res === 'object' && res.deleted === false) {",
+    "to": "        if (false) {"
+  },
+  {
+    "id": "Y17",
+    "name": "wp51：encodePrompt 从头部截断丢掉身份标记（无界重复注册）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "  const body = base.length > budget ? base.slice(0, budget) : base",
+    "to": "  const body = base\n  return `${body}${tag}`.slice(0, MAX_REMINDER_PROMPT)"
+  },
+  {
+    "id": "Y18",
+    "name": "wp51：身份标记不带不可见前缀（用户可伪造、可被误删）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "  const m = /\\u200B\\u2060\\[\\[wb:([^\\]]+)\\]\\]\\s*$/.exec(prompt)",
+    "to": "  const m = /\\[\\[wb:([^\\]]+)\\]\\]\\s*$/.exec(prompt)"
+  },
+  {
+    "id": "Y19",
+    "name": "wp51：identity 不含 scope（不同 scope 互相覆盖）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "  return `${kind}:${scopeKey}:${String(entityId)}`",
+    "to": "  return `${kind}:${String(entityId)}`"
+  },
+  {
+    "id": "Y20",
+    "name": "wp51：ownHostRecords 不按 scope 过滤（多 scope 互相删除）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "      return parts.scope === (scope === '' ? '' : String(scope))",
+    "to": "      return true"
   }
 ]

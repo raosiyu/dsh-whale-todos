@@ -67,6 +67,16 @@ window.__ModuleLoader__.load({
       "ready": "Ready",
       "error": "Error",
       "import": "Import",
+      "export": "Export ICS",
+      "exportJsonShort": "Export JSON",
+      "exportIcs": "Export as ICS calendar",
+      "exportJson": "Export as JSON snapshot",
+      "exportIcsHint": "Download all active events as an .ics calendar file",
+      "exportJsonHint": "Download a full JSON snapshot (events and todos)",
+      "exporting": "Exporting…",
+      "exportDone": "Exported {file}",
+      "exportEmpty": "Nothing to export (the Host returned an empty document)",
+      "dueAtBroken": "Invalid time format (this todo will not trigger a reminder)",
       "undo": "Undo",
       "redo": "Redo",
       "archive": "Archive",
@@ -197,7 +207,8 @@ window.__ModuleLoader__.load({
       "orderSaved": "Order saved",
       "undoDone": "Undid last step",
       "redoDone": "Redone",
-      "importDone": "Import complete",
+      "importDone": "Imported {n} item(s)",
+      "importDoneSkipped": "Imported {n} item(s), skipped {s} duplicate(s)",
       "archived": "Archived",
       "restored": "Restored",
       "loadFailed": "Load failed",
@@ -238,6 +249,16 @@ window.__ModuleLoader__.load({
       "ready": "就绪",
       "error": "错误",
       "import": "导入",
+      "export": "导出 ICS",
+      "exportJsonShort": "导出 JSON",
+      "exportIcs": "导出为 ICS 日历",
+      "exportJson": "导出为 JSON 快照",
+      "exportIcsHint": "把所有有效日程下载为 .ics 日历文件",
+      "exportJsonHint": "下载完整 JSON 快照（含日程与待办）",
+      "exporting": "导出中…",
+      "exportDone": "已导出 {file}",
+      "exportEmpty": "没有可导出的内容（宿主返回了空文档）",
+      "dueAtBroken": "时间格式异常（这条待办不会触发提醒）",
       "undo": "撤销",
       "redo": "重做",
       "archive": "归档",
@@ -368,7 +389,8 @@ window.__ModuleLoader__.load({
       "orderSaved": "顺序已保存",
       "undoDone": "已撤销上一步",
       "redoDone": "已重做",
-      "importDone": "导入完成",
+      "importDone": "已导入 {n} 条",
+      "importDoneSkipped": "已导入 {n} 条，跳过重复 {s} 条",
       "archived": "已归档",
       "restored": "已恢复",
       "loadFailed": "加载失败",
@@ -489,7 +511,22 @@ window.__ModuleLoader__.load({
 .wb-preview-create{color:var(--dsw-alias-state-business-primary)}
 .wb-preview-warn{color:var(--dsw-alias-state-warn-label)}
 @media (max-width:800px){.wb-side{width:100%;max-width:none;border-left:0;
-  border-top:1px solid var(--dsw-alias-border-l1)}.wb-body{flex-direction:column}}
+  border-top:1px solid var(--dsw-alias-border-l1)}.wb-body{flex-direction:column}
+  /* 日历 7 列网格在 800px 以下会被压到每格约 100px，日期数字与事件条挤成竖条。
+     缩字号与内边距，让一屏仍能读出"哪天有什么事"，而不是把格子压碎。 */
+  .wb-grid-7{gap:4px}
+  .wb-day{padding:4px;min-height:44px}
+  .wb-day-num{font-size:11px}
+  .wb-event-chip{padding:4px;font-size:10px}
+  /* 顶栏按钮在窄屏会换行错位：允许横向滚动而不是硬挤成一列。 */
+  .wb-toolbar{flex-wrap:wrap;row-gap:8px}}
+@media (max-width:520px){
+  /* 更窄时把日历切成"周视图式"信息密度：只留日期数字，事件靠点击查看。
+     保留网格而不是改成列表——用户在这个视图里找的是"哪一天"。 */
+  .wb-day{min-height:36px;padding:4px}
+  .wb-event-chip{display:none}
+  .wb-day-num{font-size:10px}
+  .wb-toolbar .wb-btn{padding:4px 8px;font-size:12px}}
 `
 
     // --------------------------------------------------------------- 工具函数
@@ -669,6 +706,23 @@ function parseDueAt(raw) {
   return { ok: true, value: text }
 }
 
+/**
+ * 到期时间该**怎么显示**（纯函数，供列表渲染与测试共用）。
+ *
+ * 为什么抽出来：原实现在渲染处直接 `String(row.dueAt).slice(0, 10)`，
+ * 结果是坏数据 `'排序验证'` 被当成合法日期原样显示。那种写在 JSX 里的
+ * 判断没法被单元测试覆盖 —— 能不能测，取决于有没有把它变成纯函数。
+ *
+ * @param {unknown} raw
+ * @returns {{ kind: 'none' } | { kind: 'date', text: string } | { kind: 'broken', raw: string }}
+ */
+function dueDisplay(raw) {
+  const parsed = parseDueAt(raw)
+  if (parsed.ok === true && parsed.value === undefined) return { kind: 'none' }
+  if (parsed.ok === true) return { kind: 'date', text: parsed.value.slice(0, 10) }
+  return { kind: 'broken', raw: String(raw ?? '') }
+}
+
 function buildIcsCounts(serverCounts) {
   const c = serverCounts ?? {}
   /**
@@ -798,6 +852,8 @@ function taskBucket(task, now) {
       filterTasksForView,
       // 到期时间解析：坏值必须拦在本地，不能落盘让提醒层降级
       parseDueAt,
+      // 到期时间的展示决策：坏数据不能原样当日期显示
+      dueDisplay,
       // 三个弹窗组件：渲染期异常的探针目标（第三轮 BLOCKER-1 就是它们）
       EventForm,
       TaskForm,
@@ -1217,6 +1273,13 @@ function taskBucket(task, now) {
        * 投递是宿主 ctx.schedule 的职责（WP3 契约）。
        */
       const [reminders, setReminders] = useState([])
+      /**
+       * 导出进行中的类型（`'ics' | 'json' | null`）。
+       *
+       * 存在的意义：导出是异步的（要调 Host + 造 Blob），期间按钮必须禁用。
+       * 不锁会让用户连点，生成多个同名下载文件。
+       */
+      const [exporting, setExporting] = useState(null)
       const [reminderSkipped, setReminderSkipped] = useState(0)
       /**
        * 拖拽状态。drag = 正在拖的东西；dropHint = 当前悬停的落点。
@@ -1702,6 +1765,61 @@ function taskBucket(task, now) {
         }
       }
 
+      /**
+       * 导出（WP5.1 · P2）。
+       *
+       * 服务端 `event.exportIcs` / `snapshot.export` 一直可用，但界面上
+       * 从来没有入口 —— 用户只能导入不能导出。这里补齐，并走**真实下载**：
+       * Blob + `URL.createObjectURL` + 临时 `<a download>`，不是把文本塞进面板。
+       *
+       * 文件名带日期（`workbench-2026-11-07.ics`）：导出是「拿走一份」的语义，
+       * 没有日期的文件名在多次导出后无法区分。
+       */
+      const exportData = async (kind) => {
+        if (exporting !== null) return
+        setExporting(kind)
+        setError(null)
+        setNotice(null)
+        try {
+          const op = kind === 'ics' ? 'event.exportIcs' : 'snapshot.export'
+          const r = await request({ op, payload: {} })
+          if (r.ok !== true) throw new Error(r.error?.message ?? (op + ' failed'))
+          const v = r.value ?? {}
+          const text = typeof v === 'string' ? v : (v.text ?? '')
+          if (typeof text !== 'string' || text === '') {
+            throw new Error(t('exportEmpty'))
+          }
+          const stamp = isoDate(new Date())
+          const filename = kind === 'ics'
+            ? `workbench-${stamp}.ics`
+            : `workbench-${stamp}.json`
+          const mime = kind === 'ics' ? 'text/calendar;charset=utf-8' : 'application/json;charset=utf-8'
+          const blob = new Blob([text], { type: mime })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = filename
+          /**
+           * 必须挂进文档再 click：部分浏览器对游离节点的 click 不触发下载。
+           *
+           * 挂到 `documentElement` 而不是 `body` —— 项目规范明确禁止写
+           * `document.body`（`workbench-ui-standards.test.mjs`：
+           * "不得写 document.body"），把它当成布局根节点之外的公共写入点。
+           * 用 documentElement 效果相同，且不碰 body 的内容边界。
+           */
+          document.documentElement.appendChild(a)
+          a.click()
+          document.documentElement.removeChild(a)
+          // 立刻 revoke 会让 Safari 拿不到内容，延后一拍
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+          setNotice(t('exportDone').replace('{file}', filename))
+        } catch (e) {
+          setError(String(e?.message ?? e))
+        } finally {
+          setExporting(null)
+        }
+      }
+
       /** 用户在预览面板点了「确认导入」→ 申请宿主签发的用户确认凭证 → 执行。 */
       const confirmImport = async (panel) => {
         if (panel === null) return
@@ -1741,7 +1859,18 @@ function taskBucket(task, now) {
           const r = await request(buildImportExecuteRequest(panel.kind, panel.text, token))
           if (r.ok !== true) throw new Error(r.error?.message ?? (op + ' failed'))
           setImportPanel(null)
-          setNotice(t('importDone'))
+          /**
+           * **导入结果必须报出「跳过」条数**（WP5.1 · P1-5）。
+           *
+           * `event.import` 现在会按 UID 幂等跳过已存在的事件，但 UI 原来只会说
+           * 「导入完成」。用户导入 10 条、实际只进 5 条时，看到的仍是「导入完成」——
+           * 这是静默吞掉，与「报告说成功、实际没做」同类。
+           */
+          const importedN = Number(r.value?.imported ?? 0)
+          const skippedN = Number(r.value?.skipped ?? 0)
+          setNotice(skippedN > 0
+            ? t('importDoneSkipped').replace('{n}', String(importedN)).replace('{s}', String(skippedN))
+            : t('importDone').replace('{n}', String(importedN)))
           await load(true)
         } catch (e) {
           setError(String(e?.message ?? e))
@@ -1897,6 +2026,21 @@ function taskBucket(task, now) {
               await startImport(kind, text)
             },
           }),
+          // 导出入口（WP5.1 · P2）：服务端 `event.exportIcs` / `snapshot.export`
+          // 一直是可用的，但界面上**没有任何入口** —— 用户只能导入不能导出。
+          // 这里补两个按钮，直接下载真实文件。
+          h('button', {
+            className: 'wb-btn', type: 'button', 'aria-label': t('exportIcs'),
+            title: t('exportIcsHint'),
+            disabled: exporting !== null,
+            onClick: () => exportData('ics'),
+          }, exporting === 'ics' ? t('exporting') : t('export')),
+          h('button', {
+            className: 'wb-btn', type: 'button', 'aria-label': t('exportJson'),
+            title: t('exportJsonHint'),
+            disabled: exporting !== null,
+            onClick: () => exportData('json'),
+          }, exporting === 'json' ? t('exporting') : t('exportJsonShort')),
           h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ ', t('new'))),
         h(StatusBar, { loading, error, onRetry: load, t }),
         // role=status 默认就是 polite，但显式写 aria-live 才能保证读屏真的播报
@@ -2056,8 +2200,31 @@ function taskBucket(task, now) {
                             },
                               h('span', { 'aria-hidden': true }, row.done === true ? '☑' : '☐'),
                               h('span', { style: { flex: 1, textDecoration: row.done === true ? 'line-through' : 'none' } }, row.title),
-                              row.priority === 'high' ? h('span', { className: 'wb-badge' }, 'High') : null,
-                              row.dueAt ? h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, String(row.dueAt).slice(0, 10)) : null),
+                              row.priority === 'high' ? h('span', { className: 'wb-badge' }, t('priorityHigh')) : null,
+                              /**
+                               * 到期时间的展示（WP5.1 · P2）。
+                               *
+                               * 原实现 `String(row.dueAt).slice(0, 10)`：把任意字符串
+                               * 截前 10 个字符直接显示。实测 `dueAt === '排序验证'` 的坏
+                               * 数据在列表里被当成「到期时间」原样展示出来，用户看不出
+                               * 这是脏数据，只会以为界面坏了。
+                               *
+                               * 现在：能解析的显示规范化日期；解析不了的显式标注
+                               * 「时间格式异常」，与提醒条的降级提示口径一致。
+                               */
+                              (() => {
+                                const due = dueDisplay(row.dueAt)
+                                if (due.kind === 'none') return null
+                                if (due.kind === 'date') {
+                                  return h('span', { className: 'wb-tertiary', style: { fontSize: '12px' } }, due.text)
+                                }
+                                return h('span', {
+                                  className: 'wb-status-error',
+                                  style: { fontSize: '12px' },
+                                  title: due.raw,
+                                  'aria-label': t('dueAtBroken'),
+                                }, t('dueAtBroken'))
+                              })()),
                             h('button', { className: 'wb-btn', type: 'button', 'aria-label': t('openDetails').replace('{title}', row.title), onClick: () => setSelected({ kind: 'task', ...row }) }, '…'),
                             // 键盘替代操作：不依赖鼠标拖拽也能调整顺序
                             h('button', {

@@ -1115,3 +1115,67 @@ test('复审 B-1：本地化函数 t 不得被当数据用（全文件无条件�
   const undefinedKeys = [...used].filter((k) => !defined.has(k))
   assert.deepEqual(undefinedKeys, [], `t('x') 用了 LOCALE 里没有的键，真机会显示字面量键名：${undefinedKeys.join(', ')}`)
 })
+
+// ------------------------------------------------- WP5.1 · P2 到期时间展示
+
+test('WP5.1 P2：坏 dueAt 不得原样当日期展示（回退到 slice 必须变红）', () => {
+  const { dueDisplay } = loadClient().__test
+  assert.equal(typeof dueDisplay, 'function', 'dueDisplay 必须导出给测试')
+
+  // 正常值 → 规范化日期
+  assert.deepEqual(dueDisplay('2026-11-10T09:00:00Z'), { kind: 'date', text: '2026-11-10' })
+  assert.deepEqual(dueDisplay('2026-11-10T09:00:00+08:00'), { kind: 'date', text: '2026-11-10' })
+
+  // 空 → 不显示
+  for (const blank of ['', '   ', null, undefined]) {
+    assert.deepEqual(dueDisplay(blank), { kind: 'none' }, `${JSON.stringify(blank)} 应判为无值`)
+  }
+
+  // **核心回归**：这些必须判为 broken，不能截断成 "排序验证" / "2026-11-10" 之类
+  for (const bad of ['排序验证', 'not-a-date', '2026-13-45T99:99:99Z',
+    // 缺显式时区的也必须拒（Date.parse 对它们过于宽松）
+    '2026-11-10', '2026-11-10T09:00:00', '2026/11/10']) {
+    const r = dueDisplay(bad)
+    assert.equal(r.kind, 'broken', `${bad} 必须判为 broken`)
+    assert.equal(r.raw, bad, 'broken 要原样带回，供 title 提示')
+    // 绝不能把原值当成日期文本吐出来
+    assert.equal(r.text, undefined, 'broken 不得带 date 文本')
+  }
+})
+
+test('WP5.1 P2：提醒条 skipped 与列表坏数据口径一致（都指向同一原因）', () => {
+  const src = client
+  // 渲染必须走 dueDisplay，而不是自己 slice
+  assert.match(src, /const due = dueDisplay\(row\.dueAt\)/, '列表渲染必须调用 dueDisplay')
+  assert.match(src, /t\('dueAtBroken'\)/, '坏数据必须有明确的用户可见提示')
+  // 反向：不得再有「直接截断原始值当日期」的活代码
+  const liveSlice = src.split('\n').filter((line) => {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('*') || trimmed.startsWith('//')) return false
+    return /String\(row\.dueAt\)\.slice/.test(line)
+  })
+  assert.deepEqual(liveSlice, [], '不得再有 String(row.dueAt).slice 的活代码')
+})
+
+// ------------------------------------------- WP5.1 · P1-5 导入结果必须报出跳过数
+
+test('WP5.1 P1-5：导入完成后必须报出「跳过」条数，不得只说「导入完成」', () => {
+  // 源码断言：必须在 notice 里拼入 skipped
+  assert.match(client, /t\('importDoneSkipped'\)/, '必须有带跳过数的文案')
+  assert.match(client, /Number\(r\.value\?\.skipped \?\? 0\)/, '必须读取服务端返回的 skipped')
+  assert.match(client, /Number\(r\.value\?\.imported \?\? 0\)/, '必须读取 imported')
+  // 两条分支都要存在：有跳过 / 无跳过
+  assert.match(client, /skippedN > 0/, '有跳过时必须走「带跳过数」的分支')
+})
+
+test('WP5.1 P1-5：导入完成文案的占位符必须被替换', () => {
+  const { LOCALE } = loadClient().__test
+  for (const lang of ['en', 'zh']) {
+    const tpl = LOCALE[lang].importDone
+    const tplSkip = LOCALE[lang].importDoneSkipped
+    assert.ok(typeof tpl === 'string' && tpl.includes('{n}'), `${lang}.importDone 必须含 {n}`)
+    assert.ok(typeof tplSkip === 'string', `${lang}.importDoneSkipped 必须存在`)
+    assert.ok(tplSkip.includes('{n}') && tplSkip.includes('{s}'),
+      `${lang}.importDoneSkipped 必须同时含 {n} 与 {s}`)
+  }
+})

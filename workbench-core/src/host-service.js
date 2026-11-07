@@ -108,6 +108,15 @@ export function createWorkbenchHostService(options = {}) {
   /** sessionId → 该会话的门面实例。 */
   const sessions = new Map()
 
+  /**
+   * 目录名（`s-<sha256前缀>`）→ 原始 sessionId。
+   *
+   * 提醒同步需要真实 sessionId 才能调 `ctx.schedule.*`，而磁盘上只有
+   * 不可逆的目录名。这张表补上那一段映射，**只在内存里**（不落盘，
+   * 避免把匿名化目录名的反查表写成文件）。
+   */
+  const sessionIdsByDir = new Map()
+
 
   /** 每次调用的审计流水（进程内，供 UI/工具读取；持久化审计在 service 内）。 */
   const auditTrail = []
@@ -150,9 +159,41 @@ export function createWorkbenchHostService(options = {}) {
         nowApproval: now,
       })
       sessions.set(key, svc)
+      /**
+       * 记住「目录名 → 原始 sessionId」的进程内映射。
+       *
+       * `sessionDirName` 是 sha256 前缀，**不可逆**：磁盘上只有
+       * `s-df3b…`，反推不出 `session-7f39…`。而 `ctx.schedule` 的
+       * create/list/delete 全都要真实 sessionId，所以启动对账必须靠这张表。
+       *
+       * 只存在内存里、**不写盘**：写盘等于把 sha256 目录名的反查表落成文件，
+       * 那会把「目录名匿名化」这层保护抵消掉。代价是重启后这张表为空，
+       * 因此重启对账的覆盖范围是「本次进程内被打开过的 session」——
+       * 其余 session 在它们各自第一次写操作时对账（见 index.js 的 handler）。
+       */
+      sessionIdsByDir.set(dirName, sessionId)
       record({ kind: 'session-open', sessionId: dirName, scope })
     }
     return svc
+  }
+
+  /**
+   * 列出本进程内已打开过的 `{sessionId, scope}`，供提醒启动对账使用。
+   *
+   * 只暴露 sessionId 字符串本身，不暴露目录名与它们的映射关系。
+   *
+   * @returns {Array<{ sessionId: string, scope: string }>}
+   */
+  function openedSessions() {
+    const out = []
+    for (const [key] of sessions) {
+      const sep = key.lastIndexOf('::')
+      const dirName = sep >= 0 ? key.slice(0, sep) : key
+      const scope = sep >= 0 ? key.slice(sep + 2) : ''
+      const sessionId = sessionIdsByDir.get(dirName)
+      if (sessionId !== undefined) out.push({ sessionId, scope })
+    }
+    return out
   }
 
   /**
@@ -243,6 +284,7 @@ export function createWorkbenchHostService(options = {}) {
     askApproval,
     audit,
     describe,
+    openedSessions,
   })
 }
 

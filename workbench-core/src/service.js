@@ -154,6 +154,62 @@ export function createWorkbenchService(options) {
   const contentDigest = (text) =>
     createHash('sha256').update(String(text), 'utf8').digest('hex')
 
+  /**
+   * 事件的判重身份：`uid ?? id`。
+   *
+   * ICS 导入的事件一定有 `uid`（文件里带着）；本地新建的事件没有 `uid`，
+   * 用 `id` 兜底。两者都不会为空，所以这里的返回值可以安全进 Set。
+   *
+   * @param {{ uid?: unknown, id?: unknown }} row
+   * @returns {string | null}
+   */
+  const uidOfEvent = (row) => {
+    if (row === null || typeof row !== 'object') return null
+    const uid = row.uid
+    if (typeof uid === 'string' && uid !== '') return uid
+    const id = row.id
+    if (typeof id === 'string' && id !== '') return id
+    return null
+  }
+
+  /**
+   * 待导入条目的判重身份。
+   *
+   * `event.previewIcs` 与 `event.import` 都用这两个函数，不许各写一份：
+   * 一旦两处规则漂移，就会出现「预览说重复、导入照样建」的自相矛盾，
+   * 而这正是 WP5.1 要修的缺陷。
+   *
+   * **无 UID 的 ICS 条目必须按内容指纹判重。**
+   *
+   * 实测：一份不带 `UID` 的 ICS 连续导入两次，`imported` 两次都是 1，
+   * 事件总数变成 2 —— 因为 `parseIcs` 对无 UID 条目不设 `uid`，
+   * 而 `event-repo` 创建时用新生成的随机 `id` 兜底（`uid ?? id`），
+   * 每次都是不同值，判重永远命中不了。
+   *
+   * 修法：没有 UID 时用「标题 + 开始 + 结束」派生一个稳定指纹。
+   * 这不是完美身份（两份内容完全相同但本意不同的日历会被判重复），
+   * 但比「永远判不重」更接近用户预期：同一份文件重复导入不该越导越多。
+   * 有 UID 时一律以 UID 为准，绝不用指纹覆盖它。
+   *
+   * @param {{ uid?: unknown, id?: unknown, title?: unknown, start?: unknown,
+   *           startDate?: unknown, end?: unknown, endDate?: unknown }} incoming
+   * @returns {string | null}
+   */
+  const uidOfIncoming = (incoming) => {
+    const direct = uidOfEvent(incoming)
+    if (direct !== null) return direct
+    if (incoming === null || typeof incoming !== 'object') return null
+    const fingerprint = [
+      String(incoming.title ?? ''),
+      String(incoming.start ?? incoming.startDate ?? ''),
+      String(incoming.end ?? incoming.endDate ?? ''),
+      incoming.allDay === true ? 'allday' : 'timed',
+    ].join('\u0000')
+    // 标题与时间全空时无法构成身份，交给上层当普通新增
+    if (fingerprint === '\u0000\u0000\u0000timed' && incoming.title === undefined) return null
+    return `sha:${createHash('sha256').update(fingerprint, 'utf8').digest('hex').slice(0, 24)}`
+  }
+
   /** 供调用方（UI 或 Agent 工具）先申请审批，再带 token 调用 execute。 */
   const requestApproval = async (op, detail = {}) => {
     if (!DANGEROUS_OPS.includes(op)) {
@@ -515,9 +571,18 @@ export function createWorkbenchService(options) {
       const text = requireString(payload, 'text')
       const parsed = parseIcs(text, { defaultTimeZone: payload.defaultTimeZone })
       const existing = events.listActive()
+      /**
+       * 判重身份集合，与 `event.import` 共用同一套 `uidOfEvent` / `uidOfIncoming`。
+       *
+       * 用 Set 而不是每条 `existing.find(...)`：原实现是 O(n·m)，
+       * 导入 500 条 × 既有 500 条 = 25 万次比较；这里一次建索引。
+       * 两处共用同一个函数还消除了「预览与导入规则漂移」的可能。
+       */
+      const knownUids = new Set(existing.map(uidOfEvent))
       const plan = parsed.events.map((incoming) => {
-        const sameUid = existing.find((row) => (row.uid ?? row.id) === (incoming.uid ?? incoming.id))
-        if (sameUid !== undefined) {
+        const incomingUid = uidOfIncoming(incoming)
+        const sameUid = incomingUid !== null && knownUids.has(incomingUid)
+        if (sameUid) {
           return {
             action: 'skip-duplicate-uid',
             uid: incoming.uid ?? null,
@@ -598,11 +663,58 @@ export function createWorkbenchService(options) {
         events: structuredClone(store.read().events ?? []),
         tasks: structuredClone(store.read().tasks ?? []),
       }
+
+      /**
+       * **幂等导入（WP5.1 · P1）**。
+       *
+       * 原实现逐条 `events.create`，完全不查 UID —— 实测同一份 ICS 导入
+       * 两次会产生 4 条事件（`accept-ics-001` ×2、`accept-ics-002` ×2）。
+       * 而 `event.previewIcs` **已经**正确标出了 `skip-duplicate-uid`，
+       * 只是 import 不消费它，于是「预览说要跳过、执行还是建」。
+       *
+       * 修法：让 import 与 preview 共用**同一个**判定函数
+       * `duplicateUidOf()`。共用而不是各写一份，是因为两边规则一旦漂移，
+       * 就会出现「预览说重复、导入照样建」这种自相矛盾的行为。
+       *
+       * 语义边界（保持与 preview 一致）：
+       *  - 只按 **UID** 判重（`row.uid ?? row.id` 对 `incoming.uid ?? incoming.id`）；
+       *  - 已软删的事件**不参与**判重（`listActive()`）—— 用户删掉后再导入
+       *    同一份文件，应当重新建回来，而不是被判成「已存在」而什么都不做。
+       */
+      const existing = events.listActive()
+      const knownUids = new Set(existing.map(uidOfEvent))
       const created = []
+      const skipped = []
       try {
         for (const incoming of parsed.events) {
+          const uid = uidOfIncoming(incoming)
+          if (uid !== null && knownUids.has(uid)) {
+            skipped.push({
+              uid,
+              title: incoming.title,
+              allDay: incoming.allDay === true,
+              startDate: incoming.startDate ?? null,
+              start: incoming.start ?? null,
+            })
+            continue
+          }
           const validated = validateEventInput(withDefaultZone(incoming))
-          created.push(events.create(validated, { actor: meta?.actor }))
+          /**
+           * **必须把判重身份写进 `uid`**。
+           *
+           * 无 UID 的 ICS 条目若放任 `event-repo` 用随机 `id` 兜底
+           * （`uid ?? id`），落盘的 uid 每次导入都不同，下一次判重就命中不了 ——
+           * 这正是「同一份无 UID 的 ICS 导两次变两条」的根因。
+           * 这里显式写入 `uidOfIncoming` 的返回值（真实 UID 或内容指纹），
+           * 让「创建时用的身份」与「判重时用的身份」永远是同一个东西。
+           */
+          const identity = uidOfIncoming(incoming)
+          const toCreate = identity === null ? validated : { ...validated, uid: identity }
+          const row = events.create(toCreate, { actor: meta?.actor })
+          // 同一次导入里若有两行相同身份，第二条也要跳过（否则文件内自重复）
+          const createdUid = uidOfEvent(row)
+          if (createdUid !== null) knownUids.add(createdUid)
+          created.push(row)
         }
       } catch (error) {
         store.rollback(backup.path.split('/').pop())
@@ -616,7 +728,7 @@ export function createWorkbenchService(options) {
           entity: 'event',
           entityId: null,
           actor: meta?.actor ?? 'user',
-          after: { count: created.length, source: 'ics' },
+          after: { count: created.length, skipped: skipped.length, source: 'ics' },
         })
         return draft
       }, { intent: 'event.import' })
@@ -625,7 +737,14 @@ export function createWorkbenchService(options) {
        * 先折叠再写审计会留下两条（实测：导入 3 条 → 栈深 +2）。
        */
       store.collapseUndo(undoDepthBefore, 'event.import', beforeState)
-      return { imported: created.length, events: created, warnings: parsed.warnings, backup }
+      return {
+        imported: created.length,
+        skipped: skipped.length,
+        skippedEvents: skipped,
+        events: created,
+        warnings: parsed.warnings,
+        backup,
+      }
     },
 
     'event.exportIcs': (payload = {}) => {
