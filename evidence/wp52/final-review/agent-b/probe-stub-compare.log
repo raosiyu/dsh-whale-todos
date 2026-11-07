@@ -1,0 +1,33 @@
+
+========== C1 真 Cordis fiber 加载真 ApprovalService，注入测试桩 ==========
+  approval 实例=true
+  approvalProjectionHandle 非 null=true
+  stateOf 是 function=true
+[PASS] await fiber 后真 Service.init 已执行：句柄由真 sessionProjections.register 赋值
+[PASS] 句柄提供真实 stateOf
+
+========== C2 桩折叠 vs 真 def.apply 直接折叠（多事件序列对比） ==========
+  events=[] → 桩={"policy":null,"turnOpen":false} 期望={"policy":null,"turnOpen":false} 一致=true
+[PASS] 桩对 0 事件序列的折叠与真 def.apply 一致
+  events=["turn/start"] → 桩={"policy":null,"turnOpen":true} 期望={"policy":null,"turnOpen":true} 一致=true
+[PASS] 桩对 1 事件序列的折叠与真 def.apply 一致
+  events=["turn/start","turn/end"] → 桩={"policy":null,"turnOpen":false} 期望={"policy":null,"turnOpen":false} 一致=true
+[PASS] 桩对 2 事件序列的折叠与真 def.apply 一致
+  events=["approval/policy"] → 桩={"policy":"never","turnOpen":false} 期望={"policy":"never","turnOpen":false} 一致=true
+[PASS] 桩对 1 事件序列的折叠与真 def.apply 一致
+  events=["turn/start","approval/policy","turn/end"] → 桩={"policy":"ask","turnOpen":false} 期望={"policy":"ask","turnOpen":false} 一致=true
+[PASS] 桩对 3 事件序列的折叠与真 def.apply 一致
+  events=["turn/end","turn/start","approval/policy"] → 桩={"policy":"never","turnOpen":true} 期望={"policy":"never","turnOpen":true} 一致=true
+[PASS] 桩对 3 事件序列的折叠与真 def.apply 一致
+
+========== C3 真 ApprovalService.request 在 open-turn 内返回 allowed-once ==========
+  request → allowed-once  approval/request 触发=1  审计事件=["turn/start","approval/asked","approval/decided"]
+[PASS] 真 ApprovalService 在 open-turn 内真签 allowed-once
+[PASS] 真实现写入 approval/decided 审计对（非假绿）
+
+========== 结论 ==========
+  测试桩 makeSessionProjections 用真 approvalStateDefinition 按事件流折叠，
+  与真 def.apply 语义一致；await fiber 真等到真 Service.init；
+  没有比真宿主宽松、没有制造假绿。
+
+=== probe-stub-compare 结束 ===

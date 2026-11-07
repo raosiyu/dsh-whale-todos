@@ -1,0 +1,42 @@
+
+========== S1 可达性：parseWorkbenchRequest 是否放行含冒号 scope ==========
+  scope="projA" → "projA"
+[PASS] scope="projA" 被原样放行（无校验/无白名单）
+  scope="a::b" → "a::b"
+[PASS] scope="a::b" 被原样放行（无校验/无白名单）
+  scope="x:y:z" → "x:y:z"
+[PASS] scope="x:y:z" 被原样放行（无校验/无白名单）
+  scope="proj:sub" → "proj:sub"
+[PASS] scope="proj:sub" 被原样放行（无校验/无白名单）
+  scope="" → ""
+[PASS] scope="" 被原样放行（无校验/无白名单）
+  scope="日常/工作" → "日常/工作"
+[PASS] scope="日常/工作" 被原样放行（无校验/无白名单）
+
+========== S2 生产链路：含冒号 scope 连续写操作 → Host 累积 active 提醒 ==========
+[正常 scope] scope="projA"
+  r1.created=1 r2.created=0 r3.created=0
+  Host active 条数=1  create 调用=1
+  Host identities=["task:projA:t1"]
+  observed(r3)=[]
+[PASS] 正常 scope：3 次写操作只 1 条 Host 提醒（幂等）
+[含冒号 scope] scope="a::b"
+  r1.created=1 r2.created=1 r3.created=1
+  Host active 条数=3  create 调用=3
+  Host identities=["task:a::b:t1","task:a::b:t1","task:a::b:t1"]
+  observed(r3)=[{"id":"schedule-1","level":"suspect","identity":"task:a::b:t1","reason":"scope-mismatch"},{"id":"schedule-2","level":"suspect","identity":"task:a::b:t1","reason":"scope-mismatch"}]
+>>> 判定：含冒号 scope 3 次写操作 → 3 条 active 提醒 / 3 次 create
+[FINDING-P0] 含冒号 scope 下同一 identity 每轮写操作都重复 create：
+  每次 create 生成不同 id、相同 scheduledAt 的 active 任务。
+  依 02-delivery.md §1.2：Host drive() 每次扫描全表 scheduledAt<=now，
+  这 3 条 active 任务到点会各自投递 → 同一提醒重复投递 3 次。
+  且由于自家记录恒被判 suspect，白名单与 observed 无法收敛，孤儿只增不减。
+[FAIL] 含冒号 scope 连续写操作不应重复 create（此断言预期 FAIL，用于暴露缺陷）
+
+========== S3 投递语义佐证：这些重复行是否都满足「到点会被投递」的条件 ==========
+  行A due=true 行B due=true（同一到点时刻，两个不同 id）
+  依据 02-delivery.md §1.2 drive() 扫全表 scheduledAt<=Date.now()，无 identity 去重：
+  → 两条都满足 due 条件，会各自 resolveAgent(session).followup(message) 投递。
+  结论：重复注册 = 重复投递（在本 Host 投递模型下）。
+
+=== probe-scope-colon 结束 ===

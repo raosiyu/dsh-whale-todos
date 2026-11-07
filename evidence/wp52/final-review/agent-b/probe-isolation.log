@@ -1,0 +1,61 @@
+
+========== Q1.1 catalog 全表 + ownHostRecords 的 sessionId 过滤链 ==========
+session-A reconcile report: {"created":0,"updated":0,"deleted":0,"kept":[],"observed":[],"failed":[],"catalogAvailable":true}
+schedule.delete calls: []
+schedule.create calls: [{"sessionId":"session-B","rec":{"title":"B 的提醒","prompt":"B 的提醒正文 ​⁠[[wb:task:_:B-only]]","at":"2026-11-08T12:00:00.000Z"}}]
+[PASS] session-A 对 session-B 的记录没有发起任何 delete
+[PASS] session-B 的提醒仍在（未被跨 session 删除）
+[PASS] ownHostRecords 的 sessionId 过滤在 ownershipOf 之前，B 的记录连 observed 都不进（不进入 diff）
+
+========== Q1.2 session-A 尝试「修改」session-B 的记录（update 路径） ==========
+report: {"created":1,"updated":0,"deleted":0}
+create calls AFTER reconcile: [{"sessionId":"session-A","rec":{"title":"A 版本","prompt":"待办「A 版本」到期了。 ​⁠[[wb:task:_:shared-id]]","at":"2026-11-08T12:00:00.000Z"}}]
+update calls: []
+[PASS] session-A 没有 update session-B 的记录
+[PASS] A 在自己 session 下新建，而不是踩踏/复用 B 的记录
+[PASS] B 的记录内容未被改动
+
+========== Q1.3 scope A 能否踩踏/删除 scope B（同 session，不同 scope） ==========
+两条 identity: ["task:projA:same-id","task:projB:same-id"]
+[PASS] 同实体 id 在两个 scope 下 identity 不同（scope 进身份）
+reconcile(projA, empty) report: {"deleted":1,"kept":[],"observed":[{"id":"schedule-2","level":"suspect","identity":"task:projB:same-id","reason":"scope-mismatch"}]}
+delete calls: [{"sessionId":"s1","id":"schedule-1"}]
+remaining identities: ["task:projB:same-id"]
+[PASS] projA 只删除自己 scope 的那一条
+[PASS] projB 的提醒未被删除/踩踏
+[PASS] projB 的记录被标为 suspect/scope-mismatch 并上报 observed（不静默丢弃）
+
+========== Q1.4 ownershipCache 按 sessionId\0scope 分键（不串味） ==========
+ownershipFor resolved keys: ["sessA\u0000sc","sessB\u0000sc"]
+sessB reconcile deleted=0 kept=[]
+[PASS] ownershipFor 分别收到 sessA\0sc 与 sessB\0sc 两个独立键
+resolved keys 数量 before=2 after=2
+[PASS] 同一 (sessionId,scope) 命中 ownershipCache，不再重复 resolve
+[PASS] sessB 没有删除任何记录（sessionId 过滤 + 独立白名单）
+
+========== Q2 dataDirFor() 与 forSession() 落盘目录一致性 + 第二份 hash 检查 ==========
+sid=sess-1 scope="" dataDirFor=/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/wp52-b-isolation-0RWZpv/s-abe633f3a47a2758174eabe9 workbench.json存在=true
+[PASS] dataDirFor(sess-1,) 指向的目录 == forSession 实际写盘目录
+  目录 basename=s-abe633f3a47a2758174eabe9 期望=s-abe633f3a47a2758174eabe9
+[PASS] 目录名规则与 host-service.js 内唯一一份 hash 实现一致
+sid=sess-1 scope="projB" dataDirFor=/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/wp52-b-isolation-0RWZpv/s-abe633f3a47a2758174eabe9-3cf8e2a94034 workbench.json存在=true
+[PASS] dataDirFor(sess-1,projB) 指向的目录 == forSession 实际写盘目录
+  目录 basename=s-abe633f3a47a2758174eabe9-3cf8e2a94034 期望=s-abe633f3a47a2758174eabe9-3cf8e2a94034
+[PASS] 目录名规则与 host-service.js 内唯一一份 hash 实现一致
+sid=sess-tricky scope="a::b::c" dataDirFor=/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/wp52-b-isolation-0RWZpv/s-e3649ae2defeefeef48c519d-3effba6c6950 workbench.json存在=true
+[PASS] dataDirFor(sess-tricky,a::b::c) 指向的目录 == forSession 实际写盘目录
+  目录 basename=s-e3649ae2defeefeef48c519d-3effba6c6950 期望=s-e3649ae2defeefeef48c519d-3effba6c6950
+[PASS] 目录名规则与 host-service.js 内唯一一份 hash 实现一致
+sid=another-session scope="projB" dataDirFor=/var/folders/3h/dy106s6j2jj_271b3x4p69xm0000gn/T/wp52-b-isolation-0RWZpv/s-55498de05291f1348a91cc6c-3cf8e2a94034 workbench.json存在=true
+[PASS] dataDirFor(another-session,projB) 指向的目录 == forSession 实际写盘目录
+  目录 basename=s-55498de05291f1348a91cc6c-3cf8e2a94034 期望=s-55498de05291f1348a91cc6c-3cf8e2a94034
+[PASS] 目录名规则与 host-service.js 内唯一一份 hash 实现一致
+[PASS] scope 进目录路径
+openedSessions 中 a::b::c: {"sessionId":"sess-tricky","scope":"a::b::c"}
+[PASS] scope 含 :: 时 openedSessions 不拆错（sessionEntries 结构化）
+[PASS] 重复 dataDirFor 返回同一路径（sessionEntries 缓存命中必然存在）
+host-service.js 内 createHash('sha256') 出现次数=3（sessionDirName / scopeSuffix / dataDirFor 兜底）
+UI 桥接层含 createHash? false
+[PASS] UI 桥接层没有第二份 sha256 实现（统一走 dataDirFor）
+
+=== probe-isolation 结束 ===

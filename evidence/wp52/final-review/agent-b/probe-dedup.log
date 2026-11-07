@@ -1,0 +1,54 @@
+
+========== Q3.1 同一 identity 连续 reconcile 两次（含白名单持久化） ==========
+r1: created=1 updated=0 unchanged=0 deleted=0
+create calls after r1: 1
+r2: created=0 updated=0 unchanged=1 deleted=0
+create calls after r2: 1
+update calls total: 0
+[PASS] 连续两次 reconcile 只 create 1 次（无重复注册→无重复投递）
+[PASS] 第二次 reconcile 判定 unchanged（不重复 create/update）
+Host row prompt: "待办「买牛奶」到期了。 ​⁠[[wb:task:_:t1]]"
+identityOfHostRecord(row): task:_:t1
+[PASS] Host 上存的 prompt 能被反解出正确 identity
+
+========== Q3.2 diffReminders 的 unchanged 判据：时间/文本/编码基准 ==========
+(a) exact → unchanged=["task:_:x"] toUpdate=0 toCreate=0
+[PASS] unchanged 判据：scheduledAt 相等 + title 相等 + prompt===encodePrompt(want)
+(b) 标记合法但正文变化 → unchanged=[] toUpdate=1
+[PASS] 比较基准是 encodePrompt(want)，正文变化判 update（而非恒 unchanged/恒 update）
+(c) 时间变化 → toUpdate=1
+[PASS] 时间变化判 update（走 update 而非 create，不换 identity）
+(d) 标题变化 → toUpdate=1
+[PASS] 标题变化判 update
+
+========== Q3.3 重启后（新 sync 实例 + 白名单从文件恢复）是否重复 create ==========
+实例1 后 create=1 白名单=["task:_:t1"]
+实例2 后 create=1 report.created=0 unchanged=1
+[PASS] 重启后不重复 create（白名单持久化 + catalog 识别 + unchanged）
+删除后 report.deleted=1 白名单=[]
+[PASS] 删除后白名单同步收缩
+
+========== Q3.4 【对抗】scope 含冒号：decodeIdentity / ownershipOf 是否仍自洽 ==========
+scope="projA" identity="task:projA:e1"
+  decodeIdentity → {"kind":"task","scope":"projA","entityId":"e1"}  ownershipOf → owned/  identity=task:projA:e1
+[PASS] scope="projA" 的自家记录必须判 owned（否则重复 create）
+[PASS] decodeIdentity 应还原 scope="projA"
+scope="a::b" identity="task:a::b:e1"
+  decodeIdentity → {"kind":"task","scope":"a","entityId":":b:e1"}  ownershipOf → suspect/scope-mismatch  identity=null
+[FAIL] scope="a::b" 的自家记录必须判 owned（否则重复 create）
+[FAIL] decodeIdentity 应还原 scope="a::b"
+scope="x:y:z" identity="task:x:y:z:e1"
+  decodeIdentity → {"kind":"task","scope":"x","entityId":"y:z:e1"}  ownershipOf → suspect/scope-mismatch  identity=null
+[FAIL] scope="x:y:z" 的自家记录必须判 owned（否则重复 create）
+[FAIL] decodeIdentity 应还原 scope="x:y:z"
+scope="proj:sub" identity="task:proj:sub:e1"
+  decodeIdentity → {"kind":"task","scope":"proj","entityId":"sub:e1"}  ownershipOf → suspect/scope-mismatch  identity=null
+[FAIL] scope="proj:sub" 的自家记录必须判 owned（否则重复 create）
+[FAIL] decodeIdentity 应还原 scope="proj:sub"
+
+========== Q3.5 【对抗】含冒号 scope 的端到端 reconcile 是否重复 create ==========
+scope='a::b' r1.created=1 r2.created=1 r2.unchanged=0 r2.observed=[{"id":"schedule-1","level":"suspect","identity":"task:a::b:t1","reason":"scope-mismatch"}]
+总 create 次数=2  Host 行数=2
+[FAIL] 含冒号 scope 连续 reconcile 不重复 create（无重复投递）
+
+=== probe-dedup 结束 ===

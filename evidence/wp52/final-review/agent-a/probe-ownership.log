@@ -1,0 +1,57 @@
+======================================================================
+A1 · 用户伪造完全合法的标记，能否导致误删？
+======================================================================
+  伪造 prompt 尾部: "用户自己的提醒 ​⁠[[wb:task:_:victim]]"
+  ownershipOf 分级: owned / identity=task:_:victim
+  PASS  A1.1 伪造标记被判 owned（说明标记确实不能单独当认证）
+  reconcile: deleted=0 kept=1 observed=0 failed=0
+  PASS  A1.2 伪造记录未被删除
+  PASS  A1.3 deleted 计数为 0
+  PASS  A1.4 kept 如实记录 1 条
+  PASS  A1.5 一次 delete 都没发起
+  PASS  A1.6 kept.reason 指明 never-created-by-us — {"id":"schedule-fake-1","identity":"task:_:victim","reason":"never-created-by-us"}
+
+======================================================================
+A2 · ownershipOf 三级分级与 observed 上报
+======================================================================
+  PASS  A2.1 无标记 → foreign
+  PASS  A2.2 标记格式非法 → suspect
+  PASS  A2.3 别的 scope → suspect
+  PASS  A2.4 自洽 → owned
+  PASS  A2.5 两条都保留
+  PASS  A2.6 deleted=0
+  PASS  A2.7 observed 含 foreign 与 suspect（不静默） — ["foreign","suspect"]
+
+======================================================================
+A3 · 白名单落盘失败 / 读失败 / 文件被删
+======================================================================
+  PASS  A3.1 save 失败不阻塞 create
+  PASS  A3.2 save 失败后同进程仍幂等
+  PASS  A3.3 load 失败时 deleted=0（少删，绝不多删）
+  PASS  A3.4 load 失败时记录仍在
+  PASS  A3.5 load 失败进 kept
+  PASS  A3.6 白名单里只有 "*" 不能授权删真实 identity
+
+======================================================================
+A4 · 跨进程恢复与 scope 隔离
+======================================================================
+  落盘: ["task:_:t1"]
+  PASS  A4.1 创建后白名单落盘
+  PASS  A4.2 重启后仍能清理（不是永不清理）
+  PASS  A4.3 删除后白名单同步清空
+  PASS  A4.4 两个 scope 分别落盘
+  PASS  A4.5 两个 scope 的 identity 不混 — [["task:projA:t1"],["task:projB:t1"]]
+  PASS  A4.6 projB 只删自己那条，projA 的提醒保留 — deleted=1 剩余=A
+  PASS  A4.7 projA 的记录被判 suspect 并如实上报 — [{"id":"schedule-fake-1","level":"suspect","identity":"task:projA:t1","reason":"scope-mismatch"}]
+
+======================================================================
+A5 · encodePrompt 截断与 identity 格式演进
+======================================================================
+  PASS  A5.1 超长正文截断后身份标记仍完整
+  PASS  A5.2 长度仍受控 — 2000
+  PASS  A5.3 decodeIdentity 兼容旧两段格式
+  PASS  A5.4 WP5.1 旧格式（无前缀）判 foreign → 保留孤儿（已披露取舍）
+
+======================================================================
+Agent A 探针汇总: PASS=30 FAIL=0
+======================================================================

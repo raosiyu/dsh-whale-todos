@@ -1,0 +1,69 @@
+
+========== Q4.0 DANGEROUS_OPS / WRITE_OPS 清单（冻结副本真实导出） ==========
+DANGEROUS_OPS=["event.delete","event.bulkDelete","event.import","snapshot.replace","store.rollback","event.restore","task.upsert"]
+WRITE_OPS=["event.create","event.update","event.restore","event.delete","event.bulkDelete","event.import","task.upsert","snapshot.replace","store.rollback","store.backup","history.undo","history.redo","event.move","task.reorder","task.archive"]
+
+========== Q4.1 每个 DANGEROUS_OP 无 token 一律拒（requireConfirmation 覆盖检查） ==========
+预置 event id=1ebc2ad9-859b-4a72-a427-02229e7c07a7
+  event.delete 无token → BLOCK code=confirmation-required msg="危险操作 event.delete 需要宿主审批凭证（原因：missing-token）；payload 里的 conf"
+[PASS] event.delete 无 token 被 confirmation-required 拦下
+  event.restore 无token → BLOCK code=confirmation-required msg="危险操作 event.restore 需要宿主审批凭证（原因：missing-token）；payload 里的 con"
+[PASS] event.restore 无 token 被 confirmation-required 拦下
+  event.bulkDelete 无token → BLOCK code=confirmation-required msg="危险操作 event.bulkDelete 需要宿主审批凭证（原因：missing-token）；payload 里的 "
+[PASS] event.bulkDelete 无 token 被 confirmation-required 拦下
+  event.import 无token → BLOCK code=confirmation-required msg="危险操作 event.import 需要宿主审批凭证（原因：missing-token）；payload 里的 conf"
+[PASS] event.import 无 token 被 confirmation-required 拦下
+  snapshot.replace 无token → BLOCK code=confirmation-required msg="危险操作 snapshot.replace 需要宿主审批凭证（原因：missing-token）；payload 里的 "
+[PASS] snapshot.replace 无 token 被 confirmation-required 拦下
+  store.rollback 无token → BLOCK code=confirmation-required msg="危险操作 store.rollback 需要宿主审批凭证（原因：missing-token）；payload 里的 co"
+[PASS] store.rollback 无 token 被 confirmation-required 拦下
+  task.upsert 无token → BLOCK code=confirmation-required msg="危险操作 task.upsert 需要宿主审批凭证（原因：missing-token）；payload 里的 confi"
+[PASS] task.upsert 无 token 被 confirmation-required 拦下
+  task.upsert 新建 无token → ALLOW
+[PASS] 新建待办（非破坏性）不需审批，符合既定语义
+[PASS] 完成待办不需审批
+
+========== Q4.2 payload.confirmed / meta.confirmed / 嵌套 confirmed 全不被采信 ==========
+  payload.confirmed → BLOCK code=confirmation-required
+[PASS] payload.confirmed 不能绕过审批门
+  meta.confirmed → BLOCK code=confirmation-required
+[PASS] meta.confirmed 不能绕过审批门
+  meta 嵌套 → BLOCK code=confirmation-required
+[PASS] meta 嵌套 不能绕过审批门
+  三者齐上 → BLOCK code=confirmation-required
+[PASS] 三者齐上 不能绕过审批门
+
+========== Q4.3 token 一次性 + 绑定 op/target/digest（contentDigest） ==========
+发行: approved=true token=42fee49aba3a3577…
+[PASS] 宿主签发了 token
+  (a) 首次使用 → ALLOW
+[PASS] 合法 token 首次使用放行
+  (b) 重放 → BLOCK code=confirmation-required reason~危险操作 event.delete 需要宿主审批凭证（原因：unknown-token）；payload 里的 confirmed 不被采信
+[PASS] token 一次性：重放被拒
+  (c) 换 target → BLOCK code=confirmation-required
+[PASS] token 绑定 target：换目标被 fingerprint-mismatch 拒
+  (d) 换 op → BLOCK code=confirmation-required
+[PASS] token 绑定 op：换操作被拒
+  ICS_A.length=133 ICS_B.length=133 等长=true
+  sha(A)=4ae0b9e461efef85… sha(B)=97e38ecef32883f2… 相等=false
+  (e) 等长异内容 ICS → BLOCK code=confirmation-required
+[PASS] 等长但内容不同的 ICS 不能复用凭证（绑定 contentDigest）
+  (f) 同内容 → ALLOW
+[PASS] 相同内容的凭证可正常使用（签发/执行 digest 推导一致）
+
+========== Q4.4 approvalFingerprint 长度前缀编码（批量删除不撞串） ==========
+FP(['a,b'])=fe5169cd0cbd52f5… FP(['a','b'])=e996dfebb01da4f1… 相等=false
+[PASS] 批量删除 target 用长度前缀/JSON 编码，不同 id 集合指纹不同
+
+========== Q4.5 deny 模式覆盖所有 WRITE_OPS ==========
+WRITE_OPS 共 15 项，全部被 deny 拦截=true
+[PASS] deny 模式：全部 WRITE_OPS 在唯一入口 execute 被拒
+[PASS] deny 模式下只读 op 仍可用
+
+========== Q4.6 host-tools 不读 args.confirmed；service 返回面不暴露 gate ==========
+host-tools.js 非注释行读取 .confirmed = false（注释提及不计）
+[PASS] 写工具定义不读 args.confirmed（仅注释声明该约束）
+service 返回面 keys: ["store","events","requestApproval","confirmUserAction","defaultTimeZone","execute","listOps"]
+[PASS] service 返回面不暴露 gate 对象（不能自签 token）
+
+=== probe-approval 结束 ===

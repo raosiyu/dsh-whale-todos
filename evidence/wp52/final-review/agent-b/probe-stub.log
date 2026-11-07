@@ -1,0 +1,58 @@
+
+========== E0 环境事实：asar 解包目录 / 真 ApprovalService 是否可加载 ==========
+  /tmp/dsh-asar-full/dsh/node_modules/@deepseek-ai/dsh-user-approval/lib/index.js 存在=true
+  /tmp/dsh-asar-full/dsh/node_modules/@deepseek-ai/cordis/lib/index.js 存在=true
+  → host-approval-real.test.mjs 的 READY=true；本环境下两个 test 的 skip=
+    false(会真跑)
+  [ENV-LIMIT] 无 asar 解包目录 → 无法在本环境重跑真 ApprovalService 端到端。
+    按任务要求：如实说明，不当成通过，也不当成失败。
+  WP4 历史证据摘录（当时 asar 存在、测试未 skip）：
+    | ### 4.4 真 ApprovalService + open-turn session（通过）
+    | ok 1 - WP3：真 ApprovalService 端到端 —— allowed-once 经适配器签发 token
+    | ok 2 - WP3：真 ApprovalService 词汇白名单 —— 非 allowed-once 全 fail-closed
+    | # tests 2 / # pass 2 / # skipped 0
+    | （asar 解包目录 `/tmp/dsh-asar-full` 存在，测试**未 skip**，真的加载了
+    | # skipped 0
+
+========== Q5.1 makeSessionProjections() 桩语义：是否与「读事件流折叠」一致 ==========
+  桩含 def.init()=true 顺序循环=true def.apply=true eventAt=true
+[PASS] makeSessionProjections 的 stateOf 从 init() 起按事件流折叠 apply（与真投影同语义）
+  桩校验 def.init/apply 存在性=true
+[PASS] 桩对投影定义做最小契约校验，不静默接受坏定义
+  抽取桩函数体成功=true
+  折叠 turn/start → {"turnOpen":true,"policy":null}
+[PASS] 桩的 stateOf 真把 turn/start 折叠成 turnOpen:true（不是恒返回空态的假绿）
+  空 session → {"turnOpen":false,"policy":null}
+[PASS] 空事件流返回 init() 态
+
+========== Q5.2 loadApprovalService() 的 await fiber 是否真等到 init ==========
+  用 ctx.plugin=true await fiber=true ctx.get('approval')=true
+[PASS] loadApprovalService 走真 fiber 加载路径：ctx.plugin + await fiber + ctx.get('approval')
+  测试里没有直接 new ApprovalService=false
+[FAIL] 不再绕过 Cordis fiber 直接实例化（原失败根因已修）
+  await fiber 前 initDone=false，await 之后=true
+[PASS] await fiber 之后 init 已完成（fiber thenable 的 resolve 语义）
+  直接断言 handle 非 null=true stateOf=function=true 折叠 turnOpen=true
+[PASS] 测试直接断言 init() 完成（句柄 + stateOf + 投影折叠），不靠后续 request 间接推断
+
+========== Q5.3 修复是否放宽安全判据（fail-closed 词汇白名单 / 无 skip / 无删测试） ==========
+  词汇白名单覆盖 rejected/cancelled/unavailable=true never=true 无answerer=true
+  r.approved===false 断言数=1
+[FAIL] fail-closed 判据未被放宽：非 allowed-once / never / 无 answerer 全部断言拒绝
+  无新增无条件 skip=true  skip: 出现次数=2（均为 READY?false:'asar…' 环境守卫）
+[PASS] 没有加无条件 skip / .skip() 来糊过去
+  test( 数量=2
+[PASS] 两个端到端测试都保留（未删测试）
+
+========== Q5.4 桩是否「比真宿主宽松」的边界结论 ==========
+  能实证的：桩的 stateOf 语义 = 读事件流折叠 apply，且测试直接断言了 init 完成、
+             fail-closed 词汇白名单未放宽、无 skip、无删测试、用真 fiber 路径。
+  不能实证的：本环境无 asar → 无法把桩的折叠结果与真 ApprovalService 的
+             approvalStateDefinition 逐字段对比（例如真 def 的 apply 是否还处理
+             approval/asked、approval/decided 等事件）。这属于环境限制，
+             按任务要求如实说明，不判通过也不判失败。
+  [ENV-LIMIT] 无 asar 解包目录 / 无 CDP → 真机端到端无法在本审查会话重跑。
+  [HISTORY]   WP4 历史证据记录当时 asar 存在、2/2 真跑且 0 skipped；
+              02-delivery.md §3 声称本轮修复后同样 2/2、0 skip。
+
+=== probe-stub 结束 ===

@@ -1,0 +1,22 @@
+TAP version 13
+# Subtest: WP3：真 ApprovalService 端到端 —— allowed-once 经适配器签发 token
+ok 1 - WP3：真 ApprovalService 端到端 —— allowed-once 经适配器签发 token
+  ---
+  duration_ms: 33.706375
+  type: 'test'
+  ...
+# Subtest: WP3：真 ApprovalService 词汇白名单 —— 非 allowed-once 全 fail-closed
+ok 2 - WP3：真 ApprovalService 词汇白名单 —— 非 allowed-once 全 fail-closed
+  ---
+  duration_ms: 29.166791
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 149.5125
