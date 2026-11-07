@@ -838,7 +838,7 @@
   },
   {
     "id": "Y15",
-    "name": "wp51：ownHostRecords 不按 sessionId 过滤（跨 session 误删/谎报）",
+    "name": "wp51：ownHostRecords 不按 sessionId 过滤（跨 session 记录进入 diff）",
     "file": "workbench-core/src/reminder-sync.js",
     "from": "      if (row.sessionId !== sessionId) return false",
     "to": "      if (false) return false"
@@ -873,9 +873,65 @@
   },
   {
     "id": "Y20",
-    "name": "wp51：ownHostRecords 不按 scope 过滤（多 scope 互相删除）",
+    "name": "wp52：ownershipOf 不校验 scope（跨 scope 互相删除）",
     "file": "workbench-core/src/reminder-sync.js",
-    "from": "      return parts.scope === (scope === '' ? '' : String(scope))",
-    "to": "      return true"
+    "from": "    if (parts.scope !== wantScope) {",
+    "to": "    if (false) {"
+  },
+  {
+    "id": "Z1",
+    "name": "wp52：删除前不校验白名单（伪造标记即可误删用户提醒）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "      if (target === undefined || !createdIdentities.has(target)) {",
+    "to": "      if (false) {"
+  },
+  {
+    "id": "Z2",
+    "name": "wp52：白名单按全局共享而非按 session×scope（越权授权）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "    const key = `${sessionId}\\u0000${scope}`",
+    "to": "    const key = 'global'"
+  },
+  {
+    "id": "Z3",
+    "name": "wp52：创建后不登记白名单（自己建的也删不掉）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "        createdIdentities.add(want.identity)",
+    "to": "        if (false) createdIdentities.add(want.identity)"
+  },
+  {
+    "id": "Z4",
+    "name": "wp52：ownership 读失败时信任所有提醒（误删用户提醒）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "      } catch (error) {\n        // 读失败 → 空集 → 本轮少删。绝不因此去删。",
+    "to": "      } catch (error) {\n        entry.ids = new Proxy(new Set(), { has: () => true });"
+  },
+  {
+    "id": "Z5",
+    "name": "wp52：ownershipOf 把 suspect 当 owned（不可见字符被当认证）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "    return { level: 'suspect', identity, reason: 'undecodable-identity' }",
+    "to": "    return { level: 'owned', identity }"
+  },
+  {
+    "id": "Z6",
+    "name": "wp52：dataDirFor 与 forSession 目录规则漂移（白名单读不到）",
+    "file": "workbench-core/src/host-service.js",
+    "from": "    for (const entry of sessionEntries.values()) {",
+    "to": "    for (const entry of []) {"
+  },
+  {
+    "id": "Z7",
+    "name": "wp52：suspect/foreign 被静默丢弃（可观测性缺口）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "      if (report !== null && Array.isArray(report.observed)) {",
+    "to": "      if (false) {"
+  },
+  {
+    "id": "Z8",
+    "name": "wp52：observed 不上报 level（看不出是 foreign 还是 suspect）",
+    "file": "workbench-core/src/reminder-sync.js",
+    "from": "          level: own.level,",
+    "to": "          level: 'unknown',"
   }
 ]

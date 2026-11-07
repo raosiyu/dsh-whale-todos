@@ -41,14 +41,144 @@ function makeOpenTurnSession() {
   }
 }
 
+/**
+ * 最小但**履约**的 `sessionProjections` 服务。
+ *
+ * ## 为什么必须有它
+ *
+ * 真 `ApprovalService` 的 `static inject = ["sessionProjections"]`，且在
+ * `Service.init()` 里执行：
+ *
+ *   this.approvalProjectionHandle = await this.ctx.sessionProjections.register(approvalStateDefinition)
+ *
+ * 而 `approvalStateOf(session)` 直接调
+ * `this.approvalProjectionHandle.stateOf(session)`。桩里不给这个服务，
+ * 句柄就是 undefined → 第一次 `request()` 就抛
+ * `Cannot read properties of undefined (reading 'stateOf')`。
+ *
+ * 这是**测试环境缺口**，不是产品缺陷 —— 但也不能靠删测试/加 skip 糊过去。
+ * 正确做法是提供一个按真实契约工作的最小实现。
+ *
+ * ## 契约来源（asar 一手源码）
+ *
+ * `approvalStateDefinition = { key:'approvalState', stateVersion:1,
+ *   stateSchema, init, apply }`，其中 `apply` 是纯函数：吃
+ * `(state, event)` 返回新 state。所以投影本质是「按 session 的事件流折叠」。
+ *
+ * 本桩实现同一语义：
+ *  - `register(def)` 返回 `{ stateOf(session) }`；
+ *  - `stateOf` 从 `init()` 起，按 `session.eventAt(0..seq-1)` 顺序对每条事件
+ *    调 `def.apply` —— 与真投影「读事件流折叠」的行为一致；
+ *  - 不缓存、不猜测，每次调用重新折叠，宁可慢也不要语义漂移。
+ *
+ * @returns {{ register: (def: object) => { stateOf: (session: object) => object } }}
+ */
+function makeSessionProjections() {
+  return {
+    register(def) {
+      if (def === null || typeof def !== 'object') {
+        throw new TypeError('projection definition must be an object')
+      }
+      if (typeof def.init !== 'function' || typeof def.apply !== 'function') {
+        throw new TypeError('projection definition needs init() and apply()')
+      }
+      return {
+        /**
+         * 折叠该 session 的全部事件。
+         * 真投影按 key 取状态；这里只有一种定义，所以不需要按 key 分派。
+         */
+        stateOf(session) {
+          if (session === null || typeof session !== 'object') return def.init()
+          let state = def.init()
+          const seq = Number(session.seq ?? 0)
+          for (let i = 0; i < seq; i += 1) {
+            const event = session.eventAt(i)
+            if (event === undefined || event === null) continue
+            state = def.apply(state, event)
+          }
+          return state
+        },
+      }
+    },
+  }
+}
+
+/**
+ * 构造一个带 `sessionProjections` 的 Context，并挂上服务。
+ *
+ * Cordis 的 `ctx.provide(name, value)` 把服务放进 store，`Service` 基类的
+ * `static inject` 才能在 init 时取到。
+ */
+function makeApprovalContext(Context) {
+  const ctx = new Context()
+  ctx.provide('sessionProjections', makeSessionProjections())
+  return ctx
+}
+
+/**
+ * 用**真 Cordis fiber** 加载真 `ApprovalService`。
+ *
+ * ## 为什么不能直接 `new ApprovalService(ctx, ...)`
+ *
+ * 直接 new 会跳过 Cordis 的插件生命周期。`cordis/lib/index.js` 里
+ * `_runner.execute` 才负责在实例化后调用 init：
+ *
+ *   const instance = new runtime.callback(this.ctx, config)
+ *   ...
+ *   return instance?.[symbols.init]?.()
+ *
+ * 而 `ApprovalService.init()` 正是给 `approvalProjectionHandle` 赋值的地方
+ * （`this.ctx.sessionProjections.register(...)`）。绕过 fiber → handle 永远
+ * 是 undefined → 第一次 request 就抛
+ * `Cannot read properties of undefined (reading 'stateOf')`。
+ *
+ * 所以这里用 `ctx.plugin(ApprovalService, config)` 走真路径，并 await
+ * fiber 直到加载完成 —— 这才是「真宿主行为」，不是假造。
+ *
+ * @returns {Promise<{ ctx: object, approval: object }>}
+ */
+async function loadApprovalService(Context, ApprovalService, config = { policy: 'ask' }) {
+  const ctx = makeApprovalContext(Context)
+  const fiber = ctx.plugin(ApprovalService, config)
+  // fiber 的 thenable 在加载结束时 resolve
+  await fiber
+  const approval = ctx.get('approval')
+  if (approval === undefined) {
+    throw new Error('ApprovalService 未被 Cordis 挂到 ctx.approval（加载失败）')
+  }
+  return { ctx, approval }
+}
+
 test('WP3：真 ApprovalService 端到端 —— allowed-once 经适配器签发 token',
   { skip: READY ? false : 'asar 解包目录不存在（不冒充真实宿主）' }, async () => {
     const { Context } = await import(`${ASAR}/@deepseek-ai/cordis/lib/index.js`)
     const { ApprovalService } = await import(`${ASAR}/@deepseek-ai/dsh-user-approval/lib/index.js`)
 
     await withTmp(async (dir) => {
-      const ctx = new Context()
-      const approval = new ApprovalService(ctx, { policy: 'ask' })
+      const loaded = await loadApprovalService(Context, ApprovalService, { policy: 'ask' })
+      const ctx = loaded.ctx
+      const approval = loaded.approval
+
+      /**
+       * **断言 init() 真的跑完了**（审查 WP5.2 怀疑点 6）。
+       *
+       * 若 fiber 没等到 init，句柄就是 undefined，后续 `request()` 会抛
+       * "Cannot read properties of undefined (reading 'stateOf')"。
+       * 但更稳的是**直接断言句柄已赋值**，而不是靠后面的报错间接发现。
+       * 这一条证明测试桩没有比真宿主宽松、也没有绕过初始化。
+       */
+      assert.ok(approval !== undefined && approval !== null, 'approval 实例必须存在')
+      assert.ok(approval.approvalProjectionHandle !== undefined
+        && approval.approvalProjectionHandle !== null,
+        'init() 必须已执行：approvalProjectionHandle 已由真 sessionProjections 赋值')
+      assert.equal(typeof approval.approvalProjectionHandle.stateOf, 'function',
+        '投影句柄必须提供真实 stateOf')
+
+      // 进一步：stateOf 在真 session 上确实可用且返回投影状态
+      const probeSession = makeOpenTurnSession()
+      const projected = approval.approvalProjectionHandle.stateOf(probeSession)
+      assert.equal(projected.turnOpen, true, 'turn/start 事件应被折叠进投影')
+      assert.equal(projected.policy, null, '初始 policy 应为 null')
 
       let realCalls = 0
       const seen = []
@@ -106,8 +236,9 @@ test('WP3：真 ApprovalService 词汇白名单 —— 非 allowed-once 全 fail
     await withTmp(async (dir) => {
       const agent = { session: makeOpenTurnSession() }
       for (const outcome of ['rejected', 'cancelled', 'unavailable']) {
-        const ctx = new Context()
-        const approval = new ApprovalService(ctx, { policy: 'ask' })
+        const loaded = await loadApprovalService(Context, ApprovalService, { policy: 'ask' })
+        const ctx = loaded.ctx
+        const approval = loaded.approval
         ctx.on('approval/request', () => outcome)
 
         const svc = applyWorkbenchHostService(
@@ -130,8 +261,8 @@ test('WP3：真 ApprovalService 词汇白名单 —— 非 allowed-once 全 fail
       }
 
       // never 策略：真 decide 返回 rejected
-      const ctx2 = new Context()
-      const approval2 = new ApprovalService(ctx2, { policy: 'never' })
+      const loaded2 = await loadApprovalService(Context, ApprovalService, { policy: 'never' })
+      const approval2 = loaded2.approval
       const svc2 = applyWorkbenchHostService(
         { provide: () => {} },
         {
@@ -147,8 +278,8 @@ test('WP3：真 ApprovalService 词汇白名单 —— 非 allowed-once 全 fail
       assert.equal(r2.approved, false, 'never 策略必须拒绝')
 
       // 无 answerer：真实现 fallback 到 unavailable
-      const ctx3 = new Context()
-      const approval3 = new ApprovalService(ctx3, { policy: 'ask' })
+      const loaded3 = await loadApprovalService(Context, ApprovalService, { policy: 'ask' })
+      const approval3 = loaded3.approval
       const svc3 = applyWorkbenchHostService(
         { provide: () => {} },
         {

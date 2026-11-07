@@ -1179,3 +1179,19 @@ test('WP5.1 P1-5：导入完成文案的占位符必须被替换', () => {
       `${lang}.importDoneSkipped 必须同时含 {n} 与 {s}`)
   }
 })
+
+// ================================ WP5.2 变异真空补齐（Y11）
+
+test('WP5.2/Y11：导出必须有防连点保护（state 判空 + 按钮 disabled）', () => {
+  // 变异 Y11 会把 `if (exporting !== null) return` 改成 `if (false) return`。
+  // 结构断言锁死这三层保护，任何一层被删都变红。
+  assert.match(client, /const \[exporting, setExporting\] = useState\(null\)/,
+    '必须有 exporting 状态')
+  assert.match(client, /if \(exporting !== null\) return/,
+    'exportData 开头必须判空，防止并发导出')
+  assert.match(client, /setExporting\(kind\)/, '进入时必须置位')
+  assert.match(client, /setExporting\(null\)/, 'finally 必须复位')
+  // disabled 出现在两个导出按钮上（不是只防了一个）
+  const disabledCount = (client.match(/disabled: exporting !== null/g) ?? []).length
+  assert.equal(disabledCount, 2, `两个导出按钮都要禁用，实际 ${disabledCount} 个`)
+})

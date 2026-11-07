@@ -32,6 +32,25 @@
  * 调用。所以本模块对外只能说「提醒已注册为 Host 持久化任务」，不能说
  * 「会弹系统通知」。
  *
+ * ## 休眠唤醒由 Host 负责，本层**不叠加自建恢复**（WP5.2 实测结论）
+ *
+ * `dsh-schedule/lib/index.js` 的 `drive()` 每次触发都重新扫描
+ * `scheduledAt <= Date.now()`，没有下界检查；`README.md:279` 明写
+ * "A later management change, wake, or restart can retry it"。
+ *
+ * 隔离实例 SIGSTOP/SIGCONT 实测（真机）：
+ *   创建 07:17:55Z / 到点 07:18:35Z / 07:17:55Z 立即 SIGSTOP
+ *   休眠跨过触发点 50 秒，零投递
+ *   07:20:13Z SIGCONT → deliveredAt 07:20:13.040Z（唤醒后 27ms 补投）
+ *   status: active → inactive，deliveryHistory 写入 1 条
+ *
+ * 因此**不再**接入 `reminder-recovery.js` 的 `recover({scenario:'suspend'})`：
+ * 那会与 Host 的补投形成两条投递路径，制造重复消息。该模块保留为
+ * WP3 的独立只读逻辑，不作为本插件的投递通道。
+ *
+ * 本层的职责止于「把数据变化同步成 Host 持久化任务」；何时投递、错过后
+ * 何时补投，全部由 Host 的定时器与 drive() 决定。
+ *
  * ## 为什么不用 `workbench-core/src/schedule-adapter.js`
  *
  * 那个文件是 WP3 的**内存模拟**（`tick()` 注释原话：「模拟到点投递：从计划移除，
@@ -210,6 +229,7 @@ export function diffReminders(existing, desired) {
   const toCreate = []
   const toUpdate = []
   const toDelete = []
+  const toDeleteIdentity = new Map()
   const unchanged = []
 
   const seen = new Set()
@@ -220,6 +240,7 @@ export function diffReminders(existing, desired) {
     const want = desired.get(identity)
     if (want === undefined) {
       toDelete.push(row.id)
+      toDeleteIdentity.set(row.id, identity)
       continue
     }
     // 期望触发时刻与 Host 上的一致、且文本没变 → 不动。
@@ -242,7 +263,7 @@ export function diffReminders(existing, desired) {
     if (!seen.has(identity)) toCreate.push(want)
   }
 
-  return { toCreate, toUpdate, toDelete, unchanged }
+  return { toCreate, toUpdate, toDelete, toDeleteIdentity, unchanged }
 }
 
 /**
@@ -268,6 +289,57 @@ export function identityOfHostRecord(row) {
    */
   const m = /\u200B\u2060\[\[wb:([^\]]+)\]\]\s*$/.exec(prompt)
   return m === null ? null : m[1]
+}
+
+/**
+ * 判断一条 Host 记录「是不是本插件建的」，并给出**可信度分级**。
+ *
+ * ## 为什么不能只看标记
+ *
+ * 标记（哪怕带不可见前缀）**只是 prompt 文本的一部分**，而 `prompt` 是
+ * 用户完全可控的字段 —— 任何人都能把它写成带标记的样子。把「有标记」
+ * 当成「可信认证」是错的：标记能被复制、能被构造，它不是凭证。
+ *
+ * Host 的记录 schema 是 `.strict()` 的（`dsh-schedule` 的 zod 校验），
+ * **不接受任何自定义 metadata 字段**，所以拿不到真正的结构化认证。
+ *
+ * ## 因此采用「分级 + 保守删除」
+ *
+ * - `owned`：标记存在**且**解出的 identity 与本次 reconcile 的
+ *   (kind, scope) 自洽。只有这一类允许被删除。
+ * - `foreign`：没有标记。不是我们的，**永不碰**。
+ * - `suspect`：有标记但解不出、或与本次 scope/kind 不自洽（用户手写、
+ *   或别的 scope 的记录）。**保留**，只在报告里列出，交给上层判断。
+ *
+ * 原则：宁可留孤儿，也不误删用户的东西。
+ *
+ * @param {object} row
+ * @param {{ scope?: string }} [context]
+ * @returns {{ level: 'owned'|'foreign'|'suspect', identity: string|null, reason?: string }}
+ */
+export function ownershipOf(row, context = {}) {
+  if (row === null || typeof row !== 'object') {
+    return { level: 'foreign', identity: null, reason: 'not-an-object' }
+  }
+  const identity = identityOfHostRecord(row)
+  if (identity === null) {
+    return { level: 'foreign', identity: null, reason: 'no-mark' }
+  }
+  const parts = decodeIdentity(identity)
+  if (parts === null) {
+    // 有标记但格式不对：可能是用户照着写的，也可能格式演进过 —— 不确定就保留
+    return { level: 'suspect', identity, reason: 'undecodable-identity' }
+  }
+  if (context.scope !== undefined) {
+    const wantScope = context.scope === '' ? '' : String(context.scope)
+    if (parts.scope !== wantScope) {
+      return { level: 'suspect', identity, reason: 'scope-mismatch' }
+    }
+  }
+  if (context.kind !== undefined && parts.kind !== context.kind) {
+    return { level: 'suspect', identity, reason: 'kind-mismatch' }
+  }
+  return { level: 'owned', identity }
 }
 
 /**
@@ -357,6 +429,78 @@ export function createReminderSync(options) {
   const now = options.now ?? (() => Date.now())
   const logger = options.logger ?? (() => {})
 
+
+  /**
+   * 可选的持久化钩子：让白名单跨进程存活。
+   *
+   * `options.ownership = { load(): string[], save(ids: string[]): void }`
+   *
+   * 不持久化的后果：重启后白名单为空 → **所有旧提醒都无法删除** →
+   * 数据一致了（不误删）但永远清不掉，孤儿只增不减。所以生产路径必须传它；
+   * 测试与纯内存场景可以不传（退化为进程内白名单）。
+   */
+  /**
+   * 可能按 (sessionId, scope) 取存储：`options.ownershipFor(sessionId, scope)`
+   * 返回 `{ load(), save(ids) }` 或 null。也接受单个 `options.ownership`。
+   *
+   * 为什么不放在构造时固定一份：白名单是**每个 session × scope 独立**的，
+   * 混在一起会让 A 的创建记录被 B 用来做删除授权。
+   */
+  const ownershipFor = typeof options.ownershipFor === 'function'
+    ? options.ownershipFor
+    : (options.ownership !== undefined && options.ownership !== null
+      ? () => options.ownership
+      : () => null)
+
+  /** 当前作用域的白名单（identity → 存储句柄），按需装载。 */
+  const ownershipCache = new Map()
+
+  const ownershipOfScope = (sessionId, scope) => {
+    const key = `${sessionId}\u0000${scope}`
+    if (ownershipCache.has(key)) return ownershipCache.get(key)
+    let store = null
+    try {
+      store = ownershipFor(sessionId, scope)
+    } catch (error) {
+      logger({ kind: 'reminder-sync', event: 'ownership-resolve-failed', error: String(error?.message ?? error) })
+      store = null
+    }
+    const entry = {
+      store,
+      ids: new Set(),
+      loaded: false,
+      flush() {
+        if (store === null || typeof store.save !== 'function') return
+        try {
+          store.save([...entry.ids])
+        } catch (error) {
+          logger({ kind: 'reminder-sync', event: 'ownership-save-failed', error: String(error?.message ?? error) })
+        }
+      },
+    }
+    ownershipCache.set(key, entry)
+    return entry
+  }
+
+  const loadOwnership = (entry) => {
+    if (entry.loaded) return entry.ids
+    entry.loaded = true
+    if (entry.store !== null && typeof entry.store.load === 'function') {
+      try {
+        const loaded = entry.store.load()
+        if (Array.isArray(loaded)) {
+          for (const id of loaded) {
+            if (typeof id === 'string' && id !== '') entry.ids.add(id)
+          }
+        }
+      } catch (error) {
+        // 读失败 → 空集 → 本轮少删。绝不因此去删。
+        logger({ kind: 'reminder-sync', event: 'ownership-load-failed', error: String(error?.message ?? error) })
+      }
+    }
+    return entry.ids
+  }
+
   /**
    * 由真实数据算出期望集合。
    *
@@ -395,9 +539,16 @@ export function createReminderSync(options) {
    *
    * @returns {Promise<object[]>}
    */
-  async function ownHostRecords(sessionId, scope = '') {
+  async function ownHostRecords(sessionId, scope = '', report = null) {
     const all = await schedule.catalog()
     const rows = Array.isArray(all) ? all : []
+    /**
+     * 只把 `owned`（明确属于本插件且与本次 scope 自洽）的行交给差异计算。
+     *
+     * `suspect`（有标记但对不上）**不参与任何删除决策** —— 它们可能是
+     * 用户手写的、也可能是别的 scope 的。`foreign`（无标记）永远不碰。
+     * 这样「身份标记」只承担识别职责，不承担认证职责。
+     */
     /**
      * **必须按 sessionId 过滤。**
      *
@@ -412,20 +563,25 @@ export function createReminderSync(options) {
      */
     return rows.filter((row) => {
       if (row.sessionId !== sessionId) return false
-      const identity = identityOfHostRecord(row)
-      if (identity === null) return false
+      const own = ownershipOf(row, { scope })
+      if (own.level === 'owned') return true
       /**
-       * **只看本 scope 的记录。**
+       * **不静默丢弃**（审查 WP5.2 怀疑点 8）。
        *
-       * 同一 session 下可以有多个 scope（各用独立数据目录），它们的提醒共用
-       * 同一份 catalog。若不过滤 scope，projA 对账时会把 projB 的记录判成
-       * 「不在期望集合里」→ 删掉 → 两个 scope 互相踩踏。
-       *
-       * 这里用三段 identity 的 scope 段做过滤：`kind:scope:entityId`。
+       * `suspect`（有标记但对不上）与 `foreign`（无标记）都被安全地
+       * 排除在删除决策之外，但如果一个字都不报，用户/上层就无从知道
+       * 「有一批记录被刻意保留了」。这属于可观测性缺口。
+       * 这里只**记录**，绝不改变「不删」的处置。
        */
-      const parts = decodeIdentity(identity)
-      if (parts === null) return false
-      return parts.scope === (scope === '' ? '' : String(scope))
+      if (report !== null && Array.isArray(report.observed)) {
+        report.observed.push({
+          id: row.id,
+          level: own.level,
+          identity: own.identity,
+          reason: own.reason ?? null,
+        })
+      }
+      return false
     })
   }
 
@@ -448,6 +604,8 @@ export function createReminderSync(options) {
     const report = {
       sessionId,
       created: 0, updated: 0, deleted: 0, unchanged: 0,
+      kept: [],
+      observed: [],
       failed: [],
       problems: [],
       catalogAvailable: true,
@@ -459,11 +617,13 @@ export function createReminderSync(options) {
     }
 
     const { desired, problems } = desiredFrom(data, scope)
+    const ownership = ownershipOfScope(sessionId, scope)
+    const createdIdentities = loadOwnership(ownership)
     report.problems = problems
 
     let existing
     try {
-      existing = await ownHostRecords(sessionId, scope)
+      existing = await ownHostRecords(sessionId, scope, report)
     } catch (error) {
       // 读不到就不能写：不知道现状就写 = 重复注册风险
       report.catalogAvailable = false
@@ -484,6 +644,9 @@ export function createReminderSync(options) {
           prompt: encodePrompt(want.prompt, want.identity),
           at: new Date(want.fireAtMs).toISOString(),
         })
+        // 登记「这条是我建的」，删除时以它为准
+        createdIdentities.add(want.identity)
+        ownership.flush()
         report.created += 1
       } catch (error) {
         report.failed.push({
@@ -539,6 +702,22 @@ export function createReminderSync(options) {
     }
 
     for (const id of plan.toDelete) {
+      /**
+       * **删除前必须确认「这条确实是本同步器创建的」。**
+       *
+       * 只看标记是不够的：标记在 prompt 里，用户可复制。白名单里没有记录，
+       * 说明我们从未创建过它 —— 无论标记长得多像，都**不删**。
+       * 宁可留一条孤儿，让用户自己去 schedule 里清理，也不冒误删的风险。
+       */
+      const target = plan.toDeleteIdentity.get(id)
+      if (target === undefined || !createdIdentities.has(target)) {
+        report.kept.push({
+          id,
+          identity: target ?? null,
+          reason: target === undefined ? 'unknown-identity' : 'never-created-by-us',
+        })
+        continue
+      }
       try {
         const res = await schedule.delete({ sessionId, id })
         /**
@@ -552,6 +731,8 @@ export function createReminderSync(options) {
             reason: String(res.code ?? 'delete-not-applied'),
           })
         } else {
+          createdIdentities.delete(target)
+          ownership.flush()
           report.deleted += 1
         }
       } catch (error) {

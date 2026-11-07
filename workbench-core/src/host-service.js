@@ -117,6 +117,15 @@ export function createWorkbenchHostService(options = {}) {
    */
   const sessionIdsByDir = new Map()
 
+  /**
+   * `sessions` 的复合 key → 结构化元数据 `{sessionId, scope, dataDir}`。
+   *
+   * 为什么不从 key 反解析：原 `openedSessions` 用 `lastIndexOf('::')` 拆
+   * `${dirName}::${scope}`，scope 自身含 `::` 时就会拆错（审查 P2-7）。
+   * 结构体不存在这个歧义，也让 `dataDirFor` 不必重复实现 hash 规则。
+   */
+  const sessionEntries = new Map()
+
 
   /** 每次调用的审计流水（进程内，供 UI/工具读取；持久化审计在 service 内）。 */
   const auditTrail = []
@@ -172,6 +181,7 @@ export function createWorkbenchHostService(options = {}) {
        * 其余 session 在它们各自第一次写操作时对账（见 index.js 的 handler）。
        */
       sessionIdsByDir.set(dirName, sessionId)
+      sessionEntries.set(key, { sessionId, scope, dataDir })
       record({ kind: 'session-open', sessionId: dirName, scope })
     }
     return svc
@@ -186,14 +196,31 @@ export function createWorkbenchHostService(options = {}) {
    */
   function openedSessions() {
     const out = []
-    for (const [key] of sessions) {
-      const sep = key.lastIndexOf('::')
-      const dirName = sep >= 0 ? key.slice(0, sep) : key
-      const scope = sep >= 0 ? key.slice(sep + 2) : ''
-      const sessionId = sessionIdsByDir.get(dirName)
-      if (sessionId !== undefined) out.push({ sessionId, scope })
+    for (const entry of sessionEntries.values()) {
+      out.push({ sessionId: entry.sessionId, scope: entry.scope })
     }
     return out
+  }
+
+  /**
+   * 取（或按规则推导）某 session × scope 的数据目录。
+   *
+   * 提醒白名单文件要放在与业务数据同一个目录里。让这里统一提供，
+   * 调用方**不许自己再算一遍 sha256 前缀**（两份实现必然漂移）。
+   *
+   * @param {string} sessionId
+   * @param {string} [scope]
+   * @returns {string}
+   */
+  function dataDirFor(sessionId, scope = '') {
+    forSession(sessionId, scope) // 确保已创建并登记
+    const found = sessionEntries.get(`${sessionDirName(sessionId)}::${scope}`)
+    if (found !== undefined) return found.dataDir
+    // 兜底：按同一规则推导（正常路径不会走到）
+    const scopeSuffix = scope === ''
+      ? ''
+      : `-${createHash('sha256').update(scope).digest('hex').slice(0, 12)}`
+    return join(rootDir, `${sessionDirName(sessionId)}${scopeSuffix}`)
   }
 
   /**
@@ -285,6 +312,7 @@ export function createWorkbenchHostService(options = {}) {
     audit,
     describe,
     openedSessions,
+    dataDirFor,
   })
 }
 

@@ -22,6 +22,9 @@
  * 配置显式给出；空字符串时**拒绝启动**，绝不悄悄落到 ~/.dsh。
  */
 
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+
 import { createWorkbenchHostService } from '../../workbench-core/src/index.js'
 import { createReminderSync } from '../../workbench-core/src/reminder-sync.js'
 
@@ -403,7 +406,47 @@ export function apply(ctx, config = {}) {
       reminderAttachState = 'malformed'
       return
     }
-    reminderSync = createReminderSync({ schedule: svc })
+    /**
+     * 白名单持久化：按 session 落在 workbench 自己的数据目录里。
+     *
+     * 放 `<rootDir>/<sessionDir>/schedule-ownership.json`，与业务数据同域，
+     * 不写到用户的 `~/.dsh` 顶层。读失败/文件损坏一律当作空集（少删），
+     * 绝不当成「全都不是我们的」而去删。
+     */
+    const ownershipFor = (sessionId, scope) => {
+      let file = null
+      try {
+        /**
+         * 目录由 host-service 统一给，不在桥接层重复算 sha256 前缀。
+         * 两份实现一旦漂移，白名单就会落到一个永远读不到的地方 ——
+         * 表现为「重启后所有提醒都成了删不掉的孤儿」，且无声无息。
+         */
+        file = join(service.dataDirFor(sessionId, scope), 'schedule-ownership.json')
+      } catch {
+        return null
+      }
+      return {
+        load() {
+          try {
+            const raw = readFileSync(file, 'utf8')
+            const parsed = JSON.parse(raw)
+            return Array.isArray(parsed?.identities) ? parsed.identities : []
+          } catch {
+            return []
+          }
+        },
+        save(ids) {
+          try {
+            mkdirSync(dirname(file), { recursive: true })
+            writeFileSync(file, JSON.stringify({ version: 1, identities: ids }, null, 2) + '\n', 'utf8')
+          } catch {
+            // 写失败只影响「以后能不能清理」，不阻塞提醒本身
+          }
+        },
+      }
+    }
+
+    reminderSync = createReminderSync({ schedule: svc, ownershipFor })
     reminderAttachState = 'attached'
 
     /**

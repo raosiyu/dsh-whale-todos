@@ -199,3 +199,41 @@ test('WP3：真宿主审批词汇 allowed-once 才授予，其余一律拒绝', 
     }
   })
 })
+
+// ============================================ WP5.2：dataDirFor 与 scope 含 ::
+
+test('WP5.2：dataDirFor 返回真实数据目录，且两个 scope 不共用', () => withTmp(async (dir) => {
+  const svc = createWorkbenchHostService({ rootDir: dir })
+  const a = svc.dataDirFor('sess-1', '')
+  const b = svc.dataDirFor('sess-1', 'projB')
+  assert.notEqual(a, b, 'scope 必须进目录路径')
+  assert.ok(a.startsWith(dir) && b.startsWith(dir))
+  // 目录确实存在且可写
+  const { existsSync } = await import('node:fs')
+  assert.equal(existsSync(a), true)
+  assert.equal(existsSync(b), true)
+  // 幂等：重复调用同一个
+  assert.equal(svc.dataDirFor('sess-1', ''), a)
+}))
+
+test('WP5.2：scope 含 :: 时 openedSessions 仍返回正确 scope（P2-7 回归）', () => withTmp(async (dir) => {
+  const svc = createWorkbenchHostService({ rootDir: dir })
+  const tricky = 'a::b::c'
+  svc.dataDirFor('sess-tricky', tricky)
+  const opened = svc.openedSessions()
+  const hit = opened.find((e) => e.scope === tricky)
+  assert.ok(hit !== undefined, `scope ${tricky} 必须原样出现在 openedSessions`)
+  assert.equal(hit.sessionId, 'sess-tricky')
+}))
+
+test('WP5.2：dataDirFor 与 forSession 的数据目录一致（同一份真相源）', () => withTmp(async (dir) => {
+  const svc = createWorkbenchHostService({ rootDir: dir })
+  const dataDir = svc.dataDirFor('sess-x', 'sc')
+  // 通过该目录里的 service 写一条，再从磁盘确认落在这个目录
+  svc.invoke('sess-x', 'event.create', mkEvent('落盘验证'), { scope: 'sc' })
+  const { existsSync, readFileSync } = await import('node:fs')
+  const f = join(dataDir, 'workbench.json')
+  assert.equal(existsSync(f), true, 'dataDirFor 指向的目录就是数据实际写入的目录')
+  const j = JSON.parse(readFileSync(f, 'utf8'))
+  assert.equal((j.events ?? []).length, 1)
+}))

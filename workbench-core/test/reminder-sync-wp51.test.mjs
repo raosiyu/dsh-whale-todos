@@ -20,6 +20,7 @@ import {
   diffReminders,
   encodePrompt,
   identityOfHostRecord,
+  ownershipOf,
   IDENTITY_MARK_OPEN,
   MAX_REMINDER_PROMPT,
   MAX_REMINDER_TITLE,
@@ -567,4 +568,318 @@ test('P0-4：不同 scope 的同一实体互不覆盖', async () => {
   assert.equal(rA2.unchanged, 1)
   assert.equal(rB2.unchanged, 1)
   assert.equal(sched.rows.size, 2)
+})
+
+// ============================== WP5.2：身份标记只做识别，不做认证
+
+test('WP5.2：ownershipOf 分级 —— 只有自洽的才允许删', () => {
+  const owned = encodePrompt('x', 'task:_:t1')
+  const otherScope = encodePrompt('x', 'task:projB:t1')
+  const otherKind = encodePrompt('x', 'event-start:_:t1')
+
+  // 自洽 → owned
+  assert.equal(ownershipOf({ prompt: owned }, { scope: '' }).level, 'owned')
+  // 别的 scope → suspect（保留）
+  assert.equal(ownershipOf({ prompt: otherScope }, { scope: '' }).level, 'suspect')
+  // 别的 kind → suspect
+  assert.equal(ownershipOf({ prompt: otherKind, kind: 'at' }, { scope: '', kind: 'task' }).level, 'suspect')
+  // 无标记 → foreign
+  assert.equal(ownershipOf({ prompt: '用户自己的提醒' }, { scope: '' }).level, 'foreign')
+  // 伪造：带不可见前缀但身份格式错 → suspect（不删）
+  const forged = `\u200B\u2060[[wb:乱码]]`
+  assert.equal(ownershipOf({ prompt: forged }, { scope: '' }).level, 'suspect')
+})
+
+test('WP5.2：用户伪造带标记的提醒，不得被删除（宁可留孤儿）', async () => {
+  const sched = fakeSchedule()
+  // 用户自己在 schedule 里建的提醒，正文照抄了标记格式
+  await sched.create('s1', {
+    title: '我的自定义提醒',
+    prompt: '\u200B\u2060[[wb:task:_:victim]]',
+    at: '2026-11-20T10:00:00.000Z',
+  })
+  const mine = [...sched.rows.values()][0]
+
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+  // 期望集合里没有任何 task:victim
+  const r = await sync.reconcile('s1', { tasks: [] })
+
+  /**
+   * 这条记录解出来是 `task:_:victim`，与本次 scope('') 自洽 → 会被判 owned
+   * 并删除。这正是「不可见字符不是认证」要处理的情况：
+   * 我们无法区分「本插件写的」与「用户照抄的」。
+   *
+   * 因此策略是：**只有当 identity 对应的实体在我们这轮数据里「曾经存在过」
+   * 才允许删**。这里数据是空的，victim 从未存在 → 不得删。
+   */
+  assert.equal(sched.rows.has(mine.id), true, '无法确认归属时不得删除')
+  assert.equal(r.deleted, 0)
+})
+
+test('WP5.2：确属我们的（实体曾存在）才允许删除', async () => {
+  const sched = fakeSchedule()
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+
+  // 第一轮：实体存在 → 建提醒（这证明该 identity 确实是我们的）
+  await sync.reconcile('s1', { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] })
+  assert.equal(sched.rows.size, 1)
+
+  // 第二轮：实体消失 → 允许删（因为上一轮它确属我们）
+  const r = await sync.reconcile('s1', { tasks: [] })
+  assert.equal(r.deleted, 1, '确认过归属的才删')
+  assert.equal(sched.rows.size, 0)
+})
+
+test('WP5.2：别的 scope 的记录不被本 scope 删除', async () => {
+  const sched = fakeSchedule()
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+  const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
+
+  await sync.reconcile('s1', data, 'projA')
+  const aRow = [...sched.rows.values()][0]
+
+  // projB 对账，看到 projA 的记录：identity 的 scope 不匹配 → suspect → 不删
+  const r = await sync.reconcile('s1', { tasks: [] }, 'projB')
+  assert.equal(r.deleted, 0, 'projB 不得删 projA 的提醒')
+  assert.equal(sched.rows.has(aRow.id), true)
+})
+
+test('WP5.2：删除的唯一依据是「本同步器创建过」，不是标记本身', async () => {
+  const sched = fakeSchedule()
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+
+  // 三种记录都带完美自洽的标记，但都不是本同步器建的
+  await sched.create('s1', { title: 'A', prompt: encodePrompt('x', 'task:_:a'), at: '2026-11-20T10:00:00.000Z' })
+  await sched.create('s1', { title: 'B', prompt: encodePrompt('x', 'task:_:b'), at: '2026-11-20T11:00:00.000Z' })
+  const ids = [...sched.rows.keys()]
+  assert.equal(ids.length, 2)
+
+  const r = await sync.reconcile('s1', { tasks: [] })
+  assert.equal(r.deleted, 0, '从未创建过的，标记再像也不许删')
+  assert.equal(r.kept.length, 2, '必须如实报告「保留了几条」')
+  assert.equal(sched.rows.size, 2)
+
+  // report.kept 要能定位到具体记录
+  for (const k of r.kept) {
+    assert.ok(typeof k.id === 'string')
+    assert.equal(k.reason, 'never-created-by-us')
+  }
+})
+
+test('WP5.2：只有「创建过 + 现在不再需要」才删，删后白名单同步清理', async () => {
+  const sched = fakeSchedule()
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+  const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
+
+  await sync.reconcile('s1', data)
+  assert.equal(sched.rows.size, 1)
+
+  // 再跑一次幂等：不应删
+  const r2 = await sync.reconcile('s1', data)
+  assert.equal(r2.deleted, 0)
+  assert.equal(r2.kept.length, 0, '自己的记录不该进 kept')
+
+  // 实体消失 → 允许删
+  const r3 = await sync.reconcile('s1', { tasks: [] })
+  assert.equal(r3.deleted, 1)
+  assert.equal(sched.rows.size, 0)
+
+  // 删掉后再跑，不得因为「记得"过但已删」而报错或重复删
+  const r4 = await sync.reconcile('s1', { tasks: [] })
+  assert.equal(r4.deleted, 0)
+  assert.equal(r4.kept.length, 0)
+})
+
+test('WP5.2：白名单必须跨进程存活（否则重启后永远清不掉孤儿）', async () => {
+  // 用一个共享的「磁盘」
+  const disk = new Map()
+  const ownershipFor = (sessionId, scope) => ({
+    load: () => disk.get(`${sessionId}|${scope}`) ?? [],
+    save: (ids) => { disk.set(`${sessionId}|${scope}`, [...ids]) },
+  })
+
+  // 进程 1：建一条
+  const sched1 = fakeSchedule()
+  const sync1 = createReminderSync({ schedule: sched1, now: () => NOW, ownershipFor })
+  await sync1.reconcile('s1', { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] })
+  assert.equal(sched1.rows.size, 1)
+  assert.deepEqual(disk.get('s1|'), ['task:_:t1'], '创建必须落盘')
+
+  // 进程 2：全新实例，读同一份磁盘 —— 必须认得这条是自己的
+  const sched2 = fakeSchedule()
+  for (const row of sched1.rows.values()) sched2.rows.set(row.id, { ...row })
+  const sync2 = createReminderSync({ schedule: sched2, now: () => NOW, ownershipFor })
+  const r = await sync2.reconcile('s1', { tasks: [] })
+  assert.equal(r.deleted, 1, '重启后仍能清理（否则孤儿只增不减）')
+  assert.equal(sched2.rows.size, 0)
+  assert.deepEqual(disk.get('s1|'), [], '删除后白名单同步清空')
+})
+
+test('WP5.2：加载失败时退化为空集 = 少删，不得多删', async () => {
+  const badFor = () => ({
+    load: () => { throw new Error('disk on fire') },
+    save: () => { throw new Error('disk on fire') },
+  })
+  const sched = fakeSchedule()
+  await sched.create('s1', { title: 'A', prompt: encodePrompt('x', 'task:_:t1'), at: '2026-11-20T10:00:00.000Z' })
+  const id = [...sched.rows.keys()][0]
+
+  const sync = createReminderSync({ schedule: sched, now: () => NOW, ownershipFor: badFor })
+  const r = await sync.reconcile('s1', { tasks: [] })
+  assert.equal(r.deleted, 0, '读不到白名单时不能删')
+  assert.equal(sched.rows.has(id), true)
+  assert.equal(r.kept.length, 1)
+})
+
+test('WP5.2：不同 scope 的白名单互不共享（A 的授权不能给 B 用）', async () => {
+  const disk = new Map()
+  const ownershipFor = (sid, scope) => ({
+    load: () => disk.get(`${sid}|${scope}`) ?? [],
+    save: (ids) => { disk.set(`${sid}|${scope}`, [...ids]) },
+  })
+  const sched = fakeSchedule()
+  const sync = createReminderSync({ schedule: sched, now: () => NOW, ownershipFor })
+  const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
+
+  await sync.reconcile('s1', data, 'projA')
+  assert.deepEqual(disk.get('s1|projA'), ['task:projA:t1'])
+  assert.equal(disk.get('s1|projB'), undefined, 'B 不该有 A 的记录')
+
+  // projB 对空数据对账：不得删除 A 的
+  const r = await sync.reconcile('s1', { tasks: [] }, 'projB')
+  assert.equal(r.deleted, 0)
+  assert.equal(sched.rows.size, 1)
+})
+
+// ================================ WP5.2 变异真空补齐
+
+test('WP5.2/Z2：同一 identity 名跨不同 scope 时白名单互不授权', async () => {
+  /**
+   * Z2 变异把 ownershipCache 的 key 改成全局常量。若两个 scope 用**相同**
+   * identity 字符串，全局 key 会让它们共享同一份白名单 → 越权授权。
+   * 用真实 reconcile 走两个 scope，identity 不同（含 scope 段），
+   * 所以这里额外断言：缓存 key 必须带 session 与 scope 两个维度。
+   */
+  const disk = new Map()
+  const ownershipFor = (sid, scope) => ({
+    load: () => disk.get(`${sid}|${scope}`) ?? [],
+    save: (ids) => { disk.set(`${sid}|${scope}`, [...ids]) },
+  })
+  const sched = fakeSchedule()
+  const sync = createReminderSync({ schedule: sched, now: () => NOW, ownershipFor })
+  const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
+
+  await sync.reconcile('sessA', data, 'sc')
+  assert.ok(disk.has('sessA|sc'), '必须按 session+scope 落盘')
+  assert.equal(disk.has('sessB|sc'), false, '不该给别的 session 落盘')
+
+  // sessB 同 scope 对空数据：不得因为共享缓存而删 sessA 的提醒
+  const r = await sync.reconcile('sessB', { tasks: [] }, 'sc')
+  assert.equal(r.deleted, 0, '不同 session 不得借用彼此的删除授权')
+  assert.equal(sched.rows.size, 1)
+})
+
+test('WP5.2/Z4：读失败时白名单为空集，不得信任任何记录', async () => {
+  /**
+   * Z4 变异让读失败后 `has()` 恒真 —— 会把用户自建的带标记提醒全删掉。
+   * 正确行为是：读失败 → 空集 → 全部 kept。
+   */
+  const badFor = () => ({
+    load: () => { throw new Error('disk on fire') },
+    save: () => {},
+  })
+  const sched = fakeSchedule()
+  await sched.create('s1', { title: '用户自建', prompt: encodePrompt('x', 'task:_:victim'), at: '2026-11-20T10:00:00.000Z' })
+  const id = [...sched.rows.keys()][0]
+
+  const sync = createReminderSync({ schedule: sched, now: () => NOW, ownershipFor: badFor })
+  const r = await sync.reconcile('s1', { tasks: [] })
+  assert.equal(r.deleted, 0, '读失败绝不能变成「全部可删」')
+  assert.equal(sched.rows.has(id), true)
+  assert.equal(r.kept.length, 1)
+})
+
+test('WP5.2/Y15：跨 session 的记录不进入本 session 的 diff', async () => {
+  /**
+   * Y15 变异去掉 `row.sessionId !== sessionId` 过滤。
+   * 此时 B 的记录会进入 A 的 diff，被判为「不在期望集合」。
+   * 白名单会拦住删除（纵深防御），但仍会进 `kept` 并被尝试删除 ——
+   * 用 delete 调用次数来断言：正确实现下**一次都不该调**。
+   */
+  const sched = fakeSchedule()
+  await sched.create('session-B', {
+    title: 'B 的提醒',
+    prompt: encodePrompt('B 正文', 'task:_:tb'),
+    at: '2026-11-10T12:00:00.000Z',
+  })
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+  const r = await sync.reconcile('session-A', { tasks: [] })
+
+  assert.equal(sched.calls.delete.length, 0,
+    'A 根本不该对 B 的记录发起 delete 调用（不只是删不掉）')
+  assert.equal(r.kept.length, 0, '也不该把 B 的记录列进 kept')
+  assert.equal(r.deleted, 0)
+})
+
+test('WP5.2/Z2-b：同一 session 下不同 scope 不得共享白名单（真正暴露全局 key）', async () => {
+  /**
+   * Z2 变异把 ownershipCache 的 key 改成常量 `'global'`。
+   * 上面那条 Z2 测试被 sessionId 过滤挡住了，这里用**同一 session**、
+   * 不同 scope 来真正暴露问题：
+   *
+   *   scope A 建一条 → 白名单有 `task:projA:t1`
+   *   scope B 对空数据 → 若 key 是全局，会命中 A 的 entry（白名单非空）
+   *   但 B 的 catalog 里那条记录 identity 是 `task:projA:t1`，
+   *   与 B 的 scope 不自洽 → ownershipOf 判 suspect → 不进 diff（还是挡住）
+   *
+   * 所以改用**直接断言落盘 key 的维度**：两个 scope 必须各自产生独立文件，
+   * 且各自的 `save` 收到的内容互不混淆。全局 key 会让第二轮的 save
+   * 覆盖到第一轮的 store 上 —— 这是可观测的。
+   */
+  const disk = new Map()
+  const saves = []
+  const ownershipFor = (sid, scope) => ({
+    load: () => disk.get(`${sid}|${scope}`) ?? [],
+    save: (ids) => {
+      saves.push({ sid, scope, ids: [...ids] })
+      disk.set(`${sid}|${scope}`, [...ids])
+    },
+  })
+  const sched = fakeSchedule()
+  const sync = createReminderSync({ schedule: sched, now: () => NOW, ownershipFor })
+  const data = { tasks: [mkTask('t1', 'A', '2026-11-08T12:00:00.000Z')] }
+
+  await sync.reconcile('s1', data, 'projA')
+  await sync.reconcile('s1', data, 'projB')
+
+  // 两次创建必须分别写到各自的 store，且内容不同
+  const a = saves.find((s) => s.scope === 'projA')
+  const b = saves.find((s) => s.scope === 'projB')
+  assert.ok(a !== undefined, 'projA 必须落盘')
+  assert.ok(b !== undefined, 'projB 必须落盘')
+  assert.deepEqual(a.ids, ['task:projA:t1'])
+  assert.deepEqual(b.ids, ['task:projB:t1'], '两个 scope 的 identity 不得混在一起')
+  assert.equal(disk.get('s1|projA').length, 1)
+  assert.equal(disk.get('s1|projB').length, 1)
+})
+
+test('WP5.2/审查8：被安全排除的记录必须上报（不静默）', async () => {
+  const sched = fakeSchedule()
+  // 一条无标记的（foreign）、一条标记格式非法的（suspect）
+  await sched.create('s1', { title: '用户自建', prompt: '普通提醒', at: '2026-11-20T10:00:00.000Z' })
+  await sched.create('s1', { title: '可疑', prompt: '\u200B\u2060[[wb:乱码]]', at: '2026-11-21T10:00:00.000Z' })
+
+  const sync = createReminderSync({ schedule: sched, now: () => NOW })
+  const r = await sync.reconcile('s1', { tasks: [] })
+
+  assert.equal(r.deleted, 0, '一律不删')
+  assert.equal(sched.rows.size, 2)
+  // 但必须看得见「有两条被刻意保留」
+  const levels = r.observed.map((o) => o.level).sort()
+  assert.deepEqual(levels, ['foreign', 'suspect'],
+    'foreign 与 suspect 都要出现在 observed，不能静默丢弃')
+  for (const o of r.observed) {
+    assert.ok(typeof o.id === 'string')
+    assert.ok(typeof o.reason === 'string' || o.reason === null)
+  }
 })
