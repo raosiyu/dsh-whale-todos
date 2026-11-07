@@ -1,0 +1,24 @@
+R1 · 任意 scope/entityId 往返一致且无碰撞
+  PASS  R1.1 全组合往返一致
+  PASS  R1.2 空 scope 与 "_" 可区分
+  PASS  R1.3 旧格式会撞的 "scope=a,id=b:c" vs "scope=a:b,id=c" 不再撞
+  PASS  R1.4 带版本前缀 + 段数=4
+R2 · v1 旧格式兼容：歧义标 suspect，不误删
+  PASS  R2.1 task:_:t1 标 legacyAmbiguous — {"kind":"task","scope":"","entityId":"t1","legacyAmbiguous":true}
+  PASS  R2.1 task:t1 标 legacyAmbiguous — {"kind":"task","scope":"","entityId":"t1","legacyAmbiguous":true}
+  PASS  R2.1 task:projA:a:b 标 legacyAmbiguous — {"kind":"task","scope":"projA","entityId":"a:b","legacyAmbiguous":true}
+  PASS  R2.1 task:a::b:t1 标 legacyAmbiguous — {"kind":"task","scope":"a","entityId":":b:t1","legacyAmbiguous":true}
+  PASS  R2.2 v1 歧义记录 ownershipOf 判 suspect
+  PASS  R2.3 v2 干净记录判 owned
+R3 · 含冒号 scope 连续 reconcile 只 create 1 次
+  PASS  R3.1 scope="a::b" 只 create 1 次
+  PASS  R3.1 scope="proj:sub" 只 create 1 次
+  PASS  R3.1 scope="中文:作用域" 只 create 1 次
+  PASS  R3.1 scope="" 只 create 1 次
+R4 · v1 坏记录：不误删 + 上报 + 不反复创建
+  PASS  R4.1 v1 坏记录不删除
+  PASS  R4.2 legacyMigrated=0
+  PASS  R4.3 legacyKept 上报 v1-boundary-lost
+  PASS  R4.4 不因旧记录存在而反复创建
+
+核心探针汇总: PASS=18 FAIL=0

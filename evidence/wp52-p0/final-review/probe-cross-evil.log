@@ -1,0 +1,11 @@
+✅ scope含换行       scope="a\nb" id="t1"
+✅ scope含tab      scope="a\tb" id="t1"
+✅ scope含点        scope="a.b" id="t1"
+✅ scope含下划线      scope="_" id="t1"
+✅ scope含反斜杠      scope="a\\b" id="t1"
+✅ scope含NUL      scope="a\u0000b" id="t1"
+✅ entityId含换行    scope="a" id="t1\nx"
+✅ entityId含点     scope="a" id="t1.x"
+✅ 两者都空           scope="" id=""
+✅ 超长scope        scope="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" id="t1"
+全部边界通过 ✅
