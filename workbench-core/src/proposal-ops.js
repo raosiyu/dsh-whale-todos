@@ -177,10 +177,17 @@ export function createProposalOps(ctx) {
       return { proposal }
     },
 
+    /**
+     * 列出本 scope 的提案。
+     *
+     * **按 scope 而非 sessionId 隔离**（WP6-E 实测修正）：主路径是 Agent 生成、
+     * 用户确认，两者 sessionId 不同。若按 sessionId 过滤，用户在 UI 里根本
+     * 看不到 Agent 的提案，整条协作链路不可用。
+     * 提案本身不含敏感业务数据（只有 items 摘要与原因），跨会话可见是产品要求。
+     */
     'proposal.list': (_payload, meta) => {
       const b = binding(meta)
-      const rows = proposals().filter((p) => p.sessionId === b.sessionId
-        && (p.scope ?? '') === b.scope)
+      const rows = proposals().filter((p) => (p.scope ?? '') === b.scope)
       return rows
     },
 
@@ -190,7 +197,8 @@ export function createProposalOps(ctx) {
       const row = proposals().find((p) => p.id === id)
       if (row === undefined) throw notFoundError('提案不存在', { id })
       const b = binding(meta)
-      if (row.sessionId !== b.sessionId || (row.scope ?? '') !== b.scope) {
+      // 按 scope 隔离（同 list 的理由）；跨 scope 才算不存在
+      if ((row.scope ?? '') !== b.scope) {
         throw notFoundError('提案不存在', { id })
       }
       return { proposal: row }
@@ -203,7 +211,7 @@ export function createProposalOps(ctx) {
       const b = binding(meta)
       const row = proposals().find((p) => p.id === id)
       if (row === undefined) throw notFoundError('提案不存在', { id })
-      if (row.sessionId !== b.sessionId || (row.scope ?? '') !== b.scope) {
+      if ((row.scope ?? '') !== b.scope) {
         throw notFoundError('提案不存在', { id })
       }
       if (row.status !== 'pending') throw conflictError('提案已处理', { status: row.status })

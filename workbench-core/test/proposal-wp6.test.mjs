@@ -91,19 +91,28 @@ test('WP6-A：task.update 必须绑定 targetId', () => withService((svc, dir, e
 
 // ---------------------------------------------------------------- 提案列表/拒绝
 
-test('WP6-A：proposal.list/get 按 session+scope 隔离', () => withService((svc) => {
+test('WP6-A：proposal.list/get 按 scope 隔离（同 scope 跨会话可见是产品要求）', () => withService((svc) => {
   call(svc, 'proposal.preview', { items: [mkItem()] })
   const list = call(svc, 'proposal.list', {})
   assert.equal(list.length, 1)
-  // 别的 session 看不到
-  const other = svc.execute('proposal.list', {}, { actor: 'ui', sessionId: 'sess-B', scope: '' })
-  assert.equal(other.length, 0)
-  // 别的 scope 看不到
+  /**
+   * WP6-E 实测修正：主路径是「Agent 生成提案 → 用户在 UI 确认」，
+   * 二者 sessionId 必然不同。按 sessionId 过滤会让用户在 UI 里看不到
+   * Agent 的提案，整条 AI 协作链路不可用。
+   * 因此改为**按 scope 隔离**：同 scope 跨会话可见，跨 scope 仍不可见。
+   */
+  const otherSession = svc.execute('proposal.list', {}, { actor: 'ui', sessionId: 'sess-B', scope: '' })
+  assert.equal(otherSession.length, 1, '同 scope 的其他会话必须能看到提案（用户确认主路径）')
+  // 跨 scope 仍然不可见（真正的越权边界）
   const otherScope = call(svc, 'proposal.list', {}, { scope: 'projX' })
-  assert.equal(otherScope.length, 0)
-  assert.throws(() => svc.execute('proposal.get', { id: list[0].id }, {
+  assert.equal(otherScope.length, 0, '跨 scope 不得看到')
+  // 同 scope 可读详情；跨 scope 视为不存在
+  assert.ok(svc.execute('proposal.get', { id: list[0].id }, {
     actor: 'ui', sessionId: 'sess-B', scope: '',
-  }), /not-found|提案不存在/)
+  }).proposal !== undefined)
+  assert.throws(() => svc.execute('proposal.get', { id: list[0].id }, {
+    actor: 'ui', sessionId: 'sess-B', scope: 'projX',
+  }), (e) => e.code === 'not-found')
 }))
 
 test('WP6-A：用户拒绝提案时 events/tasks 零变化，状态变 rejected', () => withService((svc, dir, ex) => {
@@ -156,15 +165,23 @@ test('WP6-A：确认后数据被改过 → 整份拒绝，不部分落地', () =
   assert.equal(call(svc, 'proposal.get', { id: proposal.id }).proposal.status, 'pending')
 }))
 
-test('WP6-A：跨 session 不能用别人的提案', () => withService(async (svc, dir, ex) => {
+test('WP6-A/E：跨 scope 不可落地；同 scope 跨会话可落地（用户确认主路径）', () => withService(async (svc, dir, ex) => {
   const { proposal } = ex('proposal.preview', { items: [mkItem()] })
-  const token = await svc.requestApproval('proposal.apply', { target: proposal.id })
+  // 跨 scope：即便有 token 也必须拒绝（scope 是真正的越权边界）
+  const tok = await svc.requestApproval('proposal.apply', { target: proposal.id })
   assert.throws(
     () => svc.execute('proposal.apply', { id: proposal.id }, {
-      actor: 'ui', sessionId: 'sess-B', scope: '', approvalToken: token.token,
+      actor: 'ui', sessionId: 'sess-B', scope: 'projX', approvalToken: tok.token,
     }),
-    /session-mismatch|绑定校验/,
+    (e) => e.code === 'conflict' || e.code === 'not-found',
   )
+  // 同 scope 跨会话：允许（Agent 生成、用户确认是主路径）
+  const tok2 = await svc.requestApproval('proposal.apply', { target: proposal.id })
+  const r = svc.execute('proposal.apply', { id: proposal.id }, {
+    actor: 'ui', sessionId: 'sess-B', scope: '', approvalToken: tok2.token,
+  })
+  assert.equal(r.status, 'applied')
+  void dir
 }))
 
 test('WP6-A：落地失败整体回滚，不部分写入', () => withService(async (svc, dir, ex) => {

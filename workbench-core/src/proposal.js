@@ -241,9 +241,21 @@ export function verifyProposalBinding(proposal, current) {
   if (proposal.status !== 'pending') {
     return { ok: false, reason: `proposal-not-pending:${String(proposal.status)}` }
   }
-  if (proposal.sessionId !== current.sessionId) {
-    return { ok: false, reason: 'session-mismatch' }
-  }
+  /**
+   * **sessionId 不相等不是拒绝理由**（WP6-E 实测修正）。
+   *
+   * 产品主路径就是「Agent 生成提案 → 用户在 UI 确认落地」，两者天然不是同一个
+   * session。若在这里硬拒，整条 AI 协作链路在真实使用中直接不可用
+   * （实测：Agent 生成、用户确认 → conflict/session-mismatch）。
+   *
+   * 安全边界并没有放松：
+   *  - 落地本身要求**Host 签发的一次性审批 token**（requireConfirmation 已校验，
+   *    只有真人在 UI 上点了确认才会签发）；
+   *  - scope 必须一致（下面仍然校验），禁止跨 scope 越权；
+   *  - baseVersion / baseDigest 仍然绑定，防确认后数据被替换。
+   *
+   * 因此这里只把 sessionId 作为**信息**保留，不作为拒绝条件。
+   */
   if ((proposal.scope ?? '') !== (current.scope ?? '')) {
     return { ok: false, reason: 'scope-mismatch' }
   }

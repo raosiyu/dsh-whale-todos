@@ -999,9 +999,9 @@
   },
   {
     "id": "WP6A7",
-    "name": "wp6-a：proposal.list 不按 session 过滤（跨会话可见）",
+    "name": "wp6-a：proposal.list 不按 scope 过滤（跨 scope 越权可见）",
     "file": "workbench-core/src/proposal-ops.js",
-    "from": "      const rows = proposals().filter((p) => p.sessionId === b.sessionId",
+    "from": "      const rows = proposals().filter((p) => (p.scope ?? '') === b.scope)",
     "to": "      const rows = proposals()"
   },
   {
