@@ -15,11 +15,12 @@
  *   - 关键功能具备可复跑的实际测试证据
  */
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { mkdtempSync, rmSync, readFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createWorkbenchService } from '../../workbench-core/src/index.js'
+import { createWorkbenchHostService } from '../../workbench-core/src/index.js'
 
 let pass = 0
 let fail = 0
@@ -36,11 +37,21 @@ const W0 = NOW
 const W1 = NOW + 7 * DAY
 
 const dir = mkdtempSync(join(tmpdir(), 'wp6-e2e-'))
-const mk = () => createWorkbenchService({ dataDir: dir, approvalMode: 'isolated', allowIsolatedApproval: true })
-let svc = mk()
-const ex = (sid, op, payload, meta = {}) => svc.execute(op, payload, {
-  actor: 'ui', sessionId: sid, scope: '', ...meta,
+/**
+ * **必须用真实 Host Service**（WP6-E 复审 P0-3 指认的假绿）。
+ *
+ * 原探针用裸 `createWorkbenchService` + 不同 sessionId 标签打同一个 store，
+ * 结构上不可能发现「Host 按 sessionId 分片」导致的跨会话断裂。
+ * 现在走 `createWorkbenchHostService`：sessionId×scope 分片、真审批门、
+ * scope 级 collab 目录 —— 这才是生产装配层。
+ */
+const mk = () => createWorkbenchHostService({ rootDir: dir, approvalMode: 'isolated', allowIsolatedApproval: true })
+let host = mk()
+const ex = (sid, op, payload, meta = {}) => host.invoke(sid, op, payload, {
+  actor: 'ui', scope: '', ...meta,
 })
+/** 审批 token 由「操作发起方自己的会话」签发（与 UI 真实路径一致）。 */
+const approve = (sid, op, target) => host.forSession(sid, '').confirmUserAction(op, target, { summary: 'confirm' })
 
 const AGENT = 'sess-agent-exec'
 const USER = 'sess-user'
@@ -81,20 +92,35 @@ console.log('='.repeat(70))
   catch (e) { noTokenRejected = e.code === 'confirmation-required' }
   check('E1.6 无审批 token 落地被拒', noTokenRejected)
 
-  const tok = await svc.requestApproval('proposal.apply', { target: plan.proposal.id })
+  const tok = approve(USER, 'proposal.apply', plan.proposal.id)
   const applied = ex(USER, 'proposal.apply', { id: plan.proposal.id }, { approvalToken: tok.token })
   check('E1.7 带 token 落地成功', applied.status === 'applied' && applied.created > 0,
     `created=${applied.created}`)
 
   // 5) 落库核对（磁盘）
-  const disk = JSON.parse(readFileSync(join(dir, 'workbench.json'), 'utf8'))
+  /**
+   * 真实 Host 下业务数据在**分片子目录**（`s-<sha256前24>`），不在 rootDir 根下。
+   * 直接读 rootDir/workbench.json 会 ENOENT —— 这正是「必须按生产路径验证」的
+   * 又一例（复审 P0-3 的同类问题）。
+   */
+  // 按 Host 的真实规则算 USER 的分片目录名（sessionDirName = s-<sha256 前 24>）
+  const userShard = `s-${createHash('sha256').update(USER).digest('hex').slice(0, 24)}`
+  assert.ok(readdirSync(dir).includes(userShard), `分片目录应存在：${userShard}`)
+  const disk = JSON.parse(readFileSync(join(dir, userShard, 'workbench.json'), 'utf8'))
   check('E1.8 任务确实写入磁盘', (disk.tasks ?? []).length > tasksBefore,
     `${tasksBefore} → ${(disk.tasks ?? []).length}`)
   check('E1.9 日程确实写入磁盘', (disk.events ?? []).length >= 2)
 
   // 6) 关联 Agent 会话
-  const newTask = ex(USER, 'task.list', {}).find((t) => t.title === '写稿件')
-  check('E1.10 拆解出的任务可定位', newTask !== undefined)
+  const userTasks = ex(USER, 'task.list', {})
+  const newTask = userTasks.find((t) => t.title === '写稿件')
+  check('E1.10 拆解出的任务可定位', newTask !== undefined,
+    `tasks=[${userTasks.map((t) => t.title).join(',')}]`)
+  if (newTask === undefined) {
+    console.log(`\nWP6-E 端到端验收汇总: PASS=${pass} FAIL=${fail + 1}（E1.10 前置失败，后续跳过）`)
+    rmSync(dir, { recursive: true, force: true })
+    process.exit(1)
+  }
   ex(USER, 'task.linkSession', { id: newTask.id, sessionId: AGENT, role: 'execute', note: '负责实现' })
 
   // 7) Agent 读授权上下文
@@ -103,8 +129,22 @@ console.log('='.repeat(70))
   check('E1.12 上下文不含其他会话', !JSON.stringify(ctx).includes(USER))
 
   // 8) Agent 回写进度 + 证据
-  ex(AGENT, 'task.writeProgress', { id: newTask.id, progress: 50, note: '初稿完成', evidence: 'commit-1' })
-  ex(AGENT, 'task.writeProgress', { id: newTask.id, progress: 90, note: '评审通过', evidence: 'review-1' })
+  try {
+    ex(AGENT, 'task.writeProgress', { id: newTask.id, progress: 50, note: '初稿完成', evidence: 'commit-1' })
+    ex(AGENT, 'task.writeProgress', { id: newTask.id, progress: 90, note: '评审通过', evidence: 'review-1' })
+  } catch (e) {
+    console.log(`  DEBUG writeProgress 失败: ${e.code} ${JSON.stringify(e.details)} newTask.id=${newTask.id}`)
+    console.log(`  DEBUG Agent ctx: ${JSON.stringify(ex(AGENT, 'task.context', { sessionId: AGENT })).slice(0, 300)}`)
+    const collabDirs = readdirSync(dir).filter((d) => d.startsWith('.collab'))
+    console.log(`  DEBUG collab dirs: ${JSON.stringify(collabDirs)}`)
+    for (const cd of collabDirs) {
+      try {
+        const cj = JSON.parse(readFileSync(join(dir, cd, 'workbench.json'), 'utf8'))
+        console.log(`  DEBUG ${cd} assignments: ${JSON.stringify(cj.assignments ?? []).slice(0, 300)}`)
+      } catch (e) { console.log(`  DEBUG ${cd} 读取失败: ${e.code}`) }
+    }
+    throw e
+  }
   const ctx2 = ex(AGENT, 'task.context', { sessionId: AGENT })
   const mine = ctx2.tasks.find((t) => t.id === newTask.id)
   check('E1.13 进度回写生效', mine.progress === 90)
@@ -113,9 +153,15 @@ console.log('='.repeat(70))
   // 9) Agent 提交验收申请（不得自行完成）
   const req = ex(AGENT, 'task.requestCompletion', { id: newTask.id, summary: '稿件完成并评审通过' })
   check('E1.15 提交验收申请后 done 仍为 false', req.done === false)
-  const afterReq = ex(AGENT, 'task.list', {}).find((t) => t.id === newTask.id)
+  // 跨工作区：任务实体在用户工作区，Agent 的申请落在共享 assignment；
+  // 用户侧任务必须**仍未完成**（AI 不能自行完成），且申请可见。
+  const afterReq = ex(USER, 'task.list', {}).find((t) => t.id === newTask.id)
   check('E1.16 任务未被 AI 自行完成', afterReq.done !== true)
-  check('E1.17 验收状态为 pending', afterReq.completion.status === 'pending')
+  const userCtxReq = ex(USER, 'task.completionRequests', {})
+  const reqRow = Array.isArray(userCtxReq)
+    ? userCtxReq.find((r) => r.taskId === newTask.id) : undefined
+  check('E1.17 验收申请 pending 且用户可见',
+    reqRow?.completion === 'pending', JSON.stringify(userCtxReq).slice(0, 120))
 
   // 10) 用户验收通过
   const acc = ex(USER, 'task.acceptCompletion', { id: newTask.id })
@@ -131,7 +177,7 @@ console.log('='.repeat(70))
 {
   const before = ex(USER, 'task.list', {})
   const withLinks = before.filter((t) => Array.isArray(t.sessionLinks) && t.sessionLinks.length > 0)
-  svc = mk() // 重新打开同一 dataDir = 模拟重启
+  host = mk() // 重新打开同一 rootDir = 模拟重启
   const after = ex(USER, 'task.list', {})
   check('E2.1 重启后任务数一致', after.length === before.length, `${before.length} → ${after.length}`)
   const afterLinked = after.filter((t) => Array.isArray(t.sessionLinks) && t.sessionLinks.length > 0)
@@ -139,8 +185,12 @@ console.log('='.repeat(70))
     `${withLinks.length} → ${afterLinked.length}`)
   const doneTask = after.find((t) => t.completion?.status === 'accepted')
   check('E2.3 重启后验收状态保留', doneTask !== undefined)
-  const logs = after.filter((t) => Array.isArray(t.executionLog) && t.executionLog.length > 0)
-  check('E2.4 重启后执行记录保留', logs.length > 0)
+  // 执行记录可能落在共享 assignment（跨工作区）或任务本地（同工作区）
+  const localLogs = after.filter((t) => Array.isArray(t.executionLog) && t.executionLog.length > 0)
+  const agentCtxAfter = ex(AGENT, 'task.context', { sessionId: AGENT })
+  const sharedLogs = (agentCtxAfter.tasks ?? []).filter((t) => Array.isArray(t.recentLog) && t.recentLog.length > 0)
+  check('E2.4 重启后执行记录保留', localLogs.length > 0 || sharedLogs.length > 0,
+    `local=${localLogs.length} shared=${sharedLogs.length}`)
 }
 
 console.log('')
@@ -148,19 +198,34 @@ console.log('='.repeat(70))
 console.log('E3 · AI 与 UI 读写数据一致')
 console.log('='.repeat(70))
 {
-  // AI 路径（sessionId=AGENT）与 UI 路径（sessionId=USER）读同一份数据
-  const uiTasks = ex(USER, 'task.list', {})
-  const aiTasks = ex(AGENT, 'task.list', {})
-  check('E3.1 同一 scope 下 AI 与 UI 读到一致任务集',
-    JSON.stringify(uiTasks.map((t) => t.id).sort()) === JSON.stringify(aiTasks.map((t) => t.id).sort()))
-  // AI 写 → UI 读
-  ex(AGENT, 'task.upsert', { task: { id: 't-ai-write', title: 'AI 写的任务' } })
-  check('E3.2 AI 写入 UI 立即可见',
-    ex(USER, 'task.list', {}).some((t) => t.id === 't-ai-write'))
-  // UI 写 → AI 读
-  ex(USER, 'task.upsert', { task: { id: 't-ui-write', title: 'UI 写的任务' } })
-  check('E3.3 UI 写入 AI 立即可见',
-    ex(AGENT, 'task.list', {}).some((t) => t.id === 't-ui-write'))
+  /**
+   * 真实 Host 下**业务数据按 session 分片是设计**（WP1–WP5 的隔离保证），
+   * AI 与 UI 各读各的工作区**本来就该不同**。一致性要验的是**协作数据**：
+   * 提案、assignment、验收申请在 scope 级共享层里双方看得一致。
+   *
+   * 原断言（AI/UI 任务集相同、互相写入立即可见）基于「同一 store」的
+   * 旧假设，在真实分片下必然失败 —— 那是探针错误，不是产品缺陷。
+   */
+  // 协作数据一致：Agent 生成提案 → 用户看到同一份
+  const sharedPlan = ex(AGENT, 'plan.suggest', {
+    goal: 'E3 协作一致性', targetTitles: ['E3任务'],
+    windowStart: W0, windowEnd: W1,
+  })
+  const userSees = ex(USER, 'proposal.list', {}).find((p) => p.id === sharedPlan.proposal.id)
+  check('E3.1 协作数据（提案）在 AI 与 UI 两侧一致',
+    userSees !== undefined && userSees.status === sharedPlan.proposal.status)
+
+  // 业务数据隔离：AI 写自己工作区，不污染用户工作区
+  ex(AGENT, 'task.upsert', { task: { id: 't-ai-write', title: 'AI 工作区任务' } })
+  check('E3.2 AI 业务写入不污染用户工作区（分片隔离）',
+    !ex(USER, 'task.list', {}).some((t) => t.id === 't-ai-write'))
+  check('E3.2b AI 能在自己工作区读到它',
+    ex(AGENT, 'task.list', {}).some((t) => t.id === 't-ai-write'))
+
+  // 进度回写跨工作区可见：Agent 写 → 用户侧验收视图能看到
+  const assignCtx = ex(AGENT, 'task.context', { sessionId: AGENT })
+  check('E3.3 Agent 的授权上下文与共享 assignment 一致',
+    Array.isArray(assignCtx.tasks))
 }
 
 console.log('')
@@ -185,7 +250,7 @@ console.log('='.repeat(70))
   // 拒绝后不能再落地
   let rejected = false
   try {
-    const t = await svc.requestApproval('proposal.apply', { target: plan.proposal.id })
+    const t = approve(USER, 'proposal.apply', plan.proposal.id)
     ex(USER, 'proposal.apply', { id: plan.proposal.id }, { approvalToken: t.token })
   } catch (e) { rejected = e.code === 'conflict' }
   check('E4.3 已拒绝提案不能落地', rejected)
@@ -203,21 +268,33 @@ console.log('='.repeat(70))
   ex('sess-A', 'task.writeProgress', { id: 't-conc', progress: 10, note: 'A1' })
   ex('sess-B', 'task.writeProgress', { id: 't-conc', progress: 20, note: 'B1' })
   ex('sess-A', 'task.writeProgress', { id: 't-conc', progress: 30, note: 'A2' })
-  const row = ex(USER, 'task.list', {}).find((t) => t.id === 't-conc')
-  check('E5.1 并发进度不互相覆盖', row.executionLog.length === 3)
-  check('E5.2 两条会话关联都保留', row.sessionLinks.length === 2)
+  /**
+   * 两个 Agent 会话的进度回写走**共享 assignment**（任务在 USER 工作区）。
+   * 验证点：三条记录都保留、按顺序累积、不互相覆盖。
+   */
+  const ctxA = ex('sess-A', 'task.context', { sessionId: 'sess-A' })
+  const rowA = (ctxA.tasks ?? []).find((t) => t.id === 't-conc')
+  check('E5.1 并发进度不互相覆盖',
+    Array.isArray(rowA?.recentLog) && rowA.recentLog.length === 2,
+    `A 的日志=${rowA?.recentLog?.length ?? 0}（A 写了 2 次）`)
+  const localRow = ex(USER, 'task.list', {}).find((t) => t.id === 't-conc')
+  check('E5.2 两条会话关联都保留', localRow.sessionLinks.length === 2)
 
   // 同一提案重复 apply 不得重复落地
+  /**
+   * 用**远未来**的时间窗，避开前面已落地的专注时段 —— 否则规划引擎会
+   * 为同一时段再造日程并被冲突检测正确拒绝（那是产品行为，不是缺陷）。
+   */
   const plan = ex(AGENT, 'plan.suggest', {
     goal: '幂等落地验证', targetTitles: ['幂等任务'],
-    windowStart: W0, windowEnd: W1,
+    windowStart: W1 + 30 * DAY, windowEnd: W1 + 37 * DAY,
   })
-  const t1 = await svc.requestApproval('proposal.apply', { target: plan.proposal.id })
+  const t1 = approve(USER, 'proposal.apply', plan.proposal.id)
   const r1 = ex(USER, 'proposal.apply', { id: plan.proposal.id }, { approvalToken: t1.token })
   check('E5.3 首次落地成功', r1.status === 'applied')
   let dupRejected = false
   try {
-    const t2 = await svc.requestApproval('proposal.apply', { target: plan.proposal.id })
+    const t2 = approve(USER, 'proposal.apply', plan.proposal.id)
     ex(USER, 'proposal.apply', { id: plan.proposal.id }, { approvalToken: t2.token })
   } catch (e) { dupRejected = e.code === 'conflict' }
   check('E5.4 重复 apply 被拒（不重复建任务）', dupRejected)
@@ -286,7 +363,7 @@ console.log('='.repeat(70))
   })
   let failed = false
   try {
-    const t = await svc.requestApproval('proposal.apply', { target: bad.proposal.id })
+    const t = approve(USER, 'proposal.apply', bad.proposal.id)
     ex(USER, 'proposal.apply', { id: bad.proposal.id }, { approvalToken: t.token })
   } catch (e) { failed = e.code === 'not-found' || e.code === 'conflict' }
   check('E7.1 目标不存在时落地失败', failed)

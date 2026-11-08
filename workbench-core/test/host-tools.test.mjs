@@ -376,8 +376,14 @@ test('WP4：task.upsert 返回库中合并后的完整行（不只回显入参�
       task: { id: 't10', title: '季度总结', priority: 'high', subtasks: ['a'], sourceSessionId: 'sess-o' },
     }, { actor: 'ui' })
 
-    const out = facade.execute('task.upsert', { task: { id: 't10', title: '季度总结', done: true } }, { actor: 'agent-tool' })
-    assert.equal(out.task.done, true)
+    /**
+     * 用**非状态字段**验证「合并后完整行」语义：`done` 是受保护状态，
+     * 只能用 UI 路径写；若用 agent-tool 写 done 会把 WP6-E/P0「AI 不得
+     * 自行完成」的缺陷反过来固化成契约（复审指出的第 2 项遗留）。
+     */
+    const out = facade.execute('task.upsert', { task: { id: 't10', title: '季度总结改', project: 'Q4' } }, { actor: 'ui' })
+    assert.equal(out.task.title, '季度总结改')
+    assert.equal(out.task.project, 'Q4')
     assert.equal(out.task.priority, 'high', '返回值应含库中既有字段，避免误读为「字段丢了」')
     assert.deepEqual(out.task.subtasks, ['a'])
   })

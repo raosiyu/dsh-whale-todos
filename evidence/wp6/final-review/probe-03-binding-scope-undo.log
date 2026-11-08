@@ -1,0 +1,40 @@
+========================================================================
+A · baseVersion / baseDigest / targetVersion 是否真的防替换
+========================================================================
+PASS  A1 baseVersion 恒为 schema 常量（不是数据版本） — baseVersion=1
+PASS  A2 提案生成后数据变化 → apply 被拒（baseDigest 生效） — conflict: 提案绑定校验失败：base-digest-mismatch（数据可能已被修改，请重新生成提案）
+PASS  A3 数据未变时可正常落地
+PASS  A4 提案保存了 targetVersion — targetVersion=0
+FAIL  A5 targetVersion 参与 apply 校验（契约 §1.2 声称） — 落地成功：title 原标题 → 提案标题
+
+========================================================================
+B · scope 隔离 / 跨会话反查越权
+========================================================================
+FAIL  B1 不同 scope 数据目录隔离 — 默认=old1,old2,d5ee2778-f8f1-4dba-9adf-721e4fbf3657,tv1,s1,s2｜other=old1,old2,d5ee2778-f8f1-4dba-9adf-721e4fbf3657,tv1,s1,s2
+PASS  B2 跨 scope 读取提案被拒 — not-found
+PASS  B3 跨 scope 落地提案被拒 — conflict
+FAIL  B4 任意会话可用 task.bySession 反查他人关联任务（无调用方校验） — 陌生会话查到 1 条，含 title=默认 scope 任务
+FAIL  B5 未关联的会话不能给任务写进度 — 陌生会话写入成功
+FAIL  B6 陌生会话不能解除他人会话关联 — 解除成功 removed=1
+PASS  B7 task.context 拒绝读取他人会话上下文 — conflict
+
+========================================================================
+C · collapseUndo / anchorId 在 historyLimit 裁剪下是否准确
+========================================================================
+FAIL  C1 落地后栈顶是 proposal.apply — nextUndo=event.create，深度 5→5
+PASS  C2 落地确实新增任务 — 5 → 8
+FAIL  C3 一次撤销精确回到落地前（anchorId 生效） — 撤销后 8，期望 5
+PASS  C4 撤销后更早历史仍在 — depth=4
+PASS  C5 preview/reject 不入 undo 栈 — 4 → 4
+
+========================================================================
+D · 规划引擎是否真的消费 freeSlots / conflicts
+========================================================================
+PASS  D1 传入 freeSlots 产出排期 item — 1 条
+PASS  D2 排期落在传入的空闲时段内 — 2026-11-09T08:00:00 → 2026-11-09T08:30:00
+PASS  D3 无空闲时段时不产排期 item（不自己造空闲）
+PASS  D4 service 路径产出基于真实 freeSlots 的排期 — 1 条
+PASS  D5 排期不与既有事件重叠 — 避开
+PASS  D6 提案带 conflicts 字段（来自真实 event.conflicts）
+
+探针3 汇总: PASS=16 FAIL=7

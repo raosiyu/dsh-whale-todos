@@ -823,11 +823,16 @@ test('WP4：AI 工具形状更新既有待办不丢字段（收口 NEW-1：静�
     }
     svc.execute('task.upsert', { task: full }, { actor: 'ui' })
 
-    // AI 工具形状：只有 id/title/dueAt/done
-    svc.execute('task.upsert', { task: { id: 't1', title: '季度总结', done: true } }, { actor: 'agent-tool' })
+    /**
+     * 用 `project` 而非 `done` 验证「局部更新不抹掉其他字段」。
+     * `done` 属于受保护完成状态，AI 路径（agent-tool）写入会被白名单丢弃，
+     * 拿它做合并语义的载体等于把 WP6-E/P0 缺陷写成契约（复审第 2 项遗留）。
+     */
+    svc.execute('task.upsert', { task: { id: 't1', title: '季度总结', project: 'Q4' } }, { actor: 'agent-tool' })
 
     const after = svc.execute('task.list', {}, {})[0]
-    assert.equal(after.done, true, 'done 应被更新')
+    assert.equal(after.project, 'Q4', 'project 应被更新')
+    assert.equal(after.done, false, 'AI 路径不得改完成状态（受保护）')
     assert.equal(after.priority, 'high', 'priority 不得被抹掉')
     assert.equal(after.status, 'planned', 'status 不得被抹掉')
     assert.equal(after.dueAt, '2026-11-10T09:00:00Z', 'dueAt 不得被抹掉')

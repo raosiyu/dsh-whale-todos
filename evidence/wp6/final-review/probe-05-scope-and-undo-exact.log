@@ -1,0 +1,25 @@
+========================================================================
+A · 跨 scope 越权（真实 Host Service，每 scope 独立 dataDir）
+========================================================================
+  数据目录： s-3767b3af892024cba4dfc226 , s-3767b3af892024cba4dfc226-d9298a10d1b0
+PASS  A1 两个 scope 数据目录隔离 — 默认=d1｜other=o1
+PASS  A2 跨 scope 读提案被拒（not-found） — not-found
+PASS  A3 跨 scope 落地提案被拒 — not-found: 提案不存在
+FAIL  A4 同 scope 跨会话可见（产品放宽，符合契约 §7 修正）
+PASS  A5 task.context 拒绝读取他人会话上下文（conflict） — conflict
+PASS  A6 task.bySession 拒绝陌生会话反查他人关联 — 陌生会话查到 0 条
+PASS  A7 陌生会话不能解除他人会话关联 — not-found
+PASS  A8 未关联会话不能给任务写进度（越权写） — not-found
+
+========================================================================
+B · collapseUndo / anchorId 精确行为
+========================================================================
+PASS  B1 栈未满：栈顶为 proposal.apply — nextUndo=proposal.apply
+PASS  B2 栈未满：一次撤销精确回滚 — 3 → 5 → 3
+  落地前：undoDepth=5（limit=5），任务=5
+  落地 6 条；undoDepth=5，nextUndo=event.create
+FAIL  B3 栈满时落地后栈顶应为 proposal.apply（折叠生效） — 实际 nextUndo=event.create
+FAIL  B4 栈满时一次撤销精确回到落地前 — 撤销后 8，期望 5（落地后 8）
+FAIL  B5 若首次撤销失效，后续撤销能否补救 — 第 -1 次撤销命中
+
+探针5 汇总: PASS=9 FAIL=4

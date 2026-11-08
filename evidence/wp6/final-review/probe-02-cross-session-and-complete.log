@@ -1,0 +1,28 @@
+========================================================================
+A · AI 能否绕过人工验收（真实 Host 层，同一会话）
+========================================================================
+PASS  A1 requestCompletion 后 done 仍为 false
+FAIL  A2 AI 无法用 workbench_task_upsert 直接置 done — 工具返回 done=true，库中 done=true
+PASS  A3 完成未经过用户验收 — completion.status=pending
+FAIL  A4 AI 无法把用户已验收的任务改回未完成 — 验收后 done=true，AI 改后 done=false
+PASS  A5 AI 工具面含 workbench_undo（可撤销用户操作）
+FAIL  A6 AI 能直接改用户任务标题（无需审批） — 实际 title=被 AI 改名
+
+========================================================================
+B · 真实 Host 层跨会话协作（WP6-C 主路径）
+========================================================================
+  数据目录： s-71ee6b8845feaac8b1fbdeca
+FAIL  B1 用户会话能看到 Agent 生成的提案 — 用户侧 list=0 条；get=not-found
+FAIL  B2 用户能确认落地 Agent 的提案 — not-found: 提案不存在
+FAIL  B3 Agent 用 task.context 读到自己被关联的任务 — Agent 侧 tasks=0 条
+FAIL  B4 task.bySession 反查命中 — 0 条
+FAIL  B5 Agent 能对关联任务回写进度 — not-found: 待办不存在
+
+========================================================================
+C · WP6-E 探针所用的裸 service 路径（单一 dataDir）
+========================================================================
+PASS  C1 裸 service：用户能看到 Agent 提案
+PASS  C2 裸 service：用户能落地 Agent 提案
+PASS  C3 裸 service：Agent 能读到关联任务上下文 — 1 条
+
+探针2 汇总: PASS=6 FAIL=8

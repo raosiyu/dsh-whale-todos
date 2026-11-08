@@ -1,0 +1,44 @@
+========================================================================
+A · pickPayload 白名单裁剪
+========================================================================
+  pickPayload(task.create) => {"title":"x"}
+PASS  A1 丢弃 done — undefined
+PASS  A1 丢弃 deleted — undefined
+PASS  A1 丢弃 deletedAt — undefined
+PASS  A1 丢弃 confirmed — undefined
+PASS  A1 丢弃 approvalToken — undefined
+PASS  A1 丢弃 id — undefined
+PASS  A1 丢弃 sessionLinks — undefined
+PASS  A1 丢弃 completion — undefined
+PASS  A1 丢弃 executionLog — undefined
+PASS  A1 丢弃 order — undefined
+PASS  A1 丢弃 archived — undefined
+PASS  A2 保留 title
+  pickPayload(event.create) => {"title":"y","allDay":false}
+PASS  A3 event.create 丢弃 id/confirmed/approvalToken/deleted
+  buildProposalItem => {"op":"task.create","payload":{"title":"z"},"reason":"r"}
+PASS  A4 buildProposalItem 裁掉 payload 私有字段
+PASS  A5 不允许的 op 被拒
+PASS  A6 空 title 被拒
+
+========================================================================
+B · 不可信文本能否影响控制流
+========================================================================
+PASS  B1 sourceText 原样存但不执行
+PASS  B2 reasoning 原样存但不执行
+PASS  B3 item.payload.done 已被裁掉
+PASS  B4 注入文本未改变提案条数/op
+PASS  B5 控制字符被剥离 — "abc"
+PASS  B6 超长文本被截断
+PASS  B7 落地后任务未因注入被置 done — done=undefined
+PASS  B8 标题关键词只影响 priority 字段 — priority=high，op=task.create
+
+========================================================================
+C · 提案 item 能否夹带“已完成/已删除”语义落地
+========================================================================
+  落地后行 => {"title":"带状态的","status":"done","id":"ca5d740e-7d4c-416a-a6a4-6ba6598d236d"}
+PASS  C1 提案无法夹带 done:true 落地 — done=undefined
+PASS  C2 提案无法夹带 deleted 落地 — deleted=undefined
+PASS  C3 status 可以写 done 标签（非完成语义，仅字段） — status=done（UI 判定完成只看 done 布尔）
+
+探针4 汇总: PASS=27 FAIL=0

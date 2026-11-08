@@ -129,6 +129,10 @@ export function buildProposalItem(raw) {
       fail('task.update 必须绑定 targetId')
     }
     item.targetId = targetId
+    // targetDigest 由 proposal.preview 在生成时回填（apply 时比对，防目标被替换）
+    if (typeof raw.targetDigest === 'string' && raw.targetDigest !== '') {
+      item.targetDigest = raw.targetDigest
+    }
     if (raw.targetVersion !== undefined) {
       if (!Number.isInteger(raw.targetVersion) || raw.targetVersion < 0) {
         fail('targetVersion 必须是非负整数')
@@ -259,11 +263,20 @@ export function verifyProposalBinding(proposal, current) {
   if ((proposal.scope ?? '') !== (current.scope ?? '')) {
     return { ok: false, reason: 'scope-mismatch' }
   }
-  if (proposal.baseVersion !== current.version) {
-    return { ok: false, reason: 'base-version-mismatch' }
-  }
-  if (proposal.baseDigest !== current.digest) {
-    return { ok: false, reason: 'base-digest-mismatch' }
+  /**
+   * `skipGlobalDigest`：跨工作区落地时跳过全局版本/摘要校验。
+   *
+   * 提案的 baseVersion/baseDigest 描述的是**创建者工作区**的状态；用户在自己
+   * 的工作区落地时必然不同。此时防替换责任交给每条 `task.update` 的
+   * `targetDigest`（apply 里逐条比对）。同工作区不跳过，语义不变。
+   */
+  if (current.skipGlobalDigest !== true) {
+    if (proposal.baseVersion !== current.version) {
+      return { ok: false, reason: 'base-version-mismatch' }
+    }
+    if (proposal.baseDigest !== current.digest) {
+      return { ok: false, reason: 'base-digest-mismatch' }
+    }
   }
   return { ok: true }
 }

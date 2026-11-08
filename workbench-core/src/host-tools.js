@@ -219,25 +219,46 @@ export function createWorkbenchToolDefinitions(deps = {}) {
     }),
     simpleTool({
       name: 'workbench_task_upsert',
-      description: 'Create or update a todo. Always supply an id (use a fresh unique string to create).',
+      /**
+       * WP6-E 复审修复（P0）：**AI 不得自行完成任务**。
+       *
+       * 原描述与参数里带 `done` / `status`，AI 可以 `workbench_task_upsert(done:true)`
+       * 直接把任务标完成、也能把用户已验收的任务改回未完成 —— 实测成立，
+       * 直接违反「AI 可以申请任务完成，但必须由用户最终验收」。
+       *
+       * 修复：工具面**移除 `done` 与 `status` 参数**。完成只能走
+       * `workbench_request_completion`（建验收申请）+ 用户在 UI 验收。
+       * UI 侧勾选完成仍走 service 的 task.upsert，不受影响。
+       */
+      description: 'Create or update a todo (title/due/priority/project/subtasks only). '
+        + 'CANNOT set completion: this tool has no done/status parameter by design. '
+        + 'To finish work, write progress with workbench_task_progress and submit '
+        + 'workbench_request_completion; only the user can accept completion in the UI.',
       parameters: {
         id: { type: 'string', required: true, description: 'Task id; use a fresh unique string to create.' },
         title: { type: 'string', required: true, description: 'Todo title.' },
         dueAt: { type: 'string', description: 'ISO instant due time.' },
-        done: { type: 'boolean', description: 'Completion flag.' },
         priority: { type: 'string', description: 'Priority: low / normal / high.' },
-        status: { type: 'string', description: 'Status label, e.g. planned / doing / done.' },
         project: { type: 'string', description: 'Project/group this todo belongs to.' },
         parentId: { type: 'string', description: 'Parent todo id (keeps the parent/child relation).' },
         subtasks: { type: 'array', description: 'Subtask titles.' },
       },
       op: 'task.upsert',
-      // 真实 service 契约：task.upsert 读 payload.task，且 task.id 必填非空
-      // 只回传显式给出的字段：合并语义保证未给的字段不被抹掉
+      /**
+       * **显式白名单，不做全量透传**（WP6-E 复审 P0 修复）。
+       *
+       * 原实现 `for (const [k,v] of Object.entries(args)) task[k]=v` 把调用方给的
+       * 任何字段都塞进 payload —— 即便 schema 里删了 `done`，只要绕过 schema
+       * 校验（或将来 schema 放宽）就能直接置完成。实测 `done:true` 穿透成功。
+       *
+       * 这里只允许「业务字段」，`done`/`status`/`completion`/`deleted` 等
+       * 状态类字段**一律丢弃**，完成只能走人工验收流程。
+       */
       payload: (args) => {
+        const ALLOWED = ['id', 'title', 'dueAt', 'priority', 'project', 'parentId', 'subtasks']
         const task = {}
-        for (const [k, v] of Object.entries(args)) {
-          if (v !== undefined) task[k] = v
+        for (const k of ALLOWED) {
+          if (args[k] !== undefined) task[k] = args[k]
         }
         return { task }
       },

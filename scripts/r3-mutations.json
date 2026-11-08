@@ -1071,8 +1071,8 @@
     "id": "WP6C2",
     "name": "wp6-c：task.context 返回完整 task（泄露其他会话关联明细）",
     "file": "workbench-core/src/proposal-ops.js",
-    "from": "      const projected = rows.map((t) => {",
-    "to": "      const projected = rows.map((t) => t);\n      if (false) rows.map((t) => {"
+    "from": "      const projected = localRows.map((t) => {",
+    "to": "      const projected = localRows.map((t) => t);\n      if (false) localRows.map((t) => {"
   },
   {
     "id": "WP6C3",
@@ -1090,17 +1090,17 @@
   },
   {
     "id": "WP6C5",
-    "name": "wp6-c：acceptCompletion 不需要 pending 验收申请（可凭空完成）",
+    "name": "wp6-c：acceptCompletion 不校验 pending 验收申请（可凭空完成）",
     "file": "workbench-core/src/proposal-ops.js",
-    "from": "      if (row.completion?.status !== 'pending') {\n        throw conflictError('没有待验收的完成申请', { status: row.completion?.status ?? 'none' })\n      }",
-    "to": "      if (false) {\n        throw conflictError('没有待验收的完成申请', { status: row.completion?.status ?? 'none' })\n      }"
+    "from": "      if (pendingRequest?.status !== 'pending') {",
+    "to": "      if (false) {"
   },
   {
     "id": "WP6C6",
     "name": "wp6-c：task.context 返回 sessionId 原文（隐私）",
     "file": "workbench-core/src/proposal-ops.js",
-    "from": "      return { sessionId: '[self]', tasks: projected }",
-    "to": "      return { sessionId: b.sessionId, tasks: projected }"
+    "from": "      return { sessionId: '[self]', tasks: [...projected, ...sharedProjected] }",
+    "to": "      return { sessionId: b.sessionId, tasks: [...projected, ...sharedProjected] }"
   },
   {
     "id": "WP6D1",
@@ -1111,10 +1111,10 @@
   },
   {
     "id": "WP6D2",
-    "name": "wp6-d：proposal.preview 重新进 undo 栈（污染撤销历史）",
+    "name": "wp6-d：proposal.reject 重新进 undo 栈（污染撤销历史）",
     "file": "workbench-core/src/proposal-ops.js",
-    "from": "      }, { intent: 'proposal.preview', undo: false })",
-    "to": "      }, { intent: 'proposal.preview' })"
+    "from": "      }, { intent: 'proposal.reject.audit', undo: false })",
+    "to": "      }, { intent: 'proposal.reject.audit' })"
   },
   {
     "id": "WP6D3",
@@ -1143,5 +1143,82 @@
     "file": "packages/workbench-ui/client.js",
     "from": "                            onClick: () => decideCompletion('accept'),",
     "to": "                            onClick: () => {},"
+  },
+  {
+    "id": "WP6E1",
+    "name": "wp6-e：AI 工具重新暴露 done（绕过人工验收）",
+    "file": "workbench-core/src/host-tools.js",
+    "from": "        const ALLOWED = ['id', 'title', 'dueAt', 'priority', 'project', 'parentId', 'subtasks']",
+    "to": "        const ALLOWED = ['id', 'title', 'dueAt', 'priority', 'project', 'parentId', 'subtasks', 'done', 'status']"
+  },
+  {
+    "id": "WP6E2",
+    "name": "wp6-e：task_upsert payload 全量透传（任何字段都能穿透）",
+    "file": "workbench-core/src/host-tools.js",
+    "from": "        for (const k of ALLOWED) {\n          if (args[k] !== undefined) task[k] = args[k]\n        }",
+    "to": "        for (const [k, v] of Object.entries(args)) {\n          if (v !== undefined) task[k] = v\n        }"
+  },
+  {
+    "id": "WP6E3",
+    "name": "wp6-e：Host 不再给 scope 级 collab 目录（跨会话协作断裂）",
+    "file": "workbench-core/src/host-service.js",
+    "from": "        collabDir,",
+    "to": "        collabDir: undefined,"
+  },
+  {
+    "id": "WP6E4",
+    "name": "wp6-e：task.context 不读共享 assignments（Agent 读不到分配）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      const sharedAssignments = readAssignmentsFresh(proposalStore)",
+    "to": "      const sharedAssignments = []"
+  },
+  {
+    "id": "WP6E5",
+    "name": "wp6-e：linkSession 不写共享 assignment",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      if (proposalStore !== store && row !== undefined) {",
+    "to": "      if (false && proposalStore !== store && row !== undefined) {"
+  },
+  {
+    "id": "WP6P1",
+    "name": "wp6-e/p1-2：失败回滚整份恢复（清空用户 undo 历史）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "          store.mutate((draft) => {\n            draft.events = structuredClone(beforeState.events)\n            draft.tasks = structuredClone(beforeState.tasks)\n            if (Array.isArray(draft.undo)) {\n              draft.undo = draft.undo.slice(0, undoDepthBefore)\n            }\n            return draft\n          }, { intent: 'proposal.apply.rollback', undo: false })",
+    "to": "          store.rollback(backup.path.split('/').pop())"
+  },
+  {
+    "id": "WP6P2",
+    "name": "wp6-e/p1-3：不比对 targetDigest（确认后目标被替换也能落地）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "            if (nowDigest !== item.targetDigest) {",
+    "to": "            if (false) {"
+  },
+  {
+    "id": "WP6P3",
+    "name": "wp6-e/p1-3：preview 不回填 targetDigest（校验形同虚设）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "          item.targetDigest = createHash('sha256')\n            .update(JSON.stringify(target))\n            .digest('hex')\n            .slice(0, 16)",
+    "to": "          item.targetDigest = ''"
+  },
+  {
+    "id": "WP6P4",
+    "name": "wp6-e/p0-2：跨工作区不跳过全局 digest（用户无法确认 Agent 提案）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "        skipGlobalDigest: crossWorkspace,",
+    "to": "        skipGlobalDigest: false,"
+  },
+  {
+    "id": "WP6P5",
+    "name": "wp6-e/p0-2：collab 写入不回盘取最新（lost update 抹掉 assignments）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "  const next = updater(readCollectionFresh(storeLike, name))",
+    "to": "  const next = updater(storeLike.collection ? storeLike.collection(name) : [])"
+  },
+  {
+    "id": "WP6P6",
+    "name": "wp6-e/p0-2：writeProgress 不支持跨工作区（Agent 执行链路断裂）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "        if (!assignedToMe) throw notFoundError('待办不存在', { id })",
+    "to": "        throw notFoundError('待办不存在', { id })"
   }
 ]

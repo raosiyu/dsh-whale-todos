@@ -301,7 +301,20 @@ export function openStore(dir, options = {}) {
      */
     collapseUndo(undoDepth, label, before, anchorId) {
       const current = state.undo ?? []
-      if (current.length <= undoDepth) return { collapsed: 0 }
+      /**
+       * **不能用 `current.length <= undoDepth` 判断「没有新增」**（WP6-E 复审 P1-1）。
+       *
+       * historyLimit 会让栈长饱和：批量落地前栈已满 20，落地 25 条后仍是 20。
+       * 此时 `20 <= 20` 成立 → 直接 return，折叠完全不执行，用户要按 25 次 Cmd+Z。
+       *
+       * 正确判据是「锚点是否已经是栈顶」：给了 anchorId 且它就是栈尾 entry，
+       * 说明本轮没有任何新 entry；否则一律执行折叠。
+       */
+      if (current.length === 0) return { collapsed: 0 }
+      if (typeof anchorId === 'string' && anchorId !== ''
+        && current[current.length - 1]?.id === anchorId) {
+        return { collapsed: 0 }
+      }
       /**
        * **锚点优先于栈深**（WP6-D 真机缺陷修复）。
        *

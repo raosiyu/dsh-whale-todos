@@ -97,6 +97,17 @@ export function createWorkbenchService(options) {
     now: options.now,
     historyLimit: options.historyLimit,
   })
+  /**
+   * WP6-E 复审修复（P0）：**协作数据（提案）必须跨会话共享**。
+   *
+   * 真实 Host 按 `sessionId × scope` 分片，Agent 与用户是不同目录。
+   * 提案若不共享，「Agent 生成 → 用户确认」主路径在真机不通。
+   * `options.collabDir` 由 Host 层按 **scope** 计算，同 scope 所有会话共用。
+   * 未提供时回落 null（= 用自身 store），保持单机/单测语义不变。
+   */
+  const collabStore = typeof options.collabDir === 'string' && options.collabDir !== ''
+    ? openStore(options.collabDir, { now: options.now, historyLimit: options.historyLimit })
+    : null
   const events = createEventRepo(store, { now: options.now, idFactory: options.idFactory })
   const now = options.now ?? (() => new Date())
   /**
@@ -1180,7 +1191,8 @@ export function createWorkbenchService(options) {
       createEvent: (e, meta) => callOp('event.create', e, meta),
       updateTask: (id, patch, meta) => callOp('task.upsert', { task: { ...patch, id } }, meta),
       idFactory: options.idFactory,
-      collapseUndo: (depth, label, before) => store.collapseUndo(depth, label, before),
+      collapseUndo: (depth, label, before, anchorId) => store.collapseUndo(depth, label, before, anchorId),
+      collabStore,
       // WP6-B：规划引擎只复用 service 的真实查询，不自己造一份真相源
       listTasks: () => store.collection('tasks'),
       listConflicts: (ws, we, allDayBlocks) => ops['event.conflicts']({

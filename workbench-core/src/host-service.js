@@ -159,8 +159,23 @@ export function createWorkbenchHostService(options = {}) {
         : `-${createHash('sha256').update(scope).digest('hex').slice(0, 12)}`
       const dataDir = join(rootDir, `${dirName}${scopeSuffix}`)
       mkdirSync(dataDir, { recursive: true })
+      /**
+       * **协作数据目录按 scope 共享**（WP6-E 复审修复，P0）。
+       *
+       * 上面 `dataDir` 带 sessionId hash → 每个会话独立，这是 WP1–WP5 刻意
+       * 建立的隔离保证，不能动。但 WP6 的主路径是「Agent 生成提案 → 用户确认」，
+       * 两者 sessionId 必然不同；若提案也存进 session 私有目录，用户在 UI 里
+       * 看不到、也确认不了 Agent 的提案（真机实测 list=0 / not-found）。
+       *
+       * 因此单独给一个 **scope 级**共享目录：同一 scope 下所有会话共用，
+       * 只存提案。业务数据（tasks/events）仍各自私有 —— 用户确认后任务建在
+       * 用户自己的工作区，语义正确。
+       */
+      const collabDir = join(rootDir, `.collab${scopeSuffix}`)
+      mkdirSync(collabDir, { recursive: true })
       svc = createWorkbenchService({
         dataDir,
+        collabDir,
         approvalMode: mode,
         allowIsolatedApproval: allowIsolated,
         requestApproval: hostRequest,
