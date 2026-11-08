@@ -173,7 +173,7 @@ export function createProposalOps(ctx) {
           kind: proposal.kind, items: proposal.items.length,
         }))
         return draft
-      }, { intent: 'proposal.preview' })
+      }, { intent: 'proposal.preview', undo: false })
       return { proposal }
     },
 
@@ -215,7 +215,7 @@ export function createProposalOps(ctx) {
         }
         draft.audit.push(audit('proposal.reject', id, meta, { status: 'rejected' }))
         return draft
-      }, { intent: 'proposal.reject' })
+      }, { intent: 'proposal.reject', undo: false })
       return { id, status: 'rejected' }
     },
 
@@ -278,7 +278,11 @@ export function createProposalOps(ctx) {
       }
 
       const backup = store.backup('before-proposal-apply')
-      const undoDepthBefore = (store.read().undo ?? []).length
+      const stackBefore = store.read().undo ?? []
+      const undoDepthBefore = stackBefore.length
+      // 锚点：落地前栈顶 entry 的 id。historyLimit 裁剪后栈深会失真，
+      // 折叠时用这个 id 在裁剪后的栈里定位真正的分界点（见 store.collapseUndo）。
+      const undoAnchorId = stackBefore.length > 0 ? stackBefore[stackBefore.length - 1]?.id : undefined
       const beforeState = {
         events: structuredClone(store.read().events ?? []),
         tasks: structuredClone(store.read().tasks ?? []),
@@ -319,11 +323,11 @@ export function createProposalOps(ctx) {
           items: created.length,
         }))
         return draft
-      }, { intent: 'proposal.apply' })
+      }, { intent: 'proposal.apply', undo: false })
 
       // 折叠成一条 undo —— 必须是本 op 的最后一次写栈动作
       if (typeof collapseUndo === 'function') {
-        collapseUndo(undoDepthBefore, 'proposal.apply', beforeState)
+        collapseUndo(undoDepthBefore, 'proposal.apply', beforeState, undoAnchorId)
       }
 
       return { id, status: 'applied', created: created.length, rows: created }

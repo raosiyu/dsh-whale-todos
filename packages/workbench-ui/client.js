@@ -99,8 +99,6 @@ window.__ModuleLoader__.load({
       "fieldConflict": "Conflict",
       "conflictOverlap": "Overlaps another event",
       "fieldSubtasks": "Subtasks",
-      "fieldAiSession": "AI session",
-      "aiSessionNote": "Shared with the current Agent session (same Host Service)",
       "openDetails": "Details of {title}",
       "complete": "Complete",
       "reopen": "Reopen",
@@ -221,6 +219,40 @@ window.__ModuleLoader__.load({
       "previewUnsupportedHint": "Cannot be imported; see reasons below",
       "previewRemovedHint": "A replace-style import deletes these existing rows",
       "dueAtInvalid": "Due must be a valid ISO instant (for example 2026-11-10T09:00:00Z), or left empty.",
+      // WP6：AI 智能规划与会话协作
+      "aiPlan": "AI 规划",
+      "aiPlanTitle": "智能规划与任务拆解",
+      "aiPlanHint": "输入目标，AI 基于真实待办与日历空闲时段生成提案；确认前不会写入任何数据",
+      "goalLabel": "目标 / 会议纪要",
+      "windowToday": "今日",
+      "windowWeek": "本周",
+      "generatePlan": "生成建议",
+      "generating": "生成中…",
+      "planItems": "建议条目",
+      "planConflicts": "检测到的冲突",
+      "planReason": "安排理由",
+      "planOverloaded": "安排过满：需要 {used} 分钟，超出每日容量 {capacity} 分钟",
+      "planStats": "拆解 {decomposed} 条 · 排期 {scheduled} 条 · 已用 {used}/{capacity} 分钟",
+      "planEmpty": "暂无建议，换个目标或时间窗再试",
+      "confirmPlan": "确认并写入",
+      "rejectPlan": "拒绝",
+      "modifyPlan": "修改目标",
+      "planApproving": "提交中…",
+      "planApplied": "已写入 {n} 条，可一次撤销",
+      "planRejected": "已拒绝，未修改任何数据",
+      "planBack": "返回",
+      "estimateLabel": "预计耗时（分钟）",
+      "aiSessionLinks": "关联 Agent 会话",
+      "aiProgress": "进度",
+      "aiExecutionLog": "执行记录",
+      "aiAcceptance": "完成验收",
+      "acceptCompletion": "通过验收",
+      "rejectCompletion": "驳回",
+      "completionFeedback": "驳回原因",
+      "noSessions": "暂无关联会话",
+      "pendingAcceptance": "待用户验收（任务尚未完成）",
+      "acceptedLabel": "已验收通过",
+      "rejectedLabel": "已驳回：{feedback}",
       },
       zh: {
       "meta": {
@@ -281,8 +313,6 @@ window.__ModuleLoader__.load({
       "fieldConflict": "冲突",
       "conflictOverlap": "与另一日程时间重叠",
       "fieldSubtasks": "子任务",
-      "fieldAiSession": "AI 会话",
-      "aiSessionNote": "与当前 Agent 会话共享同一 Host Service",
       "openDetails": "查看 {title} 详情",
       "complete": "完成",
       "reopen": "重新打开",
@@ -403,6 +433,40 @@ window.__ModuleLoader__.load({
       "previewUnsupportedHint": "导不进来，原因见下",
       "previewRemovedHint": "覆盖式导入会删掉这些既有条目",
       "dueAtInvalid": "到期时间必须是合法的 ISO 时刻（例如 2026-11-10T09:00:00Z），或者留空。",
+      // WP6：AI 智能规划与会话协作
+      "aiPlan": "AI 规划",
+      "aiPlanTitle": "智能规划与任务拆解",
+      "aiPlanHint": "输入目标，AI 基于真实待办与日历空闲时段生成提案；确认前不会写入任何数据",
+      "goalLabel": "目标 / 会议纪要",
+      "windowToday": "今日",
+      "windowWeek": "本周",
+      "generatePlan": "生成建议",
+      "generating": "生成中…",
+      "planItems": "建议条目",
+      "planConflicts": "检测到的冲突",
+      "planReason": "安排理由",
+      "planOverloaded": "安排过满：需要 {used} 分钟，超出每日容量 {capacity} 分钟",
+      "planStats": "拆解 {decomposed} 条 · 排期 {scheduled} 条 · 已用 {used}/{capacity} 分钟",
+      "planEmpty": "暂无建议，换个目标或时间窗再试",
+      "confirmPlan": "确认并写入",
+      "rejectPlan": "拒绝",
+      "modifyPlan": "修改目标",
+      "planApproving": "提交中…",
+      "planApplied": "已写入 {n} 条，可一次撤销",
+      "planRejected": "已拒绝，未修改任何数据",
+      "planBack": "返回",
+      "estimateLabel": "预计耗时（分钟）",
+      "aiSessionLinks": "关联 Agent 会话",
+      "aiProgress": "进度",
+      "aiExecutionLog": "执行记录",
+      "aiAcceptance": "完成验收",
+      "acceptCompletion": "通过验收",
+      "rejectCompletion": "驳回",
+      "completionFeedback": "驳回原因",
+      "noSessions": "暂无关联会话",
+      "pendingAcceptance": "待用户验收（任务尚未完成）",
+      "acceptedLabel": "已验收通过",
+      "rejectedLabel": "已驳回：{feedback}",
       },
     }
 
@@ -504,6 +568,14 @@ window.__ModuleLoader__.load({
   color:var(--dsw-alias-label-secondary)}
 .wb-handle{cursor:grab;min-width:44px;min-height:44px;display:inline-flex;align-items:center;
   justify-content:center;border:0;background:transparent;color:var(--dsw-alias-label-tertiary);font:inherit}
+/* WP6-D：智能规划面板。只引用 --dsw-alias-* 令牌，不硬编码颜色。 */
+.wb-plan-panel{max-width:640px;max-height:80vh;overflow:auto}
+.wb-plan-result{margin-top:16px;border-top:1px solid var(--dsw-alias-border-l1);padding-top:16px}
+.wb-plan-items{list-style:none;padding:0;margin:8px 0}
+.wb-plan-items li{padding:8px;border-bottom:1px solid var(--dsw-alias-border-l1);font-size:16px}
+.wb-plan-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  flex-wrap:wrap;margin-bottom:16px}
+.wb-plan-summary .wb-btn{flex-shrink:0}
 .wb-handle:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
 .wb-preview-table{width:100%;border-collapse:collapse;font-size:16px}
 .wb-preview-table th,.wb-preview-table td{text-align:left;padding:4px 8px;
@@ -649,6 +721,33 @@ function buildImportExecuteRequest(kind, text, token) {
   return {
     op: kind === 'ics' ? 'event.import' : 'snapshot.replace',
     payload: { text },
+    approvalToken: token,
+  }
+}
+
+/**
+ * WP6-D：规划落地的审批签发请求体。
+ *
+ * 与导入不同，proposal.apply 是**实体类** op：只绑 target（提案 id），
+ * **绝不**带 text/digest（否则 Host 按内容类算 digest → fingerprint-mismatch，
+ * WP5 实测过同款坑）。抽成构造器是为了让「签发/执行都走构造器」可被测试锁住。
+ */
+function buildPlanApprovalRequest(proposalId, summary) {
+  return {
+    op: 'confirmUserAction',
+    payload: {
+      approvalOp: 'proposal.apply',
+      target: proposalId,
+      summary,
+    },
+  }
+}
+
+/** WP6-D：规划落地执行请求体，token 必须在顶层。 */
+function buildPlanApplyRequest(proposalId, token) {
+  return {
+    op: 'proposal.apply',
+    payload: { id: proposalId },
     approvalToken: token,
   }
 }
@@ -846,6 +945,8 @@ function taskBucket(task, now) {
       // 请求体构造器：让测试断言真实 payload 形状，而不是扫源码正则
       buildImportApprovalRequest, buildImportExecuteRequest, buildEventMoveRequest,
       buildReorderRequest, buildArchiveRequest, buildIcsCounts,
+      // WP6-D：规划审批/执行请求体构造器
+      buildPlanApprovalRequest, buildPlanApplyRequest,
       // 纯函数：软删判定与分桶。行为测试要能直接调，不能只靠正则看源码。
       isSoftDeleted,
       taskBucket,
@@ -858,6 +959,7 @@ function taskBucket(task, now) {
       EventForm,
       TaskForm,
       ConfirmDelete,
+      PlanPanel,
       WorkbenchPage,
     }
 
@@ -1222,6 +1324,92 @@ function taskBucket(task, now) {
             h('button', { className: 'wb-btn', type: 'button', onClick: onCancel }, t('cancel')))))
     }
 
+
+    /**
+     * WP6-D · 智能规划提案面板。
+     *
+     * 纯渲染组件（不直接调 Host）：所有写操作由 WorkbenchPage 的回调执行，
+     * 这样测试能真实调用组件并断言渲染结果，而不必驱动 React 生命周期。
+     *
+     * 硬纪律：AI 生成的 reasoning / item.reason 都是**不可信文本**，
+     * 这里只当字符串展示，绝不解析、绝不作为指令、绝不拼进可执行结构。
+     */
+    function PlanPanel({ proposal, stats, onGenerate, onConfirm, onReject, onModify, onClose,
+      goal, onGoalChange, windowKind, onWindowChange, generating, approving, t = defaultT }) {
+      useEscapeClose(onClose)
+      const items = Array.isArray(proposal?.items) ? proposal.items : []
+      const conflicts = Array.isArray(proposal?.conflicts) ? proposal.conflicts : []
+      const hasProposal = proposal !== null && proposal !== undefined
+      return h('div', { className: 'wb-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('aiPlanTitle') },
+        h('div', { className: 'wb-overlay-panel wb-plan-panel' },
+          h('h2', null, t('aiPlanTitle')),
+          h('p', { className: 'wb-tertiary' }, t('aiPlanHint')),
+          // 输入区：目标 + 时间窗 + 生成
+          h('label', null, t('goalLabel'),
+            h('textarea', {
+              className: 'wb-input', rows: 3, value: goal,
+              onChange: (e) => onGoalChange(e.target.value),
+              placeholder: t('goalLabel'),
+            })),
+          h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' } },
+            h('button', {
+              className: 'wb-btn', type: 'button',
+              'aria-label': t('windowToday'),
+              onClick: () => onWindowChange('today'),
+            }, windowKind === 'today' ? '● ' : '', t('windowToday')),
+            h('button', {
+              className: 'wb-btn', type: 'button',
+              'aria-label': t('windowWeek'),
+              onClick: () => onWindowChange('week'),
+            }, windowKind === 'week' ? '● ' : '', t('windowWeek')),
+            h('button', {
+              className: 'wb-btn wb-btn-primary', type: 'button',
+              disabled: generating || goal.trim() === '',
+              onClick: onGenerate,
+            }, generating ? t('generating') : t('generatePlan'))),
+          // 提案区
+          hasProposal
+            ? h('div', { className: 'wb-plan-result' },
+                h('h3', null, t('planStats')
+                  .replace('{decomposed}', String(stats?.decomposed ?? 0))
+                  .replace('{scheduled}', String(stats?.scheduled ?? 0))
+                  .replace('{used}', String(stats?.usedMinutes ?? 0))
+                  .replace('{capacity}', String(stats?.capacityMinutes ?? 0))),
+                stats?.overloaded === true
+                  ? h('div', { className: 'wb-status-error', role: 'alert' },
+                      t('planOverloaded').replace('{used}', String(stats.usedMinutes)).replace('{capacity}', String(stats.capacityMinutes)))
+                  : null,
+                proposal.reasoning
+                  ? h('p', { className: 'wb-tertiary' }, t('planReason'), '：', proposal.reasoning)
+                  : null,
+                conflicts.length > 0
+                  ? h('div', null, h('h3', null, t('planConflicts')),
+                      h('ul', null, conflicts.slice(0, 5).map((c, i) =>
+                        h('li', { key: i, className: 'wb-status-error' },
+                          String(c?.a?.eventId ?? c?.eventId ?? JSON.stringify(c))))))
+                  : null,
+                h('h3', null, t('planItems')),
+                items.length === 0
+                  ? h('div', { className: 'wb-muted' }, t('planEmpty'))
+                  : h('ul', { className: 'wb-plan-items' }, items.map((item, i) =>
+                      h('li', { key: i },
+                        h('strong', null, String(item.op ?? '')),
+                        ' · ',
+                        String(item.payload?.title ?? ''),
+                        item.reason ? h('span', { className: 'wb-tertiary' }, ' — ', item.reason) : null))),
+                h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px' } },
+                  h('button', {
+                    className: 'wb-btn wb-btn-primary', type: 'button',
+                    disabled: approving || items.length === 0,
+                    onClick: onConfirm,
+                  }, approving ? t('planApproving') : t('confirmPlan')),
+                  h('button', { className: 'wb-btn', type: 'button', onClick: onReject }, t('rejectPlan')),
+                  h('button', { className: 'wb-btn', type: 'button', onClick: onModify }, t('modifyPlan'))))
+            : null,
+          h('div', { style: { display: 'flex', gap: '8px', marginTop: '16px' } },
+            h('button', { className: 'wb-btn', type: 'button', onClick: onClose }, t('planBack')))))
+    }
+
     // --------------------------------------------------------------- 主页面
     function WorkbenchPage(props) {
       // UI 文案走 locale 服务
@@ -1307,6 +1495,14 @@ function taskBucket(task, now) {
       const [confirming, setConfirming] = useState(null) // {kind, id, label}
       const [saving, setSaving] = useState(false)
       const [approving, setApproving] = useState(false)
+      /**
+       * WP6-D · 智能规划面板状态。
+       * planPanel: null（未打开）| 'input'（输入目标）| {proposal, stats}（有提案）
+       */
+      const [planPanel, setPlanPanel] = useState(null)
+      const [planGoal, setPlanGoal] = useState('')
+      const [planWindow, setPlanWindow] = useState('week')
+      const [planGenerating, setPlanGenerating] = useState(false)
       const searchRef = useRef(null)
 
       const request = useCallback(async (req) => {
@@ -1879,6 +2075,118 @@ function taskBucket(task, now) {
         }
       }
 
+
+      /**
+       * WP6-D · 生成智能规划提案（只读业务数据，只建 pending 提案）。
+       *
+       * 时间窗由用户在 UI 选「今日 / 本周」，毫秒值在这里算，
+       * 传给 plan.suggest 复用真实 freeSlots/conflicts。
+       */
+      const generatePlan = async () => {
+        const goal = String(planGoal ?? '').trim()
+        if (goal === '') return
+        setPlanGenerating(true)
+        setError(null)
+        try {
+          const now = new Date()
+          const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+          const end = planWindow === 'today'
+            ? start + 86400000
+            : start + 7 * 86400000
+          const r = await request({
+            op: 'plan.suggest',
+            payload: {
+              goal,
+              windowStart: start,
+              windowEnd: end,
+              targetTitles: goal.split(/[\n、,，;；]/).map((s) => s.trim()).filter(Boolean).slice(0, 10),
+              capacityMinutesPerDay: 480,
+            },
+          })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'plan.suggest failed')
+          const v = r.value ?? {}
+          setPlanPanel({ proposal: v.proposal, stats: v.stats ?? {} })
+        } catch (e) {
+          setError(String(e?.message ?? e))
+        } finally {
+          setPlanGenerating(false)
+        }
+      }
+
+      /**
+       * WP6-D · 用户确认提案。
+       *
+       * 红线：必须向 Host 申请一次性审批 token，再带 token 调 proposal.apply；
+       * **绝不**用 payload.confirmed 或本地布尔绕过审批。
+       * proposal.apply 是实体类 op（绑 target=id），审批请求不能带 text，
+       * 否则 Host 按内容类算 digest 会 fingerprint-mismatch（WP5 实测坑）。
+       */
+      const confirmPlan = async () => {
+        if (planPanel === null || planPanel === 'input') return
+        const id = planPanel.proposal?.id
+        if (typeof id !== 'string' || id === '') return
+        setApproving(true)
+        setError(null)
+        try {
+          const approval = await request(buildPlanApprovalRequest(id, t('confirmPlan')))
+          if (approval.ok !== true || approval.value?.approved !== true) {
+            throw new Error(t('loadFailed'))
+          }
+          const r = await request(buildPlanApplyRequest(id, approval.value.token))
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'proposal.apply failed')
+          const n = Number(r.value?.created ?? 0)
+          setNotice(t('planApplied').replace('{n}', String(n)))
+          setPlanPanel(null)
+          await load(true)
+        } catch (e) {
+          setError(String(e?.message ?? e))
+        } finally {
+          setApproving(false)
+        }
+      }
+
+      /** 用户拒绝提案：零业务数据变化。 */
+      const rejectPlan = async () => {
+        if (planPanel === null || planPanel === 'input') return
+        const id = planPanel.proposal?.id
+        if (typeof id !== 'string' || id === '') return
+        try {
+          const r = await request({ op: 'proposal.reject', payload: { id } })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'proposal.reject failed')
+          setNotice(t('planRejected'))
+          setPlanPanel(null)
+        } catch (e) {
+          setError(String(e?.message ?? e))
+        }
+      }
+
+
+      /**
+       * WP6-D · 用户人工验收（通过 / 驳回）。
+       * 只有用户点这两个按钮才会调用；AI 工具面完全没有这两个 op。
+       */
+      const decideCompletion = async (decision, feedback = '') => {
+        if (selected === null || selected.kind !== 'task') return
+        const op = decision === 'accept' ? 'task.acceptCompletion' : 'task.rejectCompletion'
+        setSaving(true)
+        setError(null)
+        try {
+          const r = await request({
+            op,
+            payload: decision === 'accept'
+              ? { id: selected.id }
+              : { id: selected.id, feedback },
+          })
+          if (r.ok !== true) throw new Error(r.error?.message ?? (op + ' failed'))
+          await load(true)
+          setSelected(null)
+        } catch (e) {
+          setError(String(e?.message ?? e))
+        } finally {
+          setSaving(false)
+        }
+      }
+
       const saveEvent = async (payload) => {
         setSaving(true)
         setError(null)
@@ -2041,6 +2349,12 @@ function taskBucket(task, now) {
             disabled: exporting !== null,
             onClick: () => exportData('json'),
           }, exporting === 'json' ? t('exporting') : t('exportJsonShort')),
+          // WP6-D：AI 智能规划入口（只生成提案，确认前不写任何数据）
+          h('button', {
+            className: 'wb-btn', type: 'button', 'aria-label': t('aiPlan'),
+            title: t('aiPlanHint'),
+            onClick: () => { setPlanPanel('input'); setPlanGoal(''); setError(null) },
+          }, '✦ ', t('aiPlan')),
           h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ ', t('new'))),
         h(StatusBar, { loading, error, onRetry: load, t }),
         // role=status 默认就是 polite，但显式写 aria-live 才能保证读屏真的播报
@@ -2128,6 +2442,23 @@ function taskBucket(task, now) {
                     h('h2', null, t('today') + ' & ' + t('next7days')),
                     h(AgendaList, { events: todayEvents, onSelect: (e) => setSelected({ kind: 'event', ...e }), emptyText: t('nothingScheduled'), t })))
               : h('div', null,
+                  /**
+                   * WP6-D · 今日 / 本周智能计划摘要。
+                   * 只展示最近一次生成的提案统计与快捷入口，不重做待办列表。
+                   */
+                  h('div', { className: 'wb-status wb-plan-summary', role: 'status', 'aria-live': 'polite' },
+                    h('span', null, t('aiPlan'), ' · ',
+                      typeof planPanel === 'object' && planPanel?.stats !== undefined
+                        ? t('planStats')
+                            .replace('{decomposed}', String(planPanel.stats.decomposed ?? 0))
+                            .replace('{scheduled}', String(planPanel.stats.scheduled ?? 0))
+                            .replace('{used}', String(planPanel.stats.usedMinutes ?? 0))
+                            .replace('{capacity}', String(planPanel.stats.capacityMinutes ?? 0))
+                        : t('aiPlanHint')),
+                    h('button', {
+                      className: 'wb-btn', type: 'button', 'aria-label': t('aiPlan'),
+                      onClick: () => { setPlanPanel('input'); setPlanGoal(''); setError(null) },
+                    }, t('generatePlan'))),
                   h('div', { className: 'wb-section' },
                     h(ViewTabs, {
                       value: taskFilter,
@@ -2280,8 +2611,56 @@ function taskBucket(task, now) {
                       selected.subtasks ? h('dd', null, h('ul', null,
                         (Array.isArray(selected.subtasks) ? selected.subtasks : []).map((st, i) =>
                           h('li', { key: i }, typeof st === 'string' ? st : (st.title ?? JSON.stringify(st)))))) : null,
-                      h('dt', { className: 'wb-tertiary' }, t('fieldAiSession')),
-                      h('dd', null, t('aiSessionNote'))),
+                      /**
+                       * WP6-C/D · 任务详情里的会话协作区。
+                       * 只展示，不跳转到别的 GUI 会话（插件层无该契约，见契约 §7）。
+                       * sessionId 明文可复制，作为「从任务进入会话」的可用标识。
+                       */
+                      selected.kind === 'task'
+                        ? (() => {
+                            const links = Array.isArray(selected.sessionLinks) ? selected.sessionLinks : []
+                            const log = Array.isArray(selected.executionLog) ? selected.executionLog : []
+                            const progress = log.length > 0 ? log[log.length - 1].progress : 0
+                            const comp = selected.completion ?? null
+                            return [
+                              selected.estimatedMinutes !== undefined
+                                ? h('dt', { className: 'wb-tertiary' }, t('estimateLabel'))
+                                : null,
+                              selected.estimatedMinutes !== undefined
+                                ? h('dd', null, String(selected.estimatedMinutes))
+                                : null,
+                              h('dt', { className: 'wb-tertiary' }, t('aiProgress')),
+                              h('dd', null, String(progress) + ' / 99'),
+                              h('dt', { className: 'wb-tertiary' }, t('aiSessionLinks')),
+                              h('dd', null, links.length === 0
+                                ? h('span', { className: 'wb-muted' }, t('noSessions'))
+                                : h('ul', null, links.map((l, i) =>
+                                    h('li', { key: i },
+                                      h('code', null, String(l.sessionId ?? '')),
+                                      ' · ', String(l.role ?? ''),
+                                      l.note ? h('span', { className: 'wb-tertiary' }, ' — ', l.note) : null)))),
+                              h('dt', { className: 'wb-tertiary' }, t('aiExecutionLog')),
+                              h('dd', null, log.length === 0
+                                ? h('span', { className: 'wb-muted' }, t('noSessions'))
+                                : h('ul', null, log.slice(-5).map((e, i) =>
+                                    h('li', { key: i },
+                                      String(e.at ?? ''), ' · ', String(e.progress ?? 0),
+                                      e.note ? ' · ' + String(e.note) : '',
+                                      e.evidence ? h('span', { className: 'wb-tertiary' }, ' [', String(e.evidence), ']') : null)))),
+                              h('dt', { className: 'wb-tertiary' }, t('aiAcceptance')),
+                              h('dd', null, comp === null
+                                ? h('span', { className: 'wb-muted' }, t('noSessions'))
+                                : comp.status === 'pending'
+                                  ? h('div', null,
+                                      h('span', { className: 'wb-status-error' }, t('pendingAcceptance')),
+                                      h('p', null, String(comp.summary ?? '')))
+                                  : comp.status === 'accepted'
+                                    ? h('span', null, t('acceptedLabel'))
+                                    : h('span', null, t('rejectedLabel').replace('{feedback}', String(comp.feedback ?? '')))),
+                            ]
+                          })()
+                        : null,
+                    ),
                     h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px' } },
                       h('button', {
                         className: 'wb-btn', type: 'button',
@@ -2291,6 +2670,21 @@ function taskBucket(task, now) {
                         className: 'wb-btn wb-btn-danger', type: 'button',
                         onClick: () => setConfirming({ kind: selected.kind ?? 'event', id: selected.id, label: selected.title ?? '' }),
                       }, t('deleteAction')),
+                      // WP6-D：人工验收入口（AI 工具面无此能力，只有这里能点）
+                      selected.kind === 'task' && selected.completion?.status === 'pending'
+                        ? h('button', {
+                            className: 'wb-btn wb-btn-primary', type: 'button',
+                            disabled: saving, 'aria-label': t('acceptCompletion'),
+                            onClick: () => decideCompletion('accept'),
+                          }, t('acceptCompletion'))
+                        : null,
+                      selected.kind === 'task' && selected.completion?.status === 'pending'
+                        ? h('button', {
+                            className: 'wb-btn', type: 'button',
+                            disabled: saving, 'aria-label': t('rejectCompletion'),
+                            onClick: () => decideCompletion('reject', t('completionFeedback')),
+                          }, t('rejectCompletion'))
+                        : null,
                       h('button', { className: 'wb-btn', type: 'button', onClick: () => setSelected(null) }, t('close')))))),
 
         confirming !== null
@@ -2346,6 +2740,26 @@ function taskBucket(task, now) {
               approving,
               onConfirm: () => confirmImport(importPanel),
               onCancel: () => setImportPanel(null),
+              t,
+            })
+          : null,
+
+        // WP6-D：智能规划提案面板（含拆解/排期/冲突/原因 + 确认/拒绝/修改）
+        planPanel !== null
+          ? h(PlanPanel, {
+              proposal: planPanel === 'input' ? null : planPanel.proposal,
+              stats: planPanel === 'input' ? {} : planPanel.stats,
+              goal: planGoal,
+              onGoalChange: setPlanGoal,
+              windowKind: planWindow,
+              onWindowChange: setPlanWindow,
+              generating: planGenerating,
+              approving,
+              onGenerate: generatePlan,
+              onConfirm: confirmPlan,
+              onReject: rejectPlan,
+              onModify: () => setPlanPanel('input'),
+              onClose: () => setPlanPanel(null),
               t,
             })
           : null,

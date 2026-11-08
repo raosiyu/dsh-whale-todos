@@ -318,8 +318,8 @@
     "id": "W10",
     "name": "WP4：三个弹窗组件不渲染（主路径静默消失）",
     "file": "packages/workbench-ui/client.js",
-    "from": "      EventForm,\n      TaskForm,\n      ConfirmDelete,\n      WorkbenchPage,",
-    "to": "      callHost,"
+    "from": "      ConfirmDelete,\n      PlanPanel,\n      WorkbenchPage,",
+    "to": "      callHost,\n      PlanPanel,\n      WorkbenchPage,"
   },
   {
     "id": "W11",
@@ -1101,5 +1101,47 @@
     "file": "workbench-core/src/proposal-ops.js",
     "from": "      return { sessionId: '[self]', tasks: projected }",
     "to": "      return { sessionId: b.sessionId, tasks: projected }"
+  },
+  {
+    "id": "WP6D1",
+    "name": "wp6-d：collapseUndo 折叠时丢掉 anchor 之前的全部历史（撤销栈被清空）",
+    "file": "workbench-core/src/store.js",
+    "from": "      const kept = current.slice(0, keptLength)",
+    "to": "      const kept = []"
+  },
+  {
+    "id": "WP6D2",
+    "name": "wp6-d：proposal.preview 重新进 undo 栈（污染撤销历史）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      }, { intent: 'proposal.preview', undo: false })",
+    "to": "      }, { intent: 'proposal.preview' })"
+  },
+  {
+    "id": "WP6D3",
+    "name": "wp6-d：标记 applied 的 mutate 放在折叠之后（折叠 entry 被挤到栈内）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      // 折叠成一条 undo —— 必须是本 op 的最后一次写栈动作\n      if (typeof collapseUndo === 'function') {\n        collapseUndo(undoDepthBefore, 'proposal.apply', beforeState, undoAnchorId)\n      }",
+    "to": "      if (typeof collapseUndo === 'function') {\n        collapseUndo(undoDepthBefore, 'proposal.apply', beforeState, undoAnchorId)\n      }\n      store.mutate((d) => d, { intent: 'post-collapse-write' })"
+  },
+  {
+    "id": "WP6D4",
+    "name": "wp6-d：PlanPanel 不渲染确认按钮（用户无法落地）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                  }, approving ? t('planApproving') : t('confirmPlan')),",
+    "to": "                  }, t('planBack')),"
+  },
+  {
+    "id": "WP6D5",
+    "name": "wp6-d：confirmPlan 不带审批 token（绕过 Host 审批）",
+    "file": "packages/workbench-ui/client.js",
+    "from": "          const r = await request(buildPlanApplyRequest(id, approval.value.token))",
+    "to": "          const r = await request(buildPlanApplyRequest(id, undefined))"
+  },
+  {
+    "id": "WP6D6",
+    "name": "wp6-d：详情面板不渲染用户验收入口",
+    "file": "packages/workbench-ui/client.js",
+    "from": "                            onClick: () => decideCompletion('accept'),",
+    "to": "                            onClick: () => {},"
   }
 ]

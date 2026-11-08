@@ -299,11 +299,27 @@ export function openStore(dir, options = {}) {
      * @param {string} label 折叠后的标签
      * @param {object} before 导入开始前的业务集合快照
      */
-    collapseUndo(undoDepth, label, before) {
+    collapseUndo(undoDepth, label, before, anchorId) {
       const current = state.undo ?? []
       if (current.length <= undoDepth) return { collapsed: 0 }
-      const kept = current.slice(0, undoDepth)
-      const collapsed = current.length - undoDepth
+      /**
+       * **锚点优先于栈深**（WP6-D 真机缺陷修复）。
+       *
+       * `commit` 每次 push 都做 `slice(-historyLimit)` 裁剪。当栈接近上限时，
+       * 批量落地会把最初的几条历史挤掉，于是 `undoDepth`（裁剪前的深度）
+       * 在裁剪后的栈里指向了错误位置 —— `slice(0, undoDepth)` 保留的是
+       * 错位的历史，且折叠用的 `before` 快照也可能对不上。
+       *
+       * 调用方在批量落地前记下「栈顶 entry 的 id」，这里用它在**裁剪后**
+       * 的栈里定位真正的分界点；找不到锚点才回落到栈深。
+       */
+      let keptLength = undoDepth
+      if (typeof anchorId === 'string' && anchorId !== '') {
+        const idx = current.findIndex((e) => e.id === anchorId)
+        if (idx >= 0) keptLength = idx + 1
+      }
+      const kept = current.slice(0, keptLength)
+      const collapsed = current.length - keptLength
       const entry = { id: randomUUID(), label, at: now().toISOString(), before: structuredClone(before) }
       const next = { ...state, undo: [...kept, entry], redo: [] }
       // 不写 journal：这只是历史记账，不是业务数据变更

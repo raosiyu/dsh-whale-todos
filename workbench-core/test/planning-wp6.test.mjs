@@ -267,3 +267,60 @@ test('WP6-B：deny 模式下 plan.suggest 也被拦', () => withService((svc) =>
     (e) => e.code === 'confirmation-required',
   )
 }, { approvalMode: 'deny' }))
+
+test('WP6-D：接近 historyLimit 时提案落地仍可一次撤销整体回滚（真机缺陷回归）', () => withService(async (svc, ex) => {
+  // 先把 undo 栈推到接近上限 20，触发 commit 的 slice(-historyLimit) 裁剪
+  for (let i = 0; i < 19; i += 1) {
+    ex('task.upsert', { task: { id: `old${i}`, title: `old${i}` } })
+  }
+  const before = svc.execute('task.list', {}, {}).length
+  const r = ex('plan.suggest', {
+    goal: '边界验证', targetTitles: ['A', 'B', 'C'],
+    windowStart: WINDOW_START, windowEnd: WINDOW_END,
+  })
+  const token = await svc.requestApproval('proposal.apply', { target: r.proposal.id })
+  const applied = ex('proposal.apply', { id: r.proposal.id }, { approvalToken: token.token })
+  assert.ok(applied.created > 0)
+  assert.ok(svc.execute('task.list', {}, {}).length > before, '任务已落地')
+  // 折叠后的栈顶必须是 proposal.apply
+  const st = svc.execute('history.status', {}, {})
+  assert.equal(st.nextUndo, 'proposal.apply')
+  ex('history.undo', {})
+  assert.equal(svc.execute('task.list', {}, {}).length, before,
+    '一次撤销必须精确回到落地前状态（裁剪不得让 before 快照错位）')
+}))
+
+test('WP6-D：提案元操作不进 undo 栈（preview/reject 不该污染撤销历史）', () => withService(async (svc, ex) => {
+  const d0 = svc.execute('history.status', {}, {}).undoDepth
+  const r = ex('plan.suggest', {
+    goal: '元操作', targetTitles: ['X'],
+    windowStart: WINDOW_START, windowEnd: WINDOW_END,
+  })
+  const d1 = svc.execute('history.status', {}, {}).undoDepth
+  assert.equal(d1, d0, 'plan.suggest/preview 不得增加 undo 栈深')
+  ex('proposal.reject', { id: r.proposal.id })
+  assert.equal(svc.execute('history.status', {}, {}).undoDepth, d0, 'reject 也不得入栈')
+}))
+
+test('WP6-D：折叠 undo 不得清空 anchor 之前的历史（WP6D1 回归）', () => withService(async (svc, ex) => {
+  // 先积累若干历史
+  for (let i = 0; i < 5; i += 1) {
+    ex('task.upsert', { task: { id: `h${i}`, title: `h${i}` } })
+  }
+  const depthBefore = svc.execute('history.status', {}, {}).undoDepth
+  assert.ok(depthBefore >= 5)
+  const r = ex('plan.suggest', {
+    goal: '折叠历史', targetTitles: ['A'],
+    windowStart: WINDOW_START, windowEnd: WINDOW_END,
+  })
+  const token = await svc.requestApproval('proposal.apply', { target: r.proposal.id })
+  ex('proposal.apply', { id: r.proposal.id }, { approvalToken: token.token })
+  // 折叠后栈里必须仍保留落地前那 5 条历史 + 1 条 proposal.apply
+  const depthAfter = svc.execute('history.status', {}, {}).undoDepth
+  assert.ok(depthAfter >= depthBefore + 1 - 1,
+    `折叠不得清空历史：落地前 ${depthBefore}，落地后 ${depthAfter}`)
+  assert.equal(svc.execute('history.status', {}, {}).nextUndo, 'proposal.apply')
+  // 连续撤销：先撤提案，再能继续撤更早的历史
+  ex('history.undo', {})
+  assert.ok(svc.execute('history.status', {}, {}).canUndo, '撤掉提案后仍应保留更早历史')
+}))
