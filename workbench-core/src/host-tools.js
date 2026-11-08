@@ -367,7 +367,7 @@ export function createWorkbenchToolDefinitions(deps = {}) {
             sessionId: '[redacted]',
             tools: createWorkbenchToolDefinitions({ service: { invoke: () => ({}) } })
               .map((d) => ({ name: d.name, description: d.description, parameters: Object.keys(d.parameters ?? {}) })),
-            hint: 'Map the user request to one tool; validate required parameters; never invent an operation not listed here.',
+            hint: 'Map the user request to one tool; validate required parameters; never invent an operation not listed here. WP6: AI may only produce planning PROPOSALS (workbench_plan_*) and write progress/estimate/session links/completion REQUESTS. AI can NEVER complete, delete, bulk-overwrite, or apply a proposal by itself — those require explicit user confirmation in the UI with a Host approval token.',
           },
         }
       },
@@ -388,6 +388,98 @@ export function createWorkbenchToolDefinitions(deps = {}) {
         return { ok: true, op: 'audit', result: { rows: this.service.audit({ sessionId, limit }) } }
       },
     },
+    // ---- WP6：AI 智能规划与会话协作（只读提案 / 进度 / 验收申请）----
+    // 红线：危险 op（proposal.apply / acceptCompletion / rejectCompletion /
+    // delete / bulk / replace）**不注册为 AI 工具**，只能由 UI 在用户确认后
+    // 经 commands 通道带审批 token 调用。
+    simpleTool({
+      name: 'workbench_plan_preview',
+      description: 'Generate an AI planning proposal from a natural-language goal. READ-ONLY toward business data: it only creates a pending proposal (tasks/subtasks/suggested schedule/conflicts/reasons). Nothing is written to events or tasks until the user confirms via the UI with a Host approval token. Use this to decompose complex goals, estimate priority/due dates, and suggest a daily/weekly plan.',
+      parameters: {
+        sourceText: { type: 'string', description: 'The user natural-language goal or meeting notes (untrusted, stored truncated).' },
+        reasoning: { type: 'string', description: 'Brief explanation of the proposed arrangement (untrusted, display only).' },
+        kind: { type: 'string', description: 'plan | decompose | schedule | mixed (default plan).' },
+        items: { type: 'array', required: true, description: 'Structured proposal items. Each: {op: task.create|task.update|event.create, payload:{...}, targetId?, reason?}. up to 50.' },
+        conflicts: { type: 'array', description: 'Known conflicts to surface (from event.conflicts).' },
+      },
+      op: 'proposal.preview',
+      payload: (args) => ({
+        sourceText: args.sourceText, reasoning: args.reasoning, kind: args.kind,
+        items: args.items, conflicts: args.conflicts,
+      }),
+    }),
+    simpleTool({
+      name: 'workbench_plan_list',
+      description: 'List pending planning proposals for this session/scope.',
+      parameters: {},
+      op: 'proposal.list',
+      payload: () => ({}),
+    }),
+    simpleTool({
+      name: 'workbench_plan_get',
+      description: 'Get one planning proposal by id (including items, conflicts, reasoning, bound version).',
+      parameters: { id: { type: 'string', required: true, description: 'Proposal id.' } },
+      op: 'proposal.get',
+      payload: (args) => ({ id: args.id }),
+    }),
+    simpleTool({
+      name: 'workbench_plan_reject',
+      description: 'Reject a pending planning proposal. Changes only the proposal status; events/tasks are never modified.',
+      parameters: { id: { type: 'string', required: true, description: 'Proposal id.' } },
+      op: 'proposal.reject',
+      payload: (args) => ({ id: args.id }),
+    }),
+    simpleTool({
+      name: 'workbench_task_estimate',
+      description: 'Set a todo estimated duration (1..1440 integer minutes). Invalid values are rejected as a whole.',
+      parameters: {
+        id: { type: 'string', required: true, description: 'Todo id.' },
+        estimatedMinutes: { type: 'number', required: true, description: 'Integer minutes 1..1440.' },
+      },
+      op: 'task.setEstimate',
+      payload: (args) => ({ id: args.id, estimatedMinutes: args.estimatedMinutes }),
+    }),
+    simpleTool({
+      name: 'workbench_task_link_session',
+      description: 'Associate a todo with a DSH Agent session (clarify/decompose/execute/review/other). Used to enter the session from task details and to let an Agent read authorized task context.',
+      parameters: {
+        id: { type: 'string', required: true, description: 'Todo id.' },
+        sessionId: { type: 'string', required: true, description: 'DSH session id to link.' },
+        role: { type: 'string', description: 'clarify | decompose | execute | review | other (default other).' },
+        note: { type: 'string', description: 'Optional short note (untrusted, truncated).' },
+      },
+      op: 'task.linkSession',
+      payload: (args) => ({ id: args.id, sessionId: args.sessionId, role: args.role, note: args.note }),
+    }),
+    simpleTool({
+      name: 'workbench_task_by_session',
+      description: 'Reverse lookup: list todos linked to a given Agent session.',
+      parameters: { sessionId: { type: 'string', required: true, description: 'Session id.' } },
+      op: 'task.bySession',
+      payload: (args) => ({ sessionId: args.sessionId }),
+    }),
+    simpleTool({
+      name: 'workbench_task_progress',
+      description: 'Write an execution progress entry (0..99) and optional note/evidence. NEVER marks a todo done: 100 is not progress, completion requires the user acceptance flow. AI cannot complete, delete, or bulk-overwrite tasks.',
+      parameters: {
+        id: { type: 'string', required: true, description: 'Todo id.' },
+        progress: { type: 'number', required: true, description: 'Integer 0..99.' },
+        note: { type: 'string', description: 'Short progress note.' },
+        evidence: { type: 'string', description: 'Short evidence reference.' },
+      },
+      op: 'task.writeProgress',
+      payload: (args) => ({ id: args.id, progress: args.progress, note: args.note, evidence: args.evidence }),
+    }),
+    simpleTool({
+      name: 'workbench_request_completion',
+      description: 'Submit a completion acceptance REQUEST (never completes the task). The todo stays open until the user explicitly accepts in the workbench UI. Include a 2-4 sentence summary of what was done.',
+      parameters: {
+        id: { type: 'string', required: true, description: 'Todo id.' },
+        summary: { type: 'string', required: true, description: 'Completion summary (2-4 sentences).' },
+      },
+      op: 'task.requestCompletion',
+      payload: (args) => ({ id: args.id, summary: args.summary }),
+    }),
 
   ]
 

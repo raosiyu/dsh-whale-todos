@@ -231,13 +231,19 @@ test('服务：审计日志记录每次写操作', () => {
 
 test('服务：DANGEROUS_OPS 覆盖所有需确认操作', () => {
   // N-06 后新增 event.restore / task.upsert：二者都能改数据（撤销软删 / 覆盖任务）
-  assert.deepEqual(
-    [...DANGEROUS_OPS].sort(),
-    [
-      'event.bulkDelete', 'event.delete', 'event.import', 'event.restore',
-      'snapshot.replace', 'store.rollback', 'task.upsert',
-    ].sort(),
-  )
+  // WP6 新增 proposal.apply（规划批量落地，必须带用户确认的一次性凭证）
+  const expected = new Set([
+    'event.bulkDelete', 'event.delete', 'event.import', 'event.restore',
+    'snapshot.replace', 'store.rollback', 'task.upsert', 'proposal.apply',
+  ])
+  const actual = new Set(DANGEROUS_OPS)
+  for (const op of expected) {
+    assert.ok(actual.has(op), `${op} 必须在 DANGEROUS_OPS 内`)
+  }
+  // 反向：不允许悄悄把任意 op 塞进危险清单（那会让正常操作弹审批风暴）
+  for (const op of actual) {
+    assert.ok(expected.has(op), `DANGEROUS_OPS 出现未预期的 op：${op}`)
+  }
 })
 
 test('N-05：deny 模式下所有写操作一律拒绝（不只危险清单）', async () => {

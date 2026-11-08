@@ -32,6 +32,7 @@ import { createHistoryOps } from './history.js'
 import { createScheduleAdapter, DEFAULT_LEAD_MINUTES } from './schedule-adapter.js'
 import { openStore } from './store.js'
 import { validateEventInput } from './event.js'
+import { createProposalOps } from './proposal-ops.js'
 
 /** 拖拽移动支持的范围（「此后所有」需要 RRULE 分段，本版本明确不提供）。 */
 export const MOVABLE_MODES = Object.freeze(['single', 'series'])
@@ -48,6 +49,11 @@ export const DANGEROUS_OPS = Object.freeze([
    * 能覆盖既有任务。原清单漏了它们，导致 `deny` 模式下仍可改数据。
    */
   'event.restore',
+  /**
+   * WP6：规划落地会批量创建/更新任务与日程，属于危险写，必须带
+   * 用户确认后由 Host 签发的一次性审批 token。
+   */
+  'proposal.apply',
   /**
    * `task.upsert` 覆盖既有任务属于危险写，但**新建与完成**是授权要求的正常路径，
    * 一律要求审批会阻断「快速创建/完成待办」。
@@ -75,6 +81,11 @@ export const WRITE_OPS = Object.freeze([
   'history.undo', 'history.redo',
   // WP5 新增的写操作
   'event.move', 'task.reorder', 'task.archive',
+  // WP6 新增的写操作（只读的 proposal.list/get、task.bySession 不进）
+  'proposal.preview', 'proposal.reject', 'proposal.apply',
+  'task.setEstimate', 'task.linkSession', 'task.unlinkSession',
+  'task.writeProgress', 'task.requestCompletion',
+  'task.acceptCompletion', 'task.rejectCompletion',
 ])
 
 /**
@@ -232,7 +243,7 @@ export function createWorkbenchService(options) {
     })
   }
 
-  const ops = {
+  let ops = {
     // ---- 查询 -------------------------------------------------------------
     'event.list': (payload = {}) => {
       const includeDeleted = payload.includeDeleted === true
@@ -1126,6 +1137,51 @@ export function createWorkbenchService(options) {
       const result = store.collection('tasks').filter((row) => normalized.includes(row.id))
       return { archived, tasks: result }
     },
+  }
+
+  /**
+   * WP6：把提案/会话协作 op 挂到**同一张** dispatch 表。
+   *
+   * `callOp` 让 proposal.apply 复用**既有** op 的实现（task.upsert /
+   * event.create / event.update），而不是另写一套写逻辑 —— 这是「UI 与 Agent
+   * 共用统一 Host Service 入口」的落点，也避免第二份真相源。
+   *
+   * 注意 callOp 走 `ops[op]` 而非 `execute(op,...)`：提案落地是**已经过审批**
+   * 的内部步骤，不该再次触发 deny/审批门；且这些 op 都在 ALLOWED 白名单内，
+   * 由 buildProposalItem 保证。
+   */
+  const callOp = (op, payload, meta) => {
+    const handler = ops[op]
+    if (handler === undefined) throw unsupportedError(`不支持的操作：${op}`, { op })
+    return handler(payload, meta)
+  }
+
+  ops = {
+    ...ops,
+    ...createProposalOps({
+      store,
+      now,
+      requireConfirmation,
+      validateTaskInput: (t) => {
+        // 复用既有 task.upsert 的字段语义：这里只做结构校验，不写数据
+        if (t === null || typeof t !== 'object' || Array.isArray(t)) {
+          throw validationError('提案里的 task 必须是对象')
+        }
+        if (typeof t.title !== 'string' || t.title.trim() === '') {
+          throw validationError('提案里的 task.title 必须是非空字符串')
+        }
+        if (t.dueAt !== undefined) isoInstant(t.dueAt, 'task.dueAt')
+        return t
+      },
+      validateEventInput: (e) => validateEventInput(withDefaultZone(e)),
+      createTask: (t, meta) => callOp('task.upsert', {
+        task: { ...t, id: (options.idFactory ?? (() => randomUUID()))() },
+      }, meta),
+      createEvent: (e, meta) => callOp('event.create', e, meta),
+      updateTask: (id, patch, meta) => callOp('task.upsert', { task: { ...patch, id } }, meta),
+      idFactory: options.idFactory,
+      collapseUndo: (depth, label, before) => store.collapseUndo(depth, label, before),
+    }),
   }
 
   return {

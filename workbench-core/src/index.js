@@ -138,3 +138,30 @@ export {
   createWorkbenchToolDefinitions,
   applyWorkbenchTools,
 } from './host-tools.js'
+
+/**
+ * WP6：AI 规划提案与会话协作（纯数据模型 + 校验 + dispatch op 工厂）。
+ * 保持零 DSH 依赖，由 Host 侧注入。
+ */
+export {
+  PROPOSAL_ALLOWED_OPS,
+  PROPOSAL_KINDS,
+  PROPOSAL_STATUSES,
+  SESSION_ROLES,
+  MAX_TEXT_LEN,
+  MAX_ITEMS,
+  MIN_ESTIMATE_MINUTES,
+  MAX_ESTIMATE_MINUTES,
+  ProposalValidationError,
+  sanitizeUntrustedText,
+  checkEstimateMinutes,
+  checkProgress,
+  buildProposalItem,
+  pickPayload,
+  buildProposal,
+  verifyProposalBinding,
+  buildSessionLink,
+  buildCompletionRequest,
+} from './proposal.js'
+
+export { createProposalOps } from './proposal-ops.js'

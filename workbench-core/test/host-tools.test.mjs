@@ -52,24 +52,29 @@ test('WP3：工具定义齐全且每个都有 name/description/parameters/output
   await withTmp(async (dir) => {
     const defs = createWorkbenchToolDefinitions({ service: mkService(dir) })
     const names = defs.map((d) => d.name).sort()
-    assert.deepEqual(names, [
-      'workbench_audit',
-      'workbench_event_create',
-      'workbench_event_get',
-      'workbench_event_list',
-      'workbench_event_move',
-      'workbench_event_update',
-      'workbench_export',
-      'workbench_help',
-      'workbench_history_status',
-      'workbench_import_preview',
-      'workbench_redo',
-      'workbench_task_archive',
-      'workbench_task_list',
-      'workbench_task_reorder',
-      'workbench_task_upsert',
+    // WP6 新增 9 个规划/协作工具；改成「既有+新增都必须在」而非写死总数，
+    // 以后加工具不会再假红。
+    const REQUIRED = [
+      'workbench_audit', 'workbench_event_create', 'workbench_event_get',
+      'workbench_event_list', 'workbench_event_move', 'workbench_event_update',
+      'workbench_export', 'workbench_help', 'workbench_history_status',
+      'workbench_import_preview', 'workbench_redo', 'workbench_task_archive',
+      'workbench_task_list', 'workbench_task_reorder', 'workbench_task_upsert',
       'workbench_undo',
-    ])
+      // WP6
+      'workbench_plan_preview', 'workbench_plan_list', 'workbench_plan_get',
+      'workbench_plan_reject', 'workbench_task_estimate',
+      'workbench_task_link_session', 'workbench_task_by_session',
+      'workbench_task_progress', 'workbench_request_completion',
+    ]
+    const actualNames = new Set(names)
+    for (const name of REQUIRED) {
+      assert.ok(actualNames.has(name), `缺少工具：${name}`)
+    }
+    // 危险 op 绝不能注册为 AI 工具
+    for (const forbidden of ['proposal_apply', 'accept_completion', 'reject_completion', 'plan_apply']) {
+      assert.ok(!names.some((n) => n.includes(forbidden)), `不得注册危险工具：${forbidden}`)
+    }
     for (const d of defs) {
       assert.equal(typeof d.description, 'string')
       assert.ok(d.description.length > 0)
@@ -156,8 +161,8 @@ test('WP3：applyWorkbenchTools 注册全部工具并返回精确 disposer', asy
     // 用「与真 defineTool 同形」的注入函数（本测试不 import DSH 包）
     const defineTool = (d) => ({ ...d, __wrapped: true })
     const disposers = applyWorkbenchTools(ctx, { defineTool, service: mkService(dir) })
-    assert.equal(registered.length, 16)
-    assert.equal(disposers.length, 16)
+    assert.equal(registered.length, 25, '16 既有 + 9 WP6 工具')
+    assert.equal(disposers.length, 25)
     for (const dispose of disposers) dispose()
     assert.equal(registered.length, 0, 'disposer 必须精确反注册')
   })
@@ -254,7 +259,7 @@ test('WP3：workbench_help 列出工具与参数，供自然语言映射', async
     const out = await help.execute({}, execFor('s1'))
     assert.equal(out.ok, true)
     assert.equal(Array.isArray(out.result.tools), true)
-    assert.equal(out.result.tools.length, 16)
+    assert.equal(out.result.tools.length, 25, '16 既有 + 9 WP6 工具都应在 help 中')
     // 不泄露 sessionId 原文
     assert.equal(JSON.stringify(out).includes('s1'), false)
   })

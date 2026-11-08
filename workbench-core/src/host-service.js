@@ -243,6 +243,13 @@ export function createWorkbenchHostService(options = {}) {
         actor: meta.actor ?? 'host-service',
         approvalToken: meta.approvalToken,
         confirmed: meta.confirmed,
+        /**
+         * WP6：sessionId / scope 由**受信任的 invoke 参数**注入 op 的 meta，
+         * 绝不从 payload 读取（那会允许 AI 伪造归属、跨会话越权）。
+         * 提案绑定校验、会话关联反查都依赖这两个字段。
+         */
+        sessionId,
+        scope,
       })
     } catch (e) {
       error = {

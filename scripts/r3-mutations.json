@@ -954,5 +954,61 @@
     "file": "workbench-core/src/reminder-sync.js",
     "from": "  if (parts.legacyAmbiguous === true) {\n    return { level: 'suspect', identity, reason: 'legacy-identity-ambiguous' }\n  }",
     "to": "  if (false) {\n    return { level: 'suspect', identity, reason: 'legacy-identity-ambiguous' }\n  }"
+  },
+  {
+    "id": "WP6A1",
+    "name": "wp6-a：提案 op 允许 event.delete（AI 绕过审批删数据）",
+    "file": "workbench-core/src/proposal.js",
+    "from": "  'event.create',\n])",
+    "to": "  'event.create', 'event.delete',\n])"
+  },
+  {
+    "id": "WP6A2",
+    "name": "wp6-a：pickPayload 不裁剪 confirmed（伪造参数流入 execute）",
+    "file": "workbench-core/src/proposal.js",
+    "from": "  for (const key of allowed) {\n    if (raw[key] !== undefined) out[key] = raw[key]\n  }",
+    "to": "  for (const key of allowed) {\n    if (raw[key] !== undefined) out[key] = raw[key]\n  }\n  if (raw.confirmed !== undefined) out.confirmed = raw.confirmed"
+  },
+  {
+    "id": "WP6A3",
+    "name": "wp6-a：提案落地不做绑定校验（确认后数据被替换仍落库）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      if (check.ok !== true) {",
+    "to": "      if (false) {"
+  },
+  {
+    "id": "WP6A4",
+    "name": "wp6-a：proposal.apply 不需要审批 token",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      requireConfirmation('proposal.apply', meta, { target: payload?.id })",
+    "to": "      if (false) requireConfirmation('proposal.apply', meta, { target: payload?.id })"
+  },
+  {
+    "id": "WP6A5",
+    "name": "wp6-a：进度允许 100（AI 自行完成任务）",
+    "file": "workbench-core/src/proposal.js",
+    "from": "  if (value < 0 || value > 99) {",
+    "to": "  if (value < 0 || value > 100) {"
+  },
+  {
+    "id": "WP6A6",
+    "name": "wp6-a：task.requestCompletion 直接置 done",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      return { id, completion: request, done: false }",
+    "to": "      return { id, completion: request, done: true }"
+  },
+  {
+    "id": "WP6A7",
+    "name": "wp6-a：proposal.list 不按 session 过滤（跨会话可见）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      const rows = proposals().filter((p) => p.sessionId === b.sessionId",
+    "to": "      const rows = proposals()"
+  },
+  {
+    "id": "WP6A8",
+    "name": "wp6-a：新写 op 不进 WRITE_OPS（deny 模式漏拦）",
+    "file": "workbench-core/src/service.js",
+    "from": "  'proposal.preview', 'proposal.reject', 'proposal.apply',",
+    "to": "  // 变异：故意漏登记 WP6 写 op"
   }
 ]
