@@ -18,6 +18,8 @@
  * 4. 本模块不写任何数据，只返回结构化对象供调用方持久化。
  */
 
+import { createHash } from 'node:crypto'
+
 /** 允许提案落地的 op 白名单（AI 不能借提案绕过审批去调危险 op）。 */
 export const PROPOSAL_ALLOWED_OPS = Object.freeze([
   'task.create',
@@ -155,8 +157,16 @@ export function buildProposalItem(raw) {
  * @returns {object}
  */
 export function pickPayload(op, raw) {
+  /**
+   * **不含 `status`**（复审 F5）。
+   *
+   * 原白名单放行 `status`，于是提案可夹带 `status:'done'` 落地 —— 绕过
+   * `writeProgress` 的 0..99 护栏与「完成必须用户验收」的约束，写入一个
+   * 当前无消费者但语义敏感的完成态。完成态只能由 `task.acceptCompletion`
+   * 写入，任何提案路径都不该有旁路。
+   */
   const TASK_FIELDS = [
-    'title', 'dueAt', 'priority', 'status', 'project', 'subtasks',
+    'title', 'dueAt', 'priority', 'project', 'subtasks',
     'estimatedMinutes',
   ]
   const EVENT_FIELDS = [
@@ -337,4 +347,51 @@ export function checkProgress(value) {
     fail('进度必须在 0..99；完成请走完成验收申请，不能自行置 100', { value })
   }
   return value
+}
+
+/**
+ * **提案内容摘要**（复审 F2）：把提案的「可执行语义」压成一个稳定摘要。
+ *
+ * 为什么必须有：`proposal.apply` 的指纹原先只绑 `(op, target=提案id)`，
+ * 提案**内容**从不参与绑定。于是「用户确认了 1 条」之后，只要落盘文件被换成
+ * 50 条，原凭证照样能把 50 条全部落地（复审实测 created:50）。
+ *
+ * 只摘「会改变落地结果」的字段，并**排序后**序列化：同一份提案重复计算必须
+ * 得到同一摘要，否则签发端与执行端会永远对不上。
+ *
+ * 摘要里包含 op/targetId/payload 三层：任何一条被换掉、增删条目、
+ * 改变顺序之外的语义，都会换出不同摘要。
+ */
+export function proposalContentDigest(proposal) {
+  const items = Array.isArray(proposal?.items) ? proposal.items : []
+  const normalized = items.map((item) => {
+    const payload = item?.payload !== null && typeof item?.payload === 'object'
+      ? Object.keys(item.payload).sort().map((k) => [k, item.payload[k]])
+      : []
+    return JSON.stringify([item?.op ?? '', item?.targetId ?? '', payload])
+  })
+  const encoded = JSON.stringify([
+    String(proposal?.kind ?? ''),
+    String(proposal?.sessionId ?? ''),
+    String(proposal?.scope ?? ''),
+    normalized,
+  ])
+  return createHash('sha256').update(encoded).digest('hex')
+}
+
+/**
+ * **任务 upsert 的内容摘要**（复审 F1/F1b）。
+ *
+ * 原先 `task.upsert` 的凭证只绑 `(op, target)`：一张「删除 j1」的凭证可以
+ * 拿去整行改写 j1 的标题/优先级/项目（实测通过），审批弹窗说的和实际做的
+ * 完全脱钩。更严重的是**改动既有任务根本不需要凭证**，谁能调 op 谁就能覆盖。
+ *
+ * 这里把「这一次写入的完整意图」摘进指纹：签发时用户看到的是哪份内容，
+ * 执行时就只能是那份内容。摘要对字段排序，保证同一意图稳定同摘要。
+ */
+export function taskUpsertContentDigest(task) {
+  const fields = task !== null && typeof task === 'object'
+    ? Object.keys(task).sort().map((k) => [k, task[k]])
+    : []
+  return createHash('sha256').update(JSON.stringify(fields)).digest('hex')
 }

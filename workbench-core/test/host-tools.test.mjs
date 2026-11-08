@@ -245,10 +245,30 @@ test('WP3：task.upsert 工具按真实契约传 {task:{id,...}}（创建/编辑
     const rows1 = await list.execute({}, execFor('s1'))
     assert.equal(rows1.result.length, 1)
 
-    await upsert.execute({ id: 't1', title: '买牛奶（已改）', done: true }, execFor('s1'))
-    const rows2 = await list.execute({}, execFor('s1'))
-    assert.equal(rows2.result.length, 1, '同 id 应为更新不是新增')
-    assert.equal(rows2.result[0].title, '买牛奶（已改）')
+    /**
+     * **编辑既有待办必须走提案审批**（复审 F1b）。
+     *
+     * 授权原文：「禁止 Agent 绕过审批自行删除、完成或批量覆盖任务」。
+     * 原测试直接 `upsert({id:'t1', title:'买牛奶（已改）'})` 就改掉了既有行 ——
+     * 这条路径实测在真实工具面上成立，等于把「Agent 可无审批覆盖用户任务」
+     * 写成了契约。现在工具面仍能创建，但改既有行要用户确认。
+     */
+    const denied = await upsert.execute({ id: 't1', title: '买牛奶（已改）' }, execFor('s1'))
+    assert.equal(denied.ok, false, 'Agent 直改既有待办必须被拒')
+    assert.equal(denied.code, 'confirmation-required', JSON.stringify(denied))
+    assert.match(String(denied.message ?? ''), /提案审批/)
+
+    const svc = mkService(dir)
+    svc.invoke('s1', 'task.upsert', { task: { id: 't1', title: '买牛奶' } }, { actor: 'ui', scope: '' })
+    const { proposal } = svc.invoke('s1', 'proposal.preview', {
+      items: [{ op: 'task.update', targetId: 't1', payload: { title: '买牛奶（已改）' } }],
+    }, { actor: 'agent-tool', sessionId: 's1', scope: '' })
+    const tok = svc.forSession('s1', '').confirmUserAction('proposal.apply', proposal.id, {})
+    svc.invoke('s1', 'proposal.apply', { id: proposal.id }, { actor: 'ui', scope: '', approvalToken: tok.token })
+    const svc2 = mkService(dir)
+    const rows2 = svc2.invoke('s1', 'task.list', {}, { actor: 'ui', scope: '' })
+    assert.equal(rows2.length, 1, '同 id 应为更新不是新增')
+    assert.equal(rows2[0].title, '买牛奶（已改）', '用户确认后编辑生效')
   })
 })
 
@@ -358,8 +378,10 @@ test('WP4：AI 工具 task.list 透传 includeDeleted（与 event.list 对称）
 
     // 软删一个待办后，默认列表看不到、includeDeleted 可见
     facade.execute('task.upsert', { task: { id: 't9', title: 'X', done: false } }, { actor: 'ui' })
-    const token = facade.confirmUserAction('task.upsert', 't9', {})
-    facade.execute('task.upsert', { task: { id: 't9', title: 'X', deleted: true } }, { actor: 'ui', approvalToken: token.token })
+    // 签发携带内容：凭证绑「用户看到的那份删除载荷」（复审 F1）
+    const delTask9 = { id: 't9', title: 'X', deleted: true }
+    const token = facade.confirmUserAction('task.upsert', 't9', { task: delTask9 })
+    facade.execute('task.upsert', { task: delTask9 }, { actor: 'ui', approvalToken: token.token })
 
     const plain = await tool.execute({}, execFor('s1'))
     assert.equal(plain.result.length, 0, '默认不列出已删待办')

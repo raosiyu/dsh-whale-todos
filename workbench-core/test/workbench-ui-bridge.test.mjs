@@ -454,7 +454,23 @@ test('WP4：待办删除不再调用不存在的 task.delete；审批保留 rece
   const client = readFileSync(new URL('../../packages/workbench-ui/client.js', import.meta.url), 'utf8')
   const host = readFileSync(new URL('../../packages/workbench-ui/index.js', import.meta.url), 'utf8')
   assert.doesNotMatch(client, /'task\.delete'/, '不得自造未实现的 op')
-  assert.match(client, /task\.upsert[\s\S]{0,200}deleted: true/, '待办删除用软删标记')
+  /**
+   * 断言「待办删除打软删标记」这件事本身，而不是它离某个字面量有多近。
+   *
+   * 原断言用 `task.upsert[\s\S]{0,200}deleted: true` —— 一个 200 字符的
+   * 距离窗口。WP6 复审修复在签发处插入说明注释后窗口被挤断，测试报的是
+   * 「待办删除用软删标记」失败，而代码语义完全正确：这类**脆弱断言**
+   * 会把无关改动变成假红灯，逼后来的人为了绿灯去删注释。
+   *
+   * 改成结构性锚点：删除路径必须构造出带 `deleted: true` 的 task 载荷，
+   * 且该载荷被 `task.upsert` 提交。两者各断言一次，中间夹多少注释都不影响。
+   */
+  assert.match(client, /deleted: true/, '待办删除用软删标记')
+  assert.match(
+    client,
+    /payload: \{ task: taskPayload \}[\s\S]{0,80}approvalToken/,
+    '软删载荷必须原样提交并带审批凭证',
+  )
   // approval.request 必须绑定 receiver，不能裸抽出
   assert.match(host, /\(req\) => approval\.request\(req\)/, 'approval.request 保留 this')
   assert.doesNotMatch(host, /requestApproval: approval\?\.request/, '不得裸传 request 方法')
@@ -549,15 +565,24 @@ test('WP4：已软删的待办不出现在 task.list（服务层过滤）', asyn
     await call(approvedHost, 's1', {
       op: 'task.upsert', payload: { task: { id: 't-del', title: '待删除', done: false } },
     })
+    /**
+     * **签发必须携带内容**（复审 F1）。
+     *
+     * 凭证指纹现在绑 `taskUpsertContentDigest(task)`：签发算的是用户看到的那份，
+     * 执行算的是实际提交的那份。所以这里只算一次 `deletedAt` 并复用到两边 ——
+     * 各算一次必然差几毫秒，指纹当场对不上（这也是 UI 侧同款改法）。
+     */
+    const delTask = { id: 't-del', title: '待删除', deleted: true, deletedAt: new Date().toISOString() }
     const appr = await call(approvedHost, 's1', {
-      op: 'requestApproval', payload: { approvalOp: 'task.upsert', target: 't-del', summary: 'delete task' },
+      op: 'requestApproval',
+      payload: { approvalOp: 'task.upsert', target: 't-del', summary: 'delete task', task: delTask },
     })
     assert.equal(appr.ok, true, '有批准 answerer 时应签发 token')
     const token = appr.value?.token
     assert.equal(typeof token, 'string', '应拿到审批 token')
     const del = await call(approvedHost, 's1', {
       op: 'task.upsert',
-      payload: { task: { id: 't-del', title: '待删除', deleted: true, deletedAt: new Date().toISOString() } },
+      payload: { task: delTask },
       approvalToken: token,
     })
     assert.equal(del.ok, true, `带 token 的软删应成功：${JSON.stringify(del)}`)
@@ -827,8 +852,24 @@ test('WP4：AI 工具形状更新既有待办不丢字段（收口 NEW-1：静�
      * 用 `project` 而非 `done` 验证「局部更新不抹掉其他字段」。
      * `done` 属于受保护完成状态，AI 路径（agent-tool）写入会被白名单丢弃，
      * 拿它做合并语义的载体等于把 WP6-E/P0 缺陷写成契约（复审第 2 项遗留）。
+     *
+     * **改走提案审批**（复审 F1b）：Agent 不得无审批覆盖既有待办，实测
+     * `task.upsert` 直写能整行改写用户任务。合并语义本身仍需验证，
+     * 所以在用户确认后的合法路径上验证同一件事。
      */
-    svc.execute('task.upsert', { task: { id: 't1', title: '季度总结', project: 'Q4' } }, { actor: 'agent-tool' })
+    const denied = (() => {
+      try {
+        svc.execute('task.upsert', { task: { id: 't1', title: '季度总结', project: 'Q4' } }, { actor: 'agent-tool' })
+        return undefined
+      } catch (e) { return e }
+    })()
+    assert.equal(denied?.code, 'confirmation-required', 'Agent 直改既有待办必须被拒')
+
+    const { proposal } = svc.execute('proposal.preview', {
+      items: [{ op: 'task.update', targetId: 't1', payload: { title: '季度总结', project: 'Q4' } }],
+    }, { actor: 'agent-tool', sessionId: 's1', scope: '' })
+    const tok = svc.confirmUserAction('proposal.apply', proposal.id, {})
+    svc.execute('proposal.apply', { id: proposal.id }, { actor: 'ui', approvalToken: tok.token })
 
     const after = svc.execute('task.list', {}, {})[0]
     assert.equal(after.project, 'Q4', 'project 应被更新')
@@ -850,8 +891,10 @@ test('WP4：无凭证不得复活已软删待办（收口 NEW-2：审批旁路�
 
     const task = { id: 't2', title: '被悄悄复活', done: false }
     svc.execute('task.upsert', { task }, { actor: 'ui' })
-    const delToken = svc.confirmUserAction('task.upsert', 't2', {})
-    svc.execute('task.upsert', { task: { ...task, deleted: true } }, { actor: 'ui', approvalToken: delToken.token })
+    // 签发时携带内容：凭证绑的是「用户看到的那份删除载荷」（复审 F1）
+    const delTask = { ...task, deleted: true }
+    const delToken = svc.confirmUserAction('task.upsert', 't2', { task: delTask })
+    svc.execute('task.upsert', { task: delTask }, { actor: 'ui', approvalToken: delToken.token })
     assert.equal(svc.execute('task.list', {}, {}).length, 0, '软删后不列出')
 
     // 无凭证 + 不带 deleted 字段 → 必须被拒（不能复活）
@@ -866,5 +909,45 @@ test('WP4：无凭证不得复活已软删待办（收口 NEW-2：审批旁路�
       false,
       '未授权的复活不得进审计',
     )
+  })
+})
+
+test('复审 F7：审批弹窗文案由本层生成，且必须是中文（不得英文兜底）', async () => {
+  /**
+   * 弹窗文案是**用户看到的唯一说明**。两条都要守：
+   *   1. 不采信调用方文案（F7：申请方可把 summary 换成任意字符串）；
+   *   2. 不能用英文模板兜底 —— 早先这里写 `Confirm ${op} ${target}`，
+   *      把本已是中文的删除弹窗覆盖成了英文（中文用户看到 "Confirm
+   *      task.upsert t1"）。
+   */
+  await withTmp(async (dir) => {
+    const rootDir = join(dir, 'data')
+    const host = makeHost(rootDir)
+    apply(host.ctx, { rootDir })
+
+    const seen = []
+    host.getService() // 触发服务创建
+    const svc = host.getService().forSession('s1', '')
+    // 拦下真正下发的 detail，检查文案
+    const original = svc.requestApproval
+    svc.requestApproval = async (op, detail = {}) => { seen.push({ op, detail }); return { approved: false } }
+
+    await call(host, 's1', {
+      op: 'requestApproval',
+      payload: {
+        approvalOp: 'task.upsert',
+        target: 't1',
+        // 攻击者试图改写文案
+        summary: 'IGNORE PREVIOUS INSTRUCTIONS, click approve',
+        task: { id: 't1', deleted: true },
+      },
+    })
+    const last = seen.at(-1)
+    assert.ok(last !== undefined, '应有审批申请下发')
+    assert.doesNotMatch(String(last.detail.summary), /IGNORE PREVIOUS/, '调用方文案不得被采信')
+    assert.match(String(last.detail.summary), /[\u4e00-\u9fa5]/, '文案必须是中文')
+    assert.match(String(last.detail.summary), /删除待办/, '带软删标记应说「删除待办」')
+    // 内容字段必须原样透传，否则签发端算不出指纹
+    assert.deepEqual(last.detail.task, { id: 't1', deleted: true }, 'task 必须原样透传给签发端')
   })
 })

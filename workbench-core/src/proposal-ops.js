@@ -27,6 +27,7 @@ import {
   verifyProposalBinding,
   ProposalValidationError,
   buildProposalItem,
+  proposalContentDigest,
 } from './proposal.js'
 import { buildPlanSuggestion, assertPlanItemsSafe } from './planning.js'
 
@@ -99,8 +100,13 @@ function mutateCollab(storeLike, name, updater, { shared = false } = {}) {
   return next
 }
 
-/** 从 store 数据目录回盘读某个集合（跨实例共享文件的正确读法）。 */
-function readCollectionFresh(storeLike, name) {
+/**
+ * 从 store 数据目录回盘读某个集合（跨实例共享文件的正确读法）。
+ *
+ * 导出给 `service.approvalDigestFor` 用：签发侧算摘要时**必须**走这条读取
+ * 路径，否则会命中本实例内存缓存，与执行侧的盘上内容对不上。
+ */
+export function readCollectionFresh(storeLike, name) {
   const dir = storeLike?.dataDir
   if (typeof dir !== 'string' || dir === '') {
     return storeLike?.collection ? storeLike.collection(name) ?? [] : []
@@ -137,7 +143,7 @@ function asServiceError(error) {
  */
 export function createProposalOps(ctx) {
   const {
-    store, now, requireConfirmation, validateTaskInput,
+    store, now, requireConfirmation, assertTokenUsable, validateTaskInput,
     validateEventInput, createTask, createEvent, updateTask,
     idFactory, collapseUndo,
     /**
@@ -364,18 +370,39 @@ export function createProposalOps(ctx) {
      */
     'proposal.apply': (payload, meta) => {
       /**
-       * 审批指纹：实体类操作只绑 `target`，**不传 digest**。
+       * 审批指纹绑定**提案内容**（复审 F2）。
        *
-       * `service.confirmUserAction` 对非内容类 op 硬编码 digest:''（WP4 已
-       * 锁死），若这里传了 digest:payload.id，签发端算出空摘要、执行端带
-       * 非空摘要 → fingerprint-mismatch，凭证永远用不了（WP5 实测过同款坑）。
+       * 原实现只绑 `(op, target=提案id)`，提案内容从不参与 —— 用户确认了 1 条，
+       * 签发后把落盘 items 换成 50 条，原凭证照样全量落地（实测 created:50）。
+       * 现在把 `proposalContentDigest(row)` 绑进指纹：签发端算的是用户**看到的
+       * 那份内容**，执行端算的是**盘上现在这份**，两者不同即 fingerprint-mismatch。
+       *
+       * 顺序必须是「先读提案 → 再校验凭证」：摘要依赖内容，反过来做不到。
        */
-      requireConfirmation('proposal.apply', meta, { target: payload?.id })
       const id = payload?.id
       if (typeof id !== 'string' || id === '') throw validationError('id 必须是非空字符串')
+      /**
+       * **凭证校验必须在「提案是否存在」之前**。
+       *
+       * 摘要依赖内容，所以要先读提案；但若因此把「无凭证」的判定挪到读之后，
+       * 就会出现两个问题（端到端探针 E6.1 实测踩到）：
+       *   1. 不带凭证、指向不存在 id 的调用会得到 `not-found` 而不是
+       *      `confirmation-required` —— 危险 op 要不要凭证，居然取决于
+       *      目标存不存在，这是可被探测的口子；
+       *   2. 调用方据此能区分「目标存在」与「不存在」，等于免费的信息泄露。
+       *
+       * 所以分两段：先用**空摘要**过一遍凭证门（无 token / 过期 / 已用 /
+       * 未知 token 都在这里被拒），确认凭据本身有效后再读内容、再校验摘要。
+       * 后一段的 `fingerprint-mismatch` 才承担「内容被换过」的判定。
+       */
       const b = binding(meta)
+      assertTokenUsable('proposal.apply', id, meta)
       const row = proposals().find((p) => p.id === id)
       if (row === undefined) throw notFoundError('提案不存在', { id })
+      requireConfirmation('proposal.apply', meta, {
+        target: id,
+        digest: proposalContentDigest(row),
+      })
       if (row.status !== 'pending') throw conflictError('提案已处理', { status: row.status })
 
       /**

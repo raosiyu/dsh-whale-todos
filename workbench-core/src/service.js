@@ -32,10 +32,30 @@ import { createHistoryOps } from './history.js'
 import { createScheduleAdapter, DEFAULT_LEAD_MINUTES } from './schedule-adapter.js'
 import { openStore } from './store.js'
 import { validateEventInput } from './event.js'
-import { createProposalOps } from './proposal-ops.js'
+import { createProposalOps, readCollectionFresh } from './proposal-ops.js'
+import { proposalContentDigest, taskUpsertContentDigest } from './proposal.js'
 
 /** 拖拽移动支持的范围（「此后所有」需要 RRULE 分段，本版本明确不提供）。 */
 export const MOVABLE_MODES = Object.freeze(['single', 'series'])
+
+/**
+ * **谁是「Agent 身份」**——单点定义，不得各处手写字符串。
+ *
+ * 这里踩过一次真坑：守卫按 `meta.actor === 'agent'` 写，而 AI 工具面实际
+ * 传的是 `'agent-tool'`（见 `host-tools.js`），于是「Agent 不得自行置完成」
+ * 的守卫**从未触发过**——复审的 F4 提的正是这个，而当时的「修复」沿用了
+ * 错值，看起来补了洞、实测照样能捅穿。凡是按身份收口的地方都走这个函数，
+ * 避免再来一次「守卫写对了但匹配不上」。
+ *
+ * 用户身份（`ui` / `user`）是验收方，不能算 Agent；其余一律保守视为 Agent，
+ * 宁可让内部调用显式声明身份，也不放行一个来源不明的写入。
+ */
+export const AGENT_ACTORS = Object.freeze(['agent', 'agent-tool', 'agent_tool', 'ai'])
+export function isAgentActor(meta) {
+  const actor = meta?.actor
+  if (typeof actor !== 'string' || actor === '') return false
+  return AGENT_ACTORS.includes(actor)
+}
 
 /** 需要显式确认的危险操作。 */
 export const DANGEROUS_OPS = Object.freeze([
@@ -166,6 +186,31 @@ export function createWorkbenchService(options) {
   }
 
   /**
+   * **只看凭据本身是否可用**（不校验内容摘要、不消费凭证）。
+   *
+   * 给那些「摘要依赖内容、而内容要先确认目标存在」的 op 用（`proposal.apply`）：
+   * 校验必须分成两段，否则「要不要凭证」会取决于目标存不存在 —— 不带凭证
+   * 指向不存在的 id 会得到 not-found 而不是 confirmation-required，等于把
+   * 目标存在性送给未授权调用方（端到端探针 E6.1 实测踩到）。
+   *
+   * 复用 `verify` 的判定顺序（mode/missing/unknown/used/expired 都在指纹比对
+   * 之前），用哨兵摘要触发 mismatch 即说明凭据本身有效；mismatch **不消费**
+   * 凭证，所以后续正式校验仍能正常通过。
+   */
+  const EARLY_GATE_SENTINEL = '\u0000early-gate\u0000'
+  const assertTokenUsable = (op, target, meta) => {
+    if (!DANGEROUS_OPS.includes(op)) return
+    const check = gate.verify({ op, target, digest: EARLY_GATE_SENTINEL }, meta?.approvalToken)
+    if (check.ok === true) return
+    // mismatch = 凭据本身合法，只是摘要待定 → 放行到内容校验那一段
+    if (check.reason === 'fingerprint-mismatch') return
+    throw confirmationRequired(
+      `危险操作 ${op} 需要宿主审批凭证（原因：${check.reason}）；payload 里的 confirmed 不被采信`,
+      { op, reason: check.reason },
+    )
+  }
+
+  /**
    * 内容摘要：**由服务层自己算**，绝不信任调用方传进来的 digest。
    *
    * 早期实现让调用方传 `digest`（例如 `String(text.length)`）作为指纹的一部分，
@@ -232,13 +277,48 @@ export function createWorkbenchService(options) {
     return `sha:${createHash('sha256').update(fingerprint, 'utf8').digest('hex').slice(0, 24)}`
   }
 
-  /** 供调用方（UI 或 Agent 工具）先申请审批，再带 token 调用 execute。 */
+  /**
+   * **内容类 op 的指纹摘要——签发侧的单一推导**（供 UI/Agent 先申请审批、
+   * 用户确认后再带 token 调用 `execute`）。
+   *
+   * 两条签发路径（`requestApproval` 与用户确认 `confirmUserAction`）都必须
+   * 算出与执行侧**同一个**摘要，否则签发即失效。此前只有导入/快照绑摘要，
+   * 实体类恒为空：于是「删除 j1」的凭证能改写 j1（F1），确认了 1 条的提案
+   * 能被换成 50 条落地（F2）。这里统一收口，执行侧各 op 用同函数同入参。
+   *
+   * 返回 `undefined` 表示「这个 op 不绑内容」或「算不出内容」——后者会让
+   * 执行侧以 fingerprint-mismatch 拒绝，宁可不发也不发一张绑定不了内容的凭证。
+   */
+  const approvalDigestFor = (op, target, detail) => {
+    if (op === 'event.import' || op === 'snapshot.replace') {
+      // 与执行侧一致：摘要由**原文**算，不采信调用方自选的 digest
+      return typeof detail?.text === 'string' ? contentDigest(detail.text) : undefined
+    }
+    if (op === 'proposal.apply') {
+      if (typeof target !== 'string' || target === '') return undefined
+      /**
+       * 与执行侧**必须同源**：执行侧用 `readCollectionFresh(collabStore,'proposals')`
+       * 直接从盘上读（跨实例共享文件的正确读法），签发侧这里若用
+       * `collection()` 会命中本实例的**内存缓存** —— Agent 由另一个实例写入
+       * 提案后，用户侧签发读到的是过期快照，摘要对不上，跨工作区主路径
+       * 直接 fingerprint-mismatch（实测）。
+       */
+      const storeLike = collabStore ?? store
+      const row = readCollectionFresh(storeLike, 'proposals').find((p) => p.id === target)
+      return row === undefined ? undefined : proposalContentDigest(row)
+    }
+    if (op === 'task.upsert') {
+      // 签发时调用方必须带上**用户看到的那份 task**（含软删标记），
+      // 执行侧算的是实际提交的那份；两者同值才放行。
+      return detail?.task === undefined ? undefined : taskUpsertContentDigest(detail.task)
+    }
+    return undefined
+  }
+
   const requestApproval = async (op, detail = {}) => {
     if (!DANGEROUS_OPS.includes(op)) {
       return { approved: true, token: undefined, reason: 'op-not-requiring-approval' }
     }
-    // 内容类操作：摘要必须由内容本身算，调用方传入的 digest 不参与
-    const digest = typeof detail.text === 'string' ? contentDigest(detail.text) : detail.digest
     /**
      * bulkDelete 的 target 由 id 集合推导（JSON），与 execute 侧完全一致。
      * 调用方传 `ids` 即可，不必知道内部编码。
@@ -246,6 +326,11 @@ export function createWorkbenchService(options) {
     const target = op === 'event.bulkDelete' && Array.isArray(detail.ids)
       ? JSON.stringify([...detail.ids].map(String).sort())
       : detail.target
+    /**
+     * 内容类 op 的摘要必须由内容本身算 —— 与 `confirmUserAction` 走同一推导，
+     * 两条签发路径对同一个 op 必须得到同一个指纹。
+     */
+    const digest = approvalDigestFor(op, target, detail)
     return gate.request({
       op,
       target,
@@ -997,6 +1082,48 @@ export function createWorkbenchService(options) {
       }
       const existingTask = store.collection('tasks').find((row) => row.id === task.id)
       /**
+       * **Agent 不得自行置完成**（复审 F4）。
+       *
+       * 授权原文：「AI 可以申请任务完成，但必须由用户最终验收」「禁止 Agent
+       * 绕过审批自行…完成…任务」。工具面已经靠白名单丢弃 done/status/completion
+       * （`host-tools.js` 的 ALLOWED 不含它们），但**服务层仍是敞开的**：任何
+       * 拿到 service 的调用方都能直写 `done:true`，且审计只写 `task.update`，
+       * 事后分不清「用户勾选完成」和「调用方直接置完成」。
+       *
+       * 这里按 actor 收口：Agent 身份提交这三个字段一律拒。用户路径
+       * （UI 传 actor:'ui'）与既有测试（actor:'test'/'host-service'）不受影响 ——
+       * 用户本人就是验收方，它勾选完成是正常的。
+       */
+      if (isAgentActor(meta)) {
+        const forbidden = ['done', 'status', 'completion'].filter((k) => task[k] !== undefined)
+        if (forbidden.length > 0) {
+          throw validationError(
+            'Agent 不能直接设置完成态，请走 task.requestCompletion 申请、由用户验收',
+            { fields: forbidden },
+          )
+        }
+      }
+      /**
+       * **Agent 不得直接覆盖既有待办**（复审 F1 的可达路径）。
+       *
+       * 授权要求：「禁止 Agent 绕过审批自行删除、完成或批量覆盖任务」。
+       * 实测：Agent 通过 `workbench_task_upsert`（白名单含 title/priority/
+       * project）可以把用户既有任务的标题、优先级、项目整行改写 ——
+       * 无提案、无审批、无凭证，`task.upsert` 从不为此要 token。
+       *
+       * 语义划清：
+       *   - **新建**（id 不在库里）→ 放行。AI 创建待办是正常能力。
+       *   - **改既有行** → 必须走提案审批。`viaProposal` 由提案落地层显式
+       *     打标（用户已在预览里确认过内容），其余 agent 写入一律 fail closed。
+       *   - 用户自己（actor≠agent）编辑 → 放行，这是主人的权利。
+       */
+      if (isAgentActor(meta) && existingTask !== undefined && meta?.viaProposal !== true) {
+        throw confirmationRequired(
+          'Agent 不能直接覆盖既有待办，请走提案审批（plan.preview / proposal.apply）',
+          { id: task.id },
+        )
+      }
+      /**
        * **条件审批**（复审 MAJOR 修复 + 收口复审 NEW-2 修复）：
        *
        * 复审发现软删绕过审批门（`task.upsert` 从不调 requireConfirmation，
@@ -1017,7 +1144,20 @@ export function createWorkbenchService(options) {
         || (typeof task.deletedAt === 'string' && task.deletedAt !== '')
       const existingSoftDelete = existingTask !== undefined && isTaskDeleted(existingTask)
       if (declaredSoftDelete || existingSoftDelete) {
-        requireConfirmation('task.upsert', meta, { target: task.id })
+        /**
+         * **凭证必须绑内容**（复审 F1）。
+         *
+         * 原来只绑 `(op='task.upsert', target=id)`：用户确认的是「删除 j1」，
+         * 拿到的凭证却能提交任意 payload 把 j1 整行改写 —— 实测把标题/优先级/
+         * 项目全部换掉，凭证照过。指纹里没有内容，语义就没有约束力。
+         *
+         * 摘要与签发侧 `approvalDigestFor` 用**同一个函数**：签发算的是用户
+         * 看到的那份 task，这里算的是实际要写的那份，不同值即 mismatch。
+         */
+        requireConfirmation('task.upsert', meta, {
+          target: task.id,
+          digest: taskUpsertContentDigest(task),
+        })
       }
       store.mutate((draft) => {
         const index = draft.tasks.findIndex((row) => row.id === task.id)
@@ -1173,6 +1313,7 @@ export function createWorkbenchService(options) {
       store,
       now,
       requireConfirmation,
+      assertTokenUsable,
       validateTaskInput: (t) => {
         // 复用既有 task.upsert 的字段语义：这里只做结构校验，不写数据
         if (t === null || typeof t !== 'object' || Array.isArray(t)) {
@@ -1185,11 +1326,16 @@ export function createWorkbenchService(options) {
         return t
       },
       validateEventInput: (e) => validateEventInput(withDefaultZone(e)),
+      /**
+       * 提案落地：内容已由用户在前端预览里逐条确认过，因此打 `viaProposal`
+       * 标记，让 `task.upsert` 的「Agent 不得覆盖既有待办」守卫放行这一条
+       * 合法路径。标记只在**本层内部**注入，不接受外部调用方传入。
+       */
       createTask: (t, meta) => callOp('task.upsert', {
         task: { ...t, id: (options.idFactory ?? (() => randomUUID()))() },
-      }, meta),
+      }, { ...meta, viaProposal: true }),
       createEvent: (e, meta) => callOp('event.create', e, meta),
-      updateTask: (id, patch, meta) => callOp('task.upsert', { task: { ...patch, id } }, meta),
+      updateTask: (id, patch, meta) => callOp('task.upsert', { task: { ...patch, id } }, { ...meta, viaProposal: true }),
       idFactory: options.idFactory,
       collapseUndo: (depth, label, before, anchorId) => store.collapseUndo(depth, label, before, anchorId),
       collabStore,
@@ -1263,16 +1409,49 @@ export function createWorkbenchService(options) {
        * 实际用不了」。
        */
       /**
-       * 只有**内容类**操作才把 digest 绑进指纹。
+       * 哪些 op 的指纹要绑**内容**，以及内容从哪来（复审 F1/F2）。
        *
-       * 实体类操作（event.delete / task.archive …）绑的是 target，
-       * digest 恒为空 —— 调用方自选的 digest 必须被忽略，否则同一实体
-       * 换个 digest 就能签出第二张不一样的凭证，等于把绑定关系打散。
-       * WP4 已有测试锁死这条语义，不能因为修导入而放宽。
+       * 原实现只让导入/快照两类内容 op 绑摘要，实体类一律 digest:'' —— 于是
+       * 「删除 j1」的凭证能拿去整行改写 j1，确认了 1 条的提案能被换成 50 条。
+       * 这里把三类内容 op 的执行侧摘要函数**照抄**过来算：
+       *   - proposal.apply → proposalContentDigest(盘上那份提案)
+       *   - task.upsert    → taskUpsertContentDigest(这次要写的 task)
+       * 两边必须同函数同入参，否则签发即失效。
        */
-      const contentOp = op === 'event.import' || op === 'snapshot.replace'
-      const digest = contentOp && typeof detail?.text === 'string' ? contentDigest(detail.text) : undefined
-      return gate.issueForUserConfirm(op, target, { ...detail, digest })
+      /**
+       * 摘要推导与 `requestApproval` **共用同一个函数**（`approvalDigestFor`）：
+       * 两条签发路径对同一个 op 必须算出同一个指纹，否则一方签发的凭证
+       * 另一方用不了（F1/F2 的修法必须两边对称，单侧加摘要会立刻退化成
+       * fingerprint-mismatch）。
+       */
+      const digest = approvalDigestFor(op, target, detail)
+      const issued = gate.issueForUserConfirm(op, target, { ...detail, digest })
+      /**
+       * **签发落审计**（复审 F6）。
+       *
+       * 原实现只签发不记账：事后能追「谁执行了这个危险操作」，追不到
+       * 「谁在什么时候批准了它」。审批链缺了批准端就只是一半。
+       * 这里只追加一条审计（不碰业务数据），失败不影响签发结果 ——
+       * 记账是尽义务，不该把用户的删除操作卡成错误。
+       */
+      if (issued?.approved === true) {
+        try {
+          store.mutate((draft) => {
+            draft.audit.push({
+              id: (options.idFactory ?? (() => randomUUID()))(),
+              at: now().toISOString(),
+              action: 'approval.issue',
+              entity: 'approval',
+              entityId: String(target ?? ''),
+              actor: detail?.actor ?? 'user',
+              op,
+              digest: typeof digest === 'string' ? digest : '',
+            })
+            return draft
+          }, { intent: 'approval.issue', undo: false })
+        } catch { /* 记账失败不得阻断已完成的签发 */ }
+      }
+      return issued
     },
     defaultTimeZone,
     /**

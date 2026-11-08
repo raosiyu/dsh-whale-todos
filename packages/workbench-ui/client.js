@@ -2250,6 +2250,17 @@ function taskBucket(task, now) {
           //  - 日程删除 → op = event.delete
           //  - 待办软删 → op = task.upsert（真实在 DANGEROUS_OPS 里，且软删确实走它）
           const op = kind === 'task' ? 'task.upsert' : 'event.delete'
+          /**
+           * **先算出最终要写的 task，再凭它签发凭证**（复审 F1）。
+           *
+           * 凭证指纹现在绑 `taskUpsertContentDigest(task)`，签发端算的是
+           * 「用户确认时看到的那份内容」，执行端算的是「实际提交的那份」。
+           * 所以 `deletedAt` 必须在这里生成**一次**并复用：若签发前后各取
+           * 一次 `new Date()`，两侧摘要必然不同 → 凭证当场失效。
+           */
+          const taskPayload = kind === 'task'
+            ? { ...(tasks.find((x) => x.id === id) ?? { id }), deleted: true, deletedAt: new Date().toISOString() }
+            : undefined
           // summary 会进宿主审批弹窗，必须是用户看得懂的中文，不能拼英文
           const detail = { target: id, summary: t('deleteSummary').replace('{kind}', kind === 'task' ? t('kindTask') : t('kindEvent')) }
           /**
@@ -2262,7 +2273,11 @@ function taskBucket(task, now) {
            */
           const approval = await request({
             op: 'confirmUserAction',
-            payload: { approvalOp: op, ...detail },
+            payload: {
+              approvalOp: op,
+              ...detail,
+              ...(taskPayload !== undefined ? { task: taskPayload } : {}),
+            },
           })
           if (approval.ok !== true) {
             throw new Error(approval.error?.message ?? t('approvalNotGranted'))
@@ -2273,11 +2288,10 @@ function taskBucket(task, now) {
           }
           let r
           if (kind === 'task') {
-            // 变量名不能叫 t：本地化函数 t 在同一作用域，`t('…')` 会被这个局部变量吃掉
-            const target = tasks.find((x) => x.id === id) ?? { id }
+            // 复用签发时那一份：`deletedAt` 必须同值，否则摘要对不上（见上）
             r = await request({
               op: 'task.upsert',
-              payload: { task: { ...target, deleted: true, deletedAt: new Date().toISOString() } },
+              payload: { task: taskPayload },
               approvalToken: token,
             })
           } else {

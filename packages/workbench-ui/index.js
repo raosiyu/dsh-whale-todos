@@ -25,7 +25,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-import { createWorkbenchHostService } from '../../workbench-core/src/index.js'
+import { createWorkbenchHostService, DANGEROUS_OPS, validationError } from '../../workbench-core/src/index.js'
 import { createReminderSync } from '../../workbench-core/src/reminder-sync.js'
 
 export const name = 'workbench-ui'
@@ -327,11 +327,64 @@ export function apply(ctx, config = {}) {
       // ApprovalService 签发），绝不读 payload 里的 confirmed 布尔。
       if (op === 'requestApproval') {
         const target = payload.target ?? payload.id ?? ''
+        /**
+         * **申请者身份只能取自 invocation**（复审 F3/F7）。
+         *
+         * 原实现第 4 参写的是 `agent ?? invocation.agent`，而 `agent` 是从
+         * **调用方 JSON** 解出来的（见本函数顶部）—— 任何能提交命令的一方
+         * 都能自称别的会话，宿主审批弹窗会把申请者显示成被冒充者（实测
+         * 通过）。归属数据用的 `sessionId` 取自 `invocation.agent.session.id`
+         * 不可伪造，唯独这个身份可伪造，等于「谁在申请」这一栏失去意义。
+         *
+         * 同时收口 op 与 summary：原实现把 `payload.approvalOp ?? payload.op`
+         * 与 `payload.summary` 直接下发，弹窗文案可被申请方自由改写（实测
+         * reason 被换成任意字符串）。op 必须落在 DANGEROUS_OPS 内，summary
+         * 由本层按 op 生成，不接受调用方文案。
+         */
+        const requestedOp = payload.approvalOp ?? payload.op ?? 'event.delete'
+        if (!DANGEROUS_OPS.includes(requestedOp)) {
+          throw validationError(`审批 op 不在危险操作清单内：${requestedOp}`, { op: requestedOp })
+        }
+        /**
+         * **内容字段必须原样透传**，否则签发端算不出指纹（复审 F1/F2）。
+         *
+         * 凭证绑的是「内容摘要」，签发端要靠这份 detail 算出来：
+         *   - `task`  → task.upsert（软删载荷，含 deleted/deletedAt）
+         *   - `text`  → event.import / snapshot.replace（原文摘要）
+         *   - `ids`   → event.bulkDelete（target 由集合推导）
+         * `summary` 不接受调用方文案（F7），由本层按 op 生成；
+         * `digest` 也**不从 payload 取** —— 摘要只能由内容推导，不能让申请方自选。
+         */
+        const contentDetail = {}
+        for (const key of ['task', 'text', 'ids']) {
+          if (payload[key] !== undefined) contentDetail[key] = payload[key]
+        }
+        /**
+         * 弹窗文案由**本层生成**，既不采信调用方文案（F7），也**不能用英文模板**：
+         * 用户界面的删除流程本已给出中文摘要（`client.js` 的 deleteSummary），
+         * 早先这里用 `Confirm ${op} ${target}` 覆盖，等于把中文弹窗改成了英文。
+         * 按 op 给固定中文，未知 op 回落成 op 名本身（不带英文动词）。
+         */
+        const SUMMARY_BY_OP = {
+          'event.delete': `删除日程 ${target}`,
+          'event.bulkDelete': `删除 ${Array.isArray(payload.ids) ? payload.ids.length : 0} 条日程`,
+          // task.upsert 既用于软删也用于改既有行：按载荷给准确措辞，
+          // 一律写「删除待办」会在修改场景骗用户（软删标记才是删除）
+          'task.upsert': payload.task?.deleted === true || payload.task?.deletedAt !== undefined
+            ? `删除待办 ${target}`
+            : `修改待办 ${target}`,
+          'event.import': '导入日程',
+          'snapshot.replace': '覆盖全部数据',
+          'proposal.apply': '应用 AI 提案',
+          'history.undo': '撤销上一步',
+          'history.redo': '重做上一步',
+        }
+        const summary = SUMMARY_BY_OP[requestedOp] ?? `确认危险操作 ${requestedOp}`
         const approval = await service.askApproval(
           sessionId,
-          payload.approvalOp ?? payload.op ?? 'event.delete',
-          { target, summary: payload.summary ?? `Delete ${target}` },
-          agent ?? invocation.agent,
+          requestedOp,
+          { target, summary, ...contentDetail },
+          invocation.agent,
         )
         return encodeResult({ ok: approval.approved === true, value: approval, op })
       }

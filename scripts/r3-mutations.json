@@ -290,8 +290,8 @@
     "id": "W6",
     "name": "WP4：软删待办不需审批（删除绕过审批门）",
     "file": "workbench-core/src/service.js",
-    "from": "      if (declaredSoftDelete || existingSoftDelete) {\n        requireConfirmation('task.upsert', meta, { target: task.id })\n      }",
-    "to": ""
+    "from": "      if (declaredSoftDelete || existingSoftDelete) {",
+    "to": "      if (false) {"
   },
   {
     "id": "W7",
@@ -546,8 +546,8 @@
   {
     "name": "core：内容类签发不绑 digest（B1 指纹恒不匹配）",
     "file": "workbench-core/src/service.js",
-    "from": "      const contentOp = op === 'event.import' || op === 'snapshot.replace'\n      const digest = contentOp && typeof detail?.text === 'string' ? contentDigest(detail.text) : undefined",
-    "to": "      const digest = undefined"
+    "from": "    const digest = approvalDigestFor(op, target, detail)\n    return gate.request({",
+    "to": "    const digest = undefined\n    return gate.request({"
   },
   {
     "id": "W35",
@@ -713,8 +713,8 @@
   {
     "name": "W58",
     "file": "packages/workbench-ui/client.js",
-    "from": "const target = tasks.find((x) => x.id === id) ?? { id }",
-    "to": "const t = tasks.find((x) => x.id === id) ?? { id }",
+    "from": "          const taskPayload = kind === 'task'",
+    "to": "          const t = kind === 'task'",
     "desc": "ui：删除路径用 t 作局部变量，遮蔽翻译函数 → 同作用域 t(…) 全部 TypeError"
   },
   {
@@ -980,8 +980,8 @@
     "id": "WP6A4",
     "name": "wp6-a：proposal.apply 不需要审批 token",
     "file": "workbench-core/src/proposal-ops.js",
-    "from": "      requireConfirmation('proposal.apply', meta, { target: payload?.id })",
-    "to": "      if (false) requireConfirmation('proposal.apply', meta, { target: payload?.id })"
+    "from": "      requireConfirmation('proposal.apply', meta, {\n        target: id,\n        digest: proposalContentDigest(row),\n      })",
+    "to": "      if (false) requireConfirmation('proposal.apply', meta, {\n        target: id,\n        digest: proposalContentDigest(row),\n      })"
   },
   {
     "id": "WP6A5",
