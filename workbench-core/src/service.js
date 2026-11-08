@@ -82,7 +82,7 @@ export const WRITE_OPS = Object.freeze([
   // WP5 新增的写操作
   'event.move', 'task.reorder', 'task.archive',
   // WP6 新增的写操作（只读的 proposal.list/get、task.bySession 不进）
-  'proposal.preview', 'proposal.reject', 'proposal.apply',
+  'plan.suggest', 'proposal.preview', 'proposal.reject', 'proposal.apply',
   'task.setEstimate', 'task.linkSession', 'task.unlinkSession',
   'task.writeProgress', 'task.requestCompletion',
   'task.acceptCompletion', 'task.rejectCompletion',
@@ -1181,6 +1181,19 @@ export function createWorkbenchService(options) {
       updateTask: (id, patch, meta) => callOp('task.upsert', { task: { ...patch, id } }, meta),
       idFactory: options.idFactory,
       collapseUndo: (depth, label, before) => store.collapseUndo(depth, label, before),
+      // WP6-B：规划引擎只复用 service 的真实查询，不自己造一份真相源
+      listTasks: () => store.collection('tasks'),
+      listConflicts: (ws, we, allDayBlocks) => ops['event.conflicts']({
+        windowStart: ws, windowEnd: we, allDayBlocks,
+      }),
+      listFreeSlots: (ws, we, minSlotMs, bufferMs, allDayBlocks) => {
+        // event.freeSlots 真实返回 {free:[{startMs,endMs}], busy:[]}，不是数组。
+        // 不取 .free 的话规划引擎恒拿到空数组 → 排期永远为空（实测假绿）。
+        const r = ops['event.freeSlots']({
+          windowStart: ws, windowEnd: we, minSlotMs, bufferMs, allDayBlocks,
+        })
+        return Array.isArray(r?.free) ? r.free : []
+      },
     }),
   }
 

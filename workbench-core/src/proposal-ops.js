@@ -26,6 +26,7 @@ import {
   ProposalValidationError,
   buildProposalItem,
 } from './proposal.js'
+import { buildPlanSuggestion, assertPlanItemsSafe } from './planning.js'
 
 /** 把 proposal.js 的校验错误转成 service 的稳定错误码。 */
 function asServiceError(error) {
@@ -92,6 +93,61 @@ export function createProposalOps(ctx) {
    * 注意：提案本身写进 `proposals` 集合，但那不是业务数据；undo 栈不受影响。
    */
   const ops = {
+    /**
+     * WP6-B：智能规划（只读业务数据 → 生成 pending 提案）。
+     *
+     * 复用 service 的真实查询作为唯一真相源：
+     *   task.list / event.freeSlots / event.conflicts
+     * 规划引擎只做确定性计算，产出 items 后交给 proposal.preview 存提案。
+     * **events/tasks 全程零变化**。
+     */
+    'plan.suggest': (payload, meta) => {
+      const windowStart = Number(payload?.windowStart)
+      const windowEnd = Number(payload?.windowEnd)
+      if (!Number.isFinite(windowStart) || !Number.isFinite(windowEnd) || windowEnd <= windowStart) {
+        throw validationError('windowStart/windowEnd 必须是有效时间窗（毫秒）')
+      }
+      // 真实数据：只读查询，不自己造一份
+      const taskRows = ctx.listTasks ? ctx.listTasks() : []
+      const conflicts = ctx.listConflicts
+        ? ctx.listConflicts(windowStart, windowEnd, payload?.allDayBlocks === true)
+        : []
+      const freeSlots = ctx.listFreeSlots
+        ? ctx.listFreeSlots(windowStart, windowEnd, payload?.minSlotMs, payload?.bufferMs,
+          payload?.allDayBlocks === true)
+        : []
+      let suggestion
+      try {
+        suggestion = buildPlanSuggestion({
+          goal: payload?.goal,
+          taskIds: payload?.taskIds,
+          targetTitles: payload?.targetTitles,
+          windowStart,
+          windowEnd,
+          capacityMinutesPerDay: payload?.capacityMinutesPerDay,
+          tasks: taskRows,
+          freeSlots,
+          conflicts,
+          now,
+        })
+        assertPlanItemsSafe(suggestion.items)
+      } catch (error) {
+        if (error instanceof TypeError) {
+          throw validationError(error.message)
+        }
+        throw error
+      }
+      // 交给 preview 落提案（同一条链路，**只调一次**，不重复建提案）
+      const preview = ops['proposal.preview']({
+        kind: payload?.kind ?? 'plan',
+        sourceText: payload?.goal,
+        reasoning: suggestion.reasoning,
+        items: suggestion.items,
+        conflicts: suggestion.conflicts,
+      }, meta)
+      return { ...preview, stats: suggestion.stats }
+    },
+
     'proposal.preview': (payload, meta) => {
       const b = binding(meta)
       let proposal

@@ -62,7 +62,7 @@ test('WP3：工具定义齐全且每个都有 name/description/parameters/output
       'workbench_task_list', 'workbench_task_reorder', 'workbench_task_upsert',
       'workbench_undo',
       // WP6
-      'workbench_plan_preview', 'workbench_plan_list', 'workbench_plan_get',
+      'workbench_plan_suggest', 'workbench_plan_preview', 'workbench_plan_list', 'workbench_plan_get',
       'workbench_plan_reject', 'workbench_task_estimate',
       'workbench_task_link_session', 'workbench_task_by_session',
       'workbench_task_progress', 'workbench_request_completion',
@@ -161,8 +161,8 @@ test('WP3：applyWorkbenchTools 注册全部工具并返回精确 disposer', asy
     // 用「与真 defineTool 同形」的注入函数（本测试不 import DSH 包）
     const defineTool = (d) => ({ ...d, __wrapped: true })
     const disposers = applyWorkbenchTools(ctx, { defineTool, service: mkService(dir) })
-    assert.equal(registered.length, 25, '16 既有 + 9 WP6 工具')
-    assert.equal(disposers.length, 25)
+    assert.equal(registered.length, 26, '16 既有 + 10 WP6 工具')
+    assert.equal(disposers.length, 26)
     for (const dispose of disposers) dispose()
     assert.equal(registered.length, 0, 'disposer 必须精确反注册')
   })
@@ -259,7 +259,7 @@ test('WP3：workbench_help 列出工具与参数，供自然语言映射', async
     const out = await help.execute({}, execFor('s1'))
     assert.equal(out.ok, true)
     assert.equal(Array.isArray(out.result.tools), true)
-    assert.equal(out.result.tools.length, 25, '16 既有 + 9 WP6 工具都应在 help 中')
+    assert.equal(out.result.tools.length, 26, '16 既有 + 10 WP6 工具都应在 help 中')
     // 不泄露 sessionId 原文
     assert.equal(JSON.stringify(out).includes('s1'), false)
   })

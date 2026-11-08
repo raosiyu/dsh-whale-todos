@@ -165,3 +165,18 @@ export {
 } from './proposal.js'
 
 export { createProposalOps } from './proposal-ops.js'
+
+/**
+ * WP6-B：确定性智能规划引擎（纯函数，复用真实 freeSlots/conflicts）。
+ */
+export {
+  DEFAULT_DAILY_CAPACITY,
+  PRIORITY_WEIGHT,
+  MAX_SCHEDULE_ITEMS,
+  buildPlanSuggestion,
+  normalizeTitles,
+  inferPriority,
+  rankTasks,
+  scheduleIntoSlots,
+  assertPlanItemsSafe,
+} from './planning.js'

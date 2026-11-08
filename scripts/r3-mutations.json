@@ -1008,7 +1008,56 @@
     "id": "WP6A8",
     "name": "wp6-a：新写 op 不进 WRITE_OPS（deny 模式漏拦）",
     "file": "workbench-core/src/service.js",
-    "from": "  'proposal.preview', 'proposal.reject', 'proposal.apply',",
+    "from": "  'plan.suggest', 'proposal.preview', 'proposal.reject', 'proposal.apply',",
     "to": "  // 变异：故意漏登记 WP6 写 op"
+  },
+  {
+    "id": "WP6B1",
+    "name": "wp6-b：plan.suggest 绕过提案两阶段直接写 task",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      // 交给 preview 落提案（同一条链路，**只调一次**，不重复建提案）",
+    "to": "      // 变异：绕过提案，直接落地一条任务\n      if (typeof ctx.createTask === 'function') ctx.createTask({ title: '越权直写' }, meta)\n      // 交给 preview 落提案（同一条链路，**只调一次**，不重复建提案）"
+  },
+  {
+    "id": "WP6B2",
+    "name": "wp6-b：assertPlanItemsSafe 放行危险 op",
+    "file": "workbench-core/src/planning.js",
+    "from": "    if (!PROPOSAL_ALLOWED_OPS.includes(item?.op)) {",
+    "to": "    if (false) {"
+  },
+  {
+    "id": "WP6B3",
+    "name": "wp6-b：rankTasks 不按优先级排序（规划退化）",
+    "file": "workbench-core/src/planning.js",
+    "from": "      const p = (PRIORITY_WEIGHT[a.priority] ?? 1) - (PRIORITY_WEIGHT[b.priority] ?? 1)\n      if (p !== 0) return p",
+    "to": "      const p = 0\n      if (p !== 0) return p"
+  },
+  {
+    "id": "WP6B4",
+    "name": "wp6-b：scheduleIntoSlots 不检查每日容量（安排过满）",
+    "file": "workbench-core/src/planning.js",
+    "from": "      if (usedMinutes + minutes > capacity) continue // 容量满了，不再排",
+    "to": "      if (false) continue // 变异：不检查容量"
+  },
+  {
+    "id": "WP6B5",
+    "name": "wp6-b：service 把 freeSlots 对象当数组传（排期恒空）",
+    "file": "workbench-core/src/service.js",
+    "from": "        return Array.isArray(r?.free) ? r.free : []",
+    "to": "        return r"
+  },
+  {
+    "id": "WP6B6",
+    "name": "wp6-b：plan.suggest 不校验时间窗（改由 freeSlots 兜底，错误消息不同）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      if (!Number.isFinite(windowStart) || !Number.isFinite(windowEnd) || windowEnd <= windowStart) {",
+    "to": "      if (false) {"
+  },
+  {
+    "id": "WP6B7",
+    "name": "wp6-b：plan.suggest 复用 proposal.preview 时调两次（重复建提案）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      return { ...preview, stats: suggestion.stats }",
+    "to": "      ops['proposal.preview']({ kind: payload?.kind ?? 'plan', sourceText: payload?.goal, reasoning: suggestion.reasoning, items: suggestion.items, conflicts: suggestion.conflicts }, meta)\n      return { ...preview, stats: suggestion.stats }"
   }
 ]

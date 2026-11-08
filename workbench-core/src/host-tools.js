@@ -393,6 +393,30 @@ export function createWorkbenchToolDefinitions(deps = {}) {
     // delete / bulk / replace）**不注册为 AI 工具**，只能由 UI 在用户确认后
     // 经 commands 通道带审批 token 调用。
     simpleTool({
+      name: 'workbench_plan_suggest',
+      description: 'Deterministic AI planning: given a natural-language goal, a time window, and optional tasks/subtask titles, produce a structured planning PROPOSAL using REAL todo/calendar data (priority, due dates, estimated minutes, free slots, conflicts). READ-ONLY toward business data — only a pending proposal is created; nothing lands in events/tasks until the user confirms in the UI with a Host approval token. Returns decomposition, suggested schedule, conflicts, reasons and capacity stats. Use this for daily/weekly plans, task decomposition and overload detection; clarify ambiguous dates/times/targets with the user before calling.',
+      parameters: {
+        goal: { type: 'string', required: true, description: 'User natural-language goal or meeting notes (untrusted).' },
+        windowStart: { type: 'number', required: true, description: 'Planning window start, epoch milliseconds.' },
+        windowEnd: { type: 'number', required: true, description: 'Planning window end, epoch milliseconds.' },
+        taskIds: { type: 'array', description: 'Existing todo ids to include in this plan.' },
+        targetTitles: { type: 'array', description: 'Subtask titles to decompose into (from chat/notes).' },
+        capacityMinutesPerDay: { type: 'number', description: 'Daily capacity 1..1440 (default 480).' },
+        minSlotMs: { type: 'number', description: 'Min free-slot length for scheduling.' },
+        bufferMs: { type: 'number', description: 'Buffer between scheduled blocks.' },
+        allDayBlocks: { type: 'boolean', description: 'Treat all-day events as blocking.' },
+        kind: { type: 'string', description: 'plan | decompose | schedule | mixed.' },
+      },
+      op: 'plan.suggest',
+      payload: (args) => ({
+        goal: args.goal, windowStart: args.windowStart, windowEnd: args.windowEnd,
+        taskIds: args.taskIds, targetTitles: args.targetTitles,
+        capacityMinutesPerDay: args.capacityMinutesPerDay,
+        minSlotMs: args.minSlotMs, bufferMs: args.bufferMs,
+        allDayBlocks: args.allDayBlocks, kind: args.kind,
+      }),
+    }),
+    simpleTool({
       name: 'workbench_plan_preview',
       description: 'Generate an AI planning proposal from a natural-language goal. READ-ONLY toward business data: it only creates a pending proposal (tasks/subtasks/suggested schedule/conflicts/reasons). Nothing is written to events or tasks until the user confirms via the UI with a Host approval token. Use this to decompose complex goals, estimate priority/due dates, and suggest a daily/weekly plan.',
       parameters: {
