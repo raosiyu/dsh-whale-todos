@@ -1,0 +1,12 @@
+  PASS 目标被改动后 apply 被拒
+  PASS 被拒后目标保持用户改动
+  PASS 拒绝后任务集完全不变
+  PASS 已拒绝的提案不能再 apply
+  PASS 已拒绝提案的条目未落地
+  PASS apply 后条目存在
+  PASS history.status 显示可撤销
+  PASS undo 后提案条目消失
+  PASS undo 未连带删掉更早的用户任务
+  PASS 空摘要被硬拒绝
+
+绑定/拒绝/undo: PASS=10 FAIL=0

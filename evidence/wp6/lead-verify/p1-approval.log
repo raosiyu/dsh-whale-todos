@@ -1,0 +1,10 @@
+  PASS (a) 无 token 被拒
+  PASS (b) confirmed:true 不被采信
+  PASS (c) 伪造 token 被拒
+  PASS   token 正常签发
+  PASS   token 首次可用
+  PASS (d) token 复用被拒
+    (e) 跨会话 token 结果: REJECT: 危险操作 proposal.apply 需要宿主审批凭证（原因：unknown-token）；payload 里的 confirmed 不被采信
+  PASS (f) token 换目标提案被拒
+
+审批面: PASS=7 FAIL=0

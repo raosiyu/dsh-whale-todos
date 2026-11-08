@@ -1,0 +1,14 @@
+  已注册工具数: 27
+  PASS 工具面不含 workbench_event_delete
+  PASS 工具面不含 workbench_snapshot_replace
+  PASS 工具面不含 workbench_store_rollback
+  PASS 工具面不含 workbench_proposal_apply
+  PASS upsert schema 无 done/status/completion
+  PASS AI 强塞完成字段被白名单丢弃
+  PASS writeProgress 传 100 被拒
+  PASS requestCompletion 返回 done=false
+  PASS 申请后用户侧任务仍未完成
+  PASS 用户验收后任务才 done
+  PASS 完成记录标记为用户验收
+
+完成语义: PASS=11 FAIL=0
