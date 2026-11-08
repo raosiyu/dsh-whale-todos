@@ -401,6 +401,50 @@ export function createProposalOps(ctx) {
       return { id, removed }
     },
 
+    /**
+     * WP6-C：Agent 在自己的会话里读取**授权范围内**的任务上下文。
+     *
+     * 权限红线：`payload.sessionId` 必须等于 invoke 注入的 `meta.sessionId`，
+     * 否则拒绝 —— 不允许 Agent 传别人的 sessionId 越权读上下文。
+     * 返回的任务是「该会话所关联」的那些，且只投影必要字段，
+     * 不返回 sessionLinks 里其他会话的明细。
+     */
+    'task.context': (payload, meta) => {
+      const b = binding(meta)
+      const requested = payload?.sessionId
+      if (typeof requested !== 'string' || requested === '') {
+        throw validationError('sessionId 必须是非空字符串')
+      }
+      if (requested !== b.sessionId) {
+        throw conflictError('不得读取其他会话的任务上下文', { requested })
+      }
+      const rows = tasks().filter((t) => Array.isArray(t.sessionLinks)
+        && t.sessionLinks.some((l) => l.sessionId === b.sessionId))
+      const projected = rows.map((t) => {
+        const log = Array.isArray(t.executionLog) ? t.executionLog : []
+        return {
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          dueAt: t.dueAt,
+          estimatedMinutes: t.estimatedMinutes,
+          done: t.done === true,
+          completion: t.completion?.status ?? null,
+          progress: log.length > 0 ? log[log.length - 1].progress : 0,
+          recentLog: log.slice(-5).map((e) => ({
+            at: e.at, progress: e.progress,
+            note: String(e.note ?? '').slice(0, 200),
+            evidence: String(e.evidence ?? '').slice(0, 200),
+          })),
+          roles: t.sessionLinks
+            .filter((l) => l.sessionId === b.sessionId)
+            .map((l) => l.role),
+        }
+      })
+      return { sessionId: '[self]', tasks: projected }
+    },
+
     /** 反查：某会话关联了哪些任务（只列本调用方可见的 task）。 */
     'task.bySession': (payload, meta) => {
       const sessionId = payload?.sessionId

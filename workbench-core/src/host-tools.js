@@ -483,6 +483,15 @@ export function createWorkbenchToolDefinitions(deps = {}) {
       payload: (args) => ({ sessionId: args.sessionId }),
     }),
     simpleTool({
+      name: 'workbench_task_context',
+      description: 'Read the task context authorized to MY OWN Agent session. Pass your own sessionId; the Host verifies it against the calling Agent session and rejects cross-session reads. Returns linked todos with progress, completion status and recent execution log — this is how an Agent picks up the work it is associated with. Cannot read another session tasks.',
+      parameters: {
+        sessionId: { type: 'string', required: true, description: 'Your own DSH session id (verified against the calling Agent).' },
+      },
+      op: 'task.context',
+      payload: (args) => ({ sessionId: args.sessionId }),
+    }),
+    simpleTool({
       name: 'workbench_task_progress',
       description: 'Write an execution progress entry (0..99) and optional note/evidence. NEVER marks a todo done: 100 is not progress, completion requires the user acceptance flow. AI cannot complete, delete, or bulk-overwrite tasks.',
       parameters: {

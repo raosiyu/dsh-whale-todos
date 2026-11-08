@@ -1059,5 +1059,47 @@
     "file": "workbench-core/src/proposal-ops.js",
     "from": "      return { ...preview, stats: suggestion.stats }",
     "to": "      ops['proposal.preview']({ kind: payload?.kind ?? 'plan', sourceText: payload?.goal, reasoning: suggestion.reasoning, items: suggestion.items, conflicts: suggestion.conflicts }, meta)\n      return { ...preview, stats: suggestion.stats }"
+  },
+  {
+    "id": "WP6C1",
+    "name": "wp6-c：task.context 不校验请求 sessionId 与调用方一致（跨会话越权读）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      if (requested !== b.sessionId) {\n        throw conflictError('不得读取其他会话的任务上下文', { requested })\n      }",
+    "to": "      if (false) {\n        throw conflictError('不得读取其他会话的任务上下文', { requested })\n      }"
+  },
+  {
+    "id": "WP6C2",
+    "name": "wp6-c：task.context 返回完整 task（泄露其他会话关联明细）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      const projected = rows.map((t) => {",
+    "to": "      const projected = rows.map((t) => t);\n      if (false) rows.map((t) => {"
+  },
+  {
+    "id": "WP6C3",
+    "name": "wp6-c：requestCompletion 直接置 done（AI 自行完成）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "        if (row !== undefined) row.completion = request\n        draft.audit.push(audit('task.requestCompletion', id, meta, { status: 'pending' }))",
+    "to": "        if (row !== undefined) { row.completion = request; row.done = true }\n        draft.audit.push(audit('task.requestCompletion', id, meta, { status: 'pending' }))"
+  },
+  {
+    "id": "WP6C4",
+    "name": "wp6-c：checkProgress 允许 100",
+    "file": "workbench-core/src/proposal.js",
+    "from": "  if (value < 0 || value > 99) {",
+    "to": "  if (value < 0 || value > 100) {"
+  },
+  {
+    "id": "WP6C5",
+    "name": "wp6-c：acceptCompletion 不需要 pending 验收申请（可凭空完成）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      if (row.completion?.status !== 'pending') {\n        throw conflictError('没有待验收的完成申请', { status: row.completion?.status ?? 'none' })\n      }",
+    "to": "      if (false) {\n        throw conflictError('没有待验收的完成申请', { status: row.completion?.status ?? 'none' })\n      }"
+  },
+  {
+    "id": "WP6C6",
+    "name": "wp6-c：task.context 返回 sessionId 原文（隐私）",
+    "file": "workbench-core/src/proposal-ops.js",
+    "from": "      return { sessionId: '[self]', tasks: projected }",
+    "to": "      return { sessionId: b.sessionId, tasks: projected }"
   }
 ]

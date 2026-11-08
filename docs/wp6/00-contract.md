@@ -211,3 +211,32 @@ VoiceOver、原生拖拽、清理历史 v1 提醒记录、修改正式 profile /
 
 真实 macOS 睡眠、系统通知横幅、VoiceOver、拖拽排序、原生文件选择器、
 窄屏视觉、重启后未被打开的老会话。
+
+## 7. WP6-C 补充：会话协作的真实边界（一手核实）
+
+### 7.1 「从任务详情进入 Agent 会话」的契约结论
+
+查 `app.asar` 一手源码：
+- `dsh-client-ui-session` 的 `uiSession` controller 只暴露
+  `bindingSource` / `whenAccess` / `provide`，**没有会话跳转/激活方法**；
+- `dsh-schedule/lib/index.js:1955` 明确「management reads and writes
+  never activate a Session, and only delivery creates or resumes one」；
+- GUI 会话切换属于 Web shell 路由层（`window.__DSH_BOOT__`），插件层
+  **没有可靠的一手契约**，不得自造 `openSession` 之类假接口。
+
+因此 WP6-C 的「进入会话」落地为**插件层可可靠实现**的形态：
+- 任务详情展示关联的 `sessionId`（可复制、可作为会话标识）；
+- Agent 在自己的会话里通过 `task.bySession` / `task.context` 读到
+  **授权范围内**的任务上下文（这是真正的协作起点）；
+- 进度回写、执行证据、验收申请全部留在任务上，跨会话可追溯；
+- **不**宣称「点击按钮切换到那个 GUI 会话」（无契约，保持 UNVERIFIED）。
+
+### 7.2 `task.context` 只读投影（WP6-C 新增）
+
+输入 `{sessionId}`（必须是调用方自己的 sessionId，由 invoke 注入的
+meta.sessionId 校验，不从 payload 信任），返回：
+- 该会话关联的任务（id/title/status/priority/dueAt/estimatedMinutes/progress/completion）
+- 每条任务的执行记录摘要（最近 N 条）
+- **不**返回别的会话关联的任务、`sessionLinks` 里其他 sessionId 的明细
+
+权限：`payload.sessionId !== meta.sessionId` 一律拒绝（防跨会话越权读）。
