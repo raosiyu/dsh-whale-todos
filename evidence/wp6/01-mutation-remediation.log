@@ -1,0 +1,186 @@
+=== 变异验证（删保护代码，测试应失败）===
+变异定义：176 项（scripts/r3-mutations.json）
+
+CAUGHT M1 catalog 改为只读 active（退化为 list 语义）  → pass 519 fail 2
+CAUGHT M2 reconcile 恢复删除 inactive（缺陷回归）  → pass 520 fail 1
+CAUGHT M3 host create 退回单参（丢掉 sessionId 参数）  → pass 490 fail 31
+CAUGHT M4 catalog 失败时静默当空（不降级）  → pass 519 fail 2
+CAUGHT M5 恢复层不传 scope  → pass 519 fail 2
+CAUGHT M6 已投递判定失效（无视 history）  → pass 518 fail 3
+CAUGHT M7 UNKNOWN 也去重建（不保守）  → pass 514 fail 7
+CAUGHT M8 审批门放行（不校验 token）  → pass 491 fail 30
+CAUGHT M9 service 重新暴露 store 写方法  → pass 518 fail 3
+CAUGHT M10 bulkDelete target 退回逗号拼接  → pass 518 fail 3
+CAUGHT M11 hostMap 不持久化（只写内存）  → pass 514 fail 7
+CAUGHT M12 hostMap 允许 hostId 重复  → pass 520 fail 1
+CAUGHT M13 损坏映射静默重建为空  → pass 520 fail 1
+CAUGHT M14 compileReminder 不再滤过期  → pass 519 fail 2
+CAUGHT M15 hostMap 不裁剪（无界增长）  → pass 512 fail 9
+CAUGHT M16 prune 按错误方向裁剪（保留最旧）  → pass 520 fail 1
+CAUGHT X6 degraded 时 upsert 仍强行 create（不检查宿主状态）  → pass 520 fail 1
+CAUGHT X11 UNKNOWN 纳入 future  → pass 514 fail 7
+CAUGHT X12 删除失败不计入 failed  → pass 520 fail 1
+CAUGHT X13 回执裁剪判 not-delivered（N-02 回归）  → pass 517 fail 4
+CAUGHT X14 hostMap 保留上限失效  → pass 515 fail 6
+CAUGHT X15 N-05 deny 模式不拦  → pass 518 fail 3
+CAUGHT X16 N-03 unmapped 不报告（回到静默 continue）  → pass 520 fail 1
+CAUGHT X17 N-04 create 失败抛穿（中断整轮）  → pass 520 fail 1
+CAUGHT X18 scope 退回前缀匹配（M3' 原样回归）  → pass 519 fail 2
+CAUGHT X19 N-17 回归：reconcile 忽略 protect 集合（UNKNOWN 提醒被删掉）  → pass 517 fail 4
+CAUGHT X20 N-17 回归：recover 不把 UNKNOWN 传给 protect  → pass 518 fail 3
+CAUGHT X21 身份反查完全失效（裁剪后认不出宿主行 → 重复创建）  → pass 517 fail 4
+CAUGHT X22 裁剪不生效（条目数无上限）  → pass 515 fail 6
+CAUGHT X23 history 非法形状不再判不可用（P2 缺陷回归）  → pass 520 fail 1
+CAUGHT X24 catalog 不用身份索引（认不出宿主行 → 重复创建）  → pass 510 fail 11
+CAUGHT X25 N-02 判据反转：earlier=true 也判 NOT_DELIVERED（会二次投递）  → pass 517 fail 4
+CAUGHT X26 去掉同 key 创建锁（并发重复投递回归）  → pass 520 fail 1
+CAUGHT X27 不识别宿主 status 形状（unknown 被判未投递 → 二次投递）  → pass 520 fail 1
+CAUGHT X28 B-1 回归：remove 只查 entries（墓碑删不掉 → 幽灵提醒）  → pass 519 fail 2
+CAUGHT X29 B-1 回归：describe 不读 indexMeta（墓碑 scope 丢失，带 scope 对账跳过）  → pass 520 fail 1
+CAUGHT W1 WP4：callHost 退回扁平解码（真信封下静默空列表）  → pass 510 fail 11
+CAUGHT W2 WP4：approval.request 丢 receiver（真审批永不签发 token）  → pass 520 fail 1
+CAUGHT W3 WP4：初始 sessionId 不从 sessions store 取（UI 拿不到会话）  → pass 520 fail 1
+CAUGHT W4 WP4/WP5：软删判定恒假（已删待办回到列表，删除对用户无效）  → pass 518 fail 3
+CAUGHT W5 WP4：service task.list 不过滤已删除（删除后仍可见）  → pass 517 fail 4
+CAUGHT W6 WP4：软删待办不需审批（删除绕过审批门）  → pass 517 fail 4
+CAUGHT W7 WP4：TaskForm 编辑丢字段（subtasks/sourceSessionId 消失）  → pass 520 fail 1
+CAUGHT W8 WP4：UI 文案退回硬编码英文（中文用户看不到翻译）  → pass 520 fail 1
+CAUGHT W9 WP4：t 退回 WorkbenchPage 内部（三个弹窗渲染即崩 → 整页白屏）  → pass 519 fail 2
+CAUGHT W10 WP4：三个弹窗组件不渲染（主路径静默消失）  → pass 519 fail 2
+CAUGHT W11 WP4：event.restore 不校验凭证（审批旁路 → 已删事件被悄悄恢复）  → pass 519 fail 2
+CAUGHT W12 WP4：ConfirmDelete 不传 t（中文界面确认弹窗变英文）  → pass 520 fail 1
+CAUGHT W13 WP4：用户确认凭证的指纹并入调用方 digest（内容类操作必失效）  → pass 509 fail 12
+CAUGHT W14 WP4：task.upsert 整行替换（AI 工具更新既有待办 → 字段被抹掉）  → pass 519 fail 2
+CAUGHT W15 WP4：软删审批不判库中既有行（无凭证复活已删待办）  → pass 520 fail 1
+CAUGHT W16 WP4：AI 工具 task.list 不透传 includeDeleted（AI 看不到已删待办）  → pass 520 fail 1
+CAUGHT W17 WP4：AI 工具 event.update 不带 patch（编辑不生效）  → pass 520 fail 1
+CAUGHT W18 WP5：excludeDates 不进 PATCHABLE（单次移动被静默丢弃，排除的实例复活）  → pass 517 fail 4
+CAUGHT W19 WP5：mergePatch 基准不带 excludeDates（任何 update 复活所有排除实例）  → pass 520 fail 1
+CAUGHT W20 WP5：MOVABLE_MODES 放行 thisAndFuture（假装支持 RRULE 分段）  → pass 520 fail 1
+CAUGHT W21 WP5：预览把冲突当成可创建（用户看不到冲突）  → pass 520 fail 1
+CAUGHT W22 WP5：预览把重复项当成可创建（重复导入同一日历）  → pass 517 fail 4
+CAUGHT W23 WP5：task.reorder 不校验未知 id（部分写入，顺序被算错）  → pass 520 fail 1
+CAUGHT W24 WP5：撤销不清空重做栈（重做跨越新操作，历史错乱）  → pass 520 fail 1
+CAUGHT W25 WP5：store.rollback 不清空撤销栈（半截导入数据可被撤销复活）  → pass 520 fail 1
+CAUGHT W26 WP5：提醒不按触发时刻排序（UI 顺序错乱，最近的不在最前）  → pass 520 fail 1
+CAUGHT W27 WP5：空 dueAt 当坏数据（新建待办就报「数据有问题」假警报）  → pass 520 fail 1
+CAUGHT W28 WP5：skipped 被静默吞掉（算不出提醒伪装成没有提醒）  → pass 520 fail 1
+CAUGHT W29 WP5：reminder.plan 混进 WRITE_OPS（deny 模式下只读也被拦）  → pass 519 fail 2
+CAUGHT W30 WP5-UI：导入执行绕过宿主审批（confirmImport 拿不到凭证也继续）  → pass 518 fail 3
+CAUGHT W31 WP5-UI：排序只传被移动的一条（并发写入互相覆盖）  → pass 520 fail 1
+CAUGHT W32 WP5-UI：归档走 task.upsert 写软删（归档变删除，用户找不回来）  → pass 520 fail 1
+CAUGHT W33 WP5-UI：键盘改期 ref 恒为 null（选中后按 ←/→ 无反应）  → pass 519 fail 2
+CAUGHT W34 WP5-UI：拖拽失败后不 reload（界面停在假的新位置）  → pass 520 fail 1
+CAUGHT undefined WP5-UI：恢复归档退回不存在的 task.unarchive（B2）  → pass 519 fail 2
+CAUGHT undefined WP5-UI：主列表不再排除已归档待办（B2 双渲染）  → pass 520 fail 1
+CAUGHT undefined WP5-UI：approvalToken 塞回 payload（B1 桥接丢凭证）  → pass 520 fail 1
+CAUGHT undefined WP5-UI：导入签发不带原文（B1 指纹对不上）  → pass 520 fail 1
+CAUGHT undefined WP5-UI：拖拽不带源日（B3 改期必失败）  → pass 520 fail 1
+CAUGHT undefined WP5-UI：弹窗拿落点冒充源日（B3 静默写坏数据）  → pass 520 fail 1
+CAUGHT undefined WP5-UI：排序索引基退回未排序数组（B4 写错顺序）  → pass 520 fail 1
+CAUGHT undefined WP5-UI：ICS 计数本地重算且 unsupported 硬写 0（B5）  → pass 520 fail 1
+CAUGHT undefined core：series 移动不给脏母体补时区（null 永久留在盘上）  → pass 520 fail 1
+CAUGHT undefined core：内容类签发不绑 digest（B1 指纹恒不匹配）  → pass 491 fail 30
+CAUGHT W35 WP5-UI：选中事件不带 kind（键盘改期变死代码）  → pass 520 fail 1
+CAUGHT W36 WP5-UI：buildIcsCounts 丢弃 degraded（降级条目被当成新增）  → pass 520 fail 1
+CAUGHT W37 WP5-UI：buildIcsCounts 硬写 removed=0（与 snapshot.preview 矛盾）  → pass 520 fail 1
+CAUGHT W38 WP5-UI：导入预览行名退回硬编码中文（英文用户看到中文）  → pass 517 fail 4
+CAUGHT W39 WP5-UI：TaskForm 跳过 dueAt 校验（坏值落盘让提醒永不响）  → pass 518 fail 3
+CAUGHT W40 WP5-UI：空 dueAt 写成空串而不是省略字段  → pass 519 fail 2
+CAUGHT W41 core：服务端跳过 dueAt 校验（AI 路径可写坏值）  → pass 520 fail 1
+CAUGHT W42 core：服务端把空白 dueAt 当坏值（正常新建报假警）  → pass 520 fail 1
+CAUGHT W43 core：M-2 判据退回「同日且时刻未变」（冒用落点+改时刻可绕过）  → pass 520 fail 1
+CAUGHT W44 ui：MoveScopeDialog 渲染不传 t（回落英文，中英混排）  → pass 520 fail 1
+CAUGHT W45 ui：ImportPreview 渲染不传 t（回落英文，中英混排）  → pass 520 fail 1
+CAUGHT W46 ui：弹窗里恢复硬编码中文（英文用户看到中文）  → pass 496 fail 25
+CAUGHT W47 ui：buildIcsCounts 用 skip 兜底 duplicate（「重复0/跳过1」显示成重复0）  → pass 520 fail 1
+CAUGHT W48 ui：parseDueAt 退回宽松 Date.parse（放行 '1'、'2026' 等）  → pass 519 fail 2
+CAUGHT undefined W49  → pass 519 fail 2
+CAUGHT undefined W50  → pass 519 fail 2
+CAUGHT undefined W51  → pass 519 fail 2
+CAUGHT undefined W52  → pass 519 fail 2
+CAUGHT undefined W53  → pass 519 fail 2
+CAUGHT undefined W54  → pass 518 fail 3
+CAUGHT undefined W55  → pass 519 fail 2
+CAUGHT undefined W56  → pass 519 fail 2
+CAUGHT undefined W57  → pass 520 fail 1
+CAUGHT undefined W58  → pass 520 fail 1
+CAUGHT undefined W59  → pass 520 fail 1
+CAUGHT W60 ui：ICS 计数把服务端兼容字段 skip 原样透出（冲突被重复数成跳过）  → pass 520 fail 1
+CAUGHT W61 ui：ICS 计数 skip 扣减漏掉 conflict（冲突仍被重复计数）  → pass 520 fail 1
+CAUGHT Y1 wp51：ICS 导入不查 UID，重复导入产生重复事件（回退幂等修复）  → pass 514 fail 7
+CAUGHT Y2 wp51：导入只在文件内去重，不与既有事件比对  → pass 517 fail 4
+CAUGHT Y3 wp51：预览与导入判重规则漂移（预览不查既有 UID）  → pass 517 fail 4
+CAUGHT Y4 wp51：导入不把新建事件的 UID 加进已知集合（文件内自重复漏网）  → pass 520 fail 1
+CAUGHT Y5 wp51：导入跳过时不计数（静默吞掉）  → pass 515 fail 6
+CAUGHT Y6 wp51：提醒幂等比较用未编码 prompt（每次 reconcile 都 update）  → pass 515 fail 6
+CAUGHT Y7 wp51：提醒时间比较恒为假（每次 reconcile 都 update）  → pass 515 fail 6
+CAUGHT Y8 wp51：catalog 读失败时继续写（重复注册风险）  → pass 520 fail 1
+CAUGHT Y9 wp51：非法 dueAt 静默丢弃（不写 problems）  → pass 520 fail 1
+CAUGHT Y10 wp51：已完成的待办不撤销提醒  → pass 518 fail 3
+CAUGHT Y11 wp51：导出按钮无防连点保护  → pass 520 fail 1
+CAUGHT Y12 wp51：坏 dueAt 直接截断展示（回退 P2 修复，绕过 parseDueAt 判定）  → pass 520 fail 1
+CAUGHT Y13 wp51：无 UID 的 ICS 不走内容指纹（重复导入仍产生重复事件）  → pass 520 fail 1
+CAUGHT Y14 wp51：导入创建时不写判重身份（uid 退回随机 id）  → pass 520 fail 1
+CAUGHT Y15 wp51：ownHostRecords 不按 sessionId 过滤（跨 session 记录进入 diff）  → pass 520 fail 1
+CAUGHT Y16 wp51：delete 返回值不检查（删失败也计成功）  → pass 520 fail 1
+CAUGHT Y17 wp51：encodePrompt 从头部截断丢掉身份标记（无界重复注册）  → pass 520 fail 1
+CAUGHT Y18 wp51：身份标记不带不可见前缀（用户可伪造、可被误删）  → pass 520 fail 1
+CAUGHT Y20 wp52：ownershipOf 不校验 scope（跨 scope 互相删除）  → pass 520 fail 1
+CAUGHT Z1 wp52：删除前不校验白名单（伪造标记即可误删用户提醒）  → pass 518 fail 3
+CAUGHT Z2 wp52：白名单按全局共享而非按 session×scope（越权授权）  → pass 520 fail 1
+CAUGHT Z3 wp52：创建后不登记白名单（自己建的也删不掉）  → pass 510 fail 11
+CAUGHT Z4 wp52：ownership 读失败时信任所有提醒（误删用户提醒）  → pass 519 fail 2
+CAUGHT Z5 wp52：ownershipOf 把 suspect 当 owned（不可见字符被当认证）  → pass 519 fail 2
+CAUGHT Z6 wp52：dataDirFor 与 forSession 目录规则漂移（白名单读不到）  → pass 520 fail 1
+CAUGHT Z7 wp52：suspect/foreign 被静默丢弃（可观测性缺口）  → pass 520 fail 1
+CAUGHT Z8 wp52：observed 不上报 level（看不出是 foreign 还是 suspect）  → pass 520 fail 1
+CAUGHT P1 wp52-p0：identity 退回冒号拼接（scope 含冒号即重复创建）  → pass 496 fail 25
+CAUGHT P2 wp52-p0：v2 解码忽略版本前缀（老正则解新格式）  → pass 496 fail 25
+CAUGHT P3 wp52-p0：空 scope 与 _ 占位符重新撞车  → pass 499 fail 22
+CAUGHT P4 wp52-p0：v1 歧义不标记（旧坏记录被当 owned 误删）  → pass 520 fail 1
+CAUGHT WP6A1 wp6-a：提案 op 允许 event.delete（AI 绕过审批删数据）  → pass 519 fail 2
+CAUGHT WP6A2 wp6-a：pickPayload 不裁剪 confirmed（伪造参数流入 execute）  → pass 520 fail 1
+CAUGHT WP6A3 wp6-a：提案落地不做绑定校验（确认后数据被替换仍落库）  → pass 517 fail 4
+CAUGHT WP6A4 wp6-a：proposal.apply 不需要审批 token  → pass 520 fail 1
+CAUGHT WP6A5 wp6-a：进度允许 100（AI 自行完成任务）  → pass 519 fail 2
+CAUGHT WP6A6 wp6-a：task.requestCompletion 直接置 done  → pass 519 fail 2
+CAUGHT WP6A7 wp6-a：proposal.list 不按 scope 过滤（跨 scope 越权可见）  → pass 520 fail 1
+CAUGHT WP6A8 wp6-a：新写 op 不进 WRITE_OPS（deny 模式漏拦）  → pass 518 fail 3
+CAUGHT WP6B1 wp6-b：plan.suggest 绕过提案两阶段直接写 task  → pass 516 fail 5
+CAUGHT WP6B2 wp6-b：assertPlanItemsSafe 放行危险 op  → pass 520 fail 1
+CAUGHT WP6B3 wp6-b：rankTasks 不按优先级排序（规划退化）  → pass 520 fail 1
+CAUGHT WP6B4 wp6-b：scheduleIntoSlots 不检查每日容量（安排过满）  → pass 520 fail 1
+CAUGHT WP6B5 wp6-b：service 把 freeSlots 对象当数组传（排期恒空）  → pass 520 fail 1
+CAUGHT WP6B6 wp6-b：plan.suggest 不校验时间窗（改由 freeSlots 兜底，错误消息不同）  → pass 520 fail 1
+CAUGHT WP6B7 wp6-b：plan.suggest 复用 proposal.preview 时调两次（重复建提案）  → pass 520 fail 1
+CAUGHT WP6C1 wp6-c：task.context 不校验请求 sessionId 与调用方一致（跨会话越权读）  → pass 520 fail 1
+CAUGHT WP6C2 wp6-c：task.context 返回完整 task（泄露其他会话关联明细）  → pass 519 fail 2
+CAUGHT WP6C3 wp6-c：requestCompletion 直接置 done（AI 自行完成）  → pass 517 fail 4
+CAUGHT WP6C4 wp6-c：checkProgress 允许 100  → pass 519 fail 2
+CAUGHT WP6C5 wp6-c：acceptCompletion 不校验 pending 验收申请（可凭空完成）  → pass 520 fail 1
+CAUGHT WP6C6 wp6-c：task.context 返回 sessionId 原文（隐私）  → pass 520 fail 1
+CAUGHT WP6D1 wp6-d：collapseUndo 折叠时丢掉 anchor 之前的全部历史（撤销栈被清空）  → pass 519 fail 2
+CAUGHT WP6D2 wp6-d：proposal.reject 重新进 undo 栈（污染撤销历史）  → pass 520 fail 1
+CAUGHT WP6D3 wp6-d：标记 applied 的 mutate 放在折叠之后（折叠 entry 被挤到栈内）  → pass 517 fail 4
+CAUGHT WP6D4 wp6-d：PlanPanel 不渲染确认按钮（用户无法落地）  → pass 519 fail 2
+CAUGHT WP6D5 wp6-d：confirmPlan 不带审批 token（绕过 Host 审批）  → pass 520 fail 1
+CAUGHT WP6D6 wp6-d：详情面板不渲染用户验收入口  → pass 520 fail 1
+CAUGHT WP6E1 wp6-e：AI 工具重新暴露 done（绕过人工验收）  → pass 520 fail 1
+CAUGHT WP6E2 wp6-e：task_upsert payload 全量透传（任何字段都能穿透）  → pass 520 fail 1
+CAUGHT WP6E3 wp6-e：Host 不再给 scope 级 collab 目录（跨会话协作断裂）  → pass 514 fail 7
+CAUGHT WP6E4 wp6-e：task.context 不读共享 assignments（Agent 读不到分配）  → pass 517 fail 4
+CAUGHT WP6E5 wp6-e：linkSession 不写共享 assignment  → pass 517 fail 4
+CAUGHT WP6P1 wp6-e/p1-2：失败回滚整份恢复（清空用户 undo 历史）  → pass 520 fail 1
+CAUGHT WP6P2 wp6-e/p1-3：不比对 targetDigest（确认后目标被替换也能落地）  → pass 520 fail 1
+CAUGHT WP6P3 wp6-e/p1-3：preview 不回填 targetDigest（校验形同虚设）  → pass 518 fail 3
+CAUGHT WP6P4 wp6-e/p0-2：跨工作区不跳过全局 digest（用户无法确认 Agent 提案）  → pass 520 fail 1
+CAUGHT WP6P5 wp6-e/p0-2：collab 写入不回盘取最新（lost update 抹掉 assignments）  → pass 520 fail 1
+CAUGHT WP6P6 wp6-e/p0-2：writeProgress 不支持跨工作区（Agent 执行链路断裂）  → pass 519 fail 2
+
+=== 汇总 ===
+CAUGHT: 176
+VACUUM: 0
+SKIP:   0
+
+结论：全部保护点都有测试约束（0 真空，0 跳过）

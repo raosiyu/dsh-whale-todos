@@ -62,3 +62,16 @@ preview 后目标被改 → apply 拒且保持用户改动；reject 后任务集
 在能正常运行的复审环境里，对快照 `/tmp/wp6-freeze-11e4c8c`
 （commit `11e4c8c`，digest `1bfc40a2…`）重跑复审，把 verdict 写入
 `evidence/wp6/final-review/<新轮次>/verdict.md`。三份探针可直接复用。
+
+## p4b-agent-identity.mjs（复审整改后新增）
+
+**为什么需要它**：早先的 `p4-review-findings` 探针全篇用 `actor:'ui'`，
+那测的是「用户本人能否编辑既有待办」—— 答案本来就该是「能」。授权要求
+禁止的是 **Agent 绕过审批**，所以必须用 Agent 身份打；用错身份会让探针
+变绿却证明不了任何事，上一轮「已修复」正是这样得出的。
+
+**覆盖**：F1b（Agent 工具面覆盖既有待办被拒 + 原数据未改）、F1（删除凭证
+不得用于改写内容）、F4（`agent`/`agent-tool` × `done`/`status` 四种组合
+全被拒）、反向（用户本人编辑与勾选完成仍放行）。
+
+**结果**：全部闭环，exit 0。日志同目录 `p4b-agent-identity.log`。

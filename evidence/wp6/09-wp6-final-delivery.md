@@ -1,33 +1,55 @@
 # WP6 最终交付报告 — AI 智能规划与 Agent 会话协作
 
 > 冻结 commit：`27c4298d9e21a8a9f5db33e49d02508d1bc8db4d`
+> 整改 commit：`269a035`（复审 3 P0 + 4 P1 闭环）
 > tree digest：`0bf1ca1c8c063953b1bec21da2c816a83e9188b4`
 > 基线：`d81e99a96f12f15269c21b998def43c284d6e5be`
-> 推送：`origin/main` 快进 `d81e99a..27c4298`（无 force push）
 > 范围：WP6 完成即停，未进入 WP7
 
-## ⚠️ 首先说清楚一件事：独立复审没有完成
+## 复审结论与整改状态（这一节先于功能描述）
 
-授权要求最终冻结必须由**独立 Agent 只读复审**并给出明确裁决，且
-「不允许提前填写 APPROVE 或以实施方自检替代独立审查」。
+独立复审对 `a59f287` 给出 **REQUEST CHANGES**：3 个 P0 + 4 个 P1，
+附可复现探针，全部保留在 `evidence/wp6/final-review/`。`11e4c8c` 声称
+修复了这 7 项。
 
-我向 **4 个不同后端**派出复审，全部因基础设施 product-error 中断，
-**无一产出 verdict**：
+**但复审的修复并未全部生效。** 以 `11e4c8c` 快照重跑探针后，3 个 P0
+里有 2 个仍可复现（F1 凭证不绑内容、F1b Agent 无审批覆盖既有待办），
+另有 2 个 P1（F4 服务层可直置完成态、弹窗文案可被调用方改写）同样未闭。
+原因不是漏写代码，而是**守卫写在了错的判据上**：`meta.actor === 'agent'`
+永不成立 —— 工具面实际发的是 `'agent-tool'`（`host-tools.js:120`），
+所以按 actor 的守卫从未触发过。这也是上一轮「自检通过」的成因。
 
-| 次序 | 后端 | 失败原因 |
+`269a035` 逐条闭环，每条都补了**杀手测试**（删掉守卫即变红，已实测）：
+
+| 编号 | 问题 | 整改 |
 | --- | --- | --- |
-| 1 | teammate `wp6-reviewer` | 未留收尾消息即失败 |
-| 2 | `subagent_codex` | `product-error` at stage turn |
-| 3 | `subagent`（默认） | 未留收尾消息即失败 |
-| 4 | `subagent_claude_code` | `invalid-result`, exit code 1 |
+| P0-1 F1/F2 | 内容类凭证只绑 `(op,target)`，确认删除的凭证可拿去改写内容；提案确认 1 条后可换成 50 条全量落地 | 签发侧单一推导 `approvalDigestFor`，两条签发路径与执行侧摘要逐字节一致；`proposal.apply` 绑 `proposalContentDigest`；签发读盘走 `readCollectionFresh` |
+| P0-2 F1b | Agent 无审批直接覆盖既有待办 | 按用户裁定保留守卫，Agent 改走 `plan.preview → 确认 → proposal.apply`；测试 144/437 重写为该路径而非删除 |
+| P0-3 F4 | 服务层可直置完成态 | `isAgentActor()` 收口 `agent/agent-tool/agent_tool/ai`；`viaProposal` 标记只由可信落地层设置 |
+| P1 F1c | 无凭证指向不存在 id 得 `not-found` 而非 `confirmation-required`，等于白送存在性探测口 | `assertTokenUsable` 两段式：先拒凭证，再读内容比摘要 |
+| P1 F7 | 弹窗文案可被调用方改写；申请者身份可冒充 | `op` 限 `DANGEROUS_OPS`；`summary` 由本层按 op 生成中文；身份只取 `invocation.agent` |
 
-**因此本交付是「已推送、未经最终独立复验」的状态。** 下面的数字全部是
-实施方自测与既有证据，存在自证偏差，不构成 APPROVE。详见
-`evidence/wp6/lead-verify/00-README.md`。
+### 当前实测
 
-上一轮真实的独立裁决是 **REQUEST CHANGES**（针对 `a59f287`：3 P0 + 4 P1），
-其探针与日志完整保留在 `evidence/wp6/final-review/`。该 7 项已在 `11e4c8c`
-修复，但**签字的是同一批问题，复验始终没跑到**。
+| 检查 | 结果 |
+| --- | --- |
+| 全量测试 | 521 pass / 0 fail / 0 cancelled / 0 skipped |
+| 变异测试 | 176 CAUGHT / 0 VACUUM / 0 SKIP |
+| 端到端验收 | 45 pass / 0 fail |
+| lead-verify p1–p3 | 7 + 11 + 10 全过 |
+| Agent 身份探针 p4b | 全部闭环（含用户反向路径仍放行） |
+| 真实 Host 审批 | 2 pass / 0 fail（真实 asar） |
+
+### 仍未独立复验（必须如实披露）
+
+复审的整改**仍由实施方自测证明**，没有第二个独立 Agent 签过字。
+本轮我向 4 个后端派复审均因基础设施 product-error 中断，无一产出
+verdict。因此 `269a035` 是「整改完成 + 自测证据齐全 + 待独立复验」，
+**不是 APPROVE**。复审方明确未覆盖的范围逐条保留在
+`evidence/wp6/lead-verify/00-README.md`：无真实浏览器 E2E；真实 DSH
+`ApprovalService` 的回合约束用 stub 模拟；F2 在生产环境的可达性未定；
+`store.js`/`validate.js`/`event.js` 与三个测试文件未逐行通读；未复现
+`agentStorage` 并发隔离；无第二方交叉核对。
 
 ## 功能交付（A→E 五阶段）
 

@@ -1,0 +1,20 @@
+
+=== F1b：Agent 工具面直接覆盖既有待办 ===
+  ✅ Agent 覆盖既有待办被拒 — {"ok":false,"code":"confirmation-required","message":"Agent 不能直接覆盖既有待办，请走提案审批（plan.preview / proposal.apply）"}
+  ✅ 原数据未被改写 — {"id":"j1","title":"原始标题","priority":"low","project":"原项目"}
+
+=== F1：删除凭证不得用于改写内容（Agent 身份） ===
+  ✅ 替换载荷被拒 — Agent 不能直接覆盖既有待办，请走提案审批（plan.preview / proposal.apply）
+  ✅ 数据未被偷换 — 原始标题
+
+=== F4：Agent 不得自行置完成 ===
+  ✅ agent 提交 {"done":true} 被拒 — Agent 不能直接设置完成态，请走 task.requestCompletion 申请、由用户验收
+  ✅ agent 提交 {"status":"done"} 被拒 — Agent 不能直接设置完成态，请走 task.requestCompletion 申请、由用户验收
+  ✅ agent-tool 提交 {"done":true} 被拒 — Agent 不能直接设置完成态，请走 task.requestCompletion 申请、由用户验收
+  ✅ agent-tool 提交 {"status":"done"} 被拒 — Agent 不能直接设置完成态，请走 task.requestCompletion 申请、由用户验收
+
+=== 反向：用户本人仍可编辑/勾选完成 ===
+  ✅ 用户编辑放行 — "ok"
+  ✅ 用户勾选完成放行 — done=true
+
+结论：全部闭环
