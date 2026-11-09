@@ -2,7 +2,8 @@
 
 > 冻结 commit：`27c4298d9e21a8a9f5db33e49d02508d1bc8db4d`
 > 整改 commit：`269a035`（复审 3 P0 + 4 P1 闭环）
-> tree digest：`0bf1ca1c8c063953b1bec21da2c816a83e9188b4`
+> 当前 HEAD：`e5ed621`（证据与自测探针；不改产品代码）
+> tree digest：`e5f59a0635f89965c7c8278ab63818a750b82a48`
 > 基线：`d81e99a96f12f15269c21b998def43c284d6e5be`
 > 范围：WP6 完成即停，未进入 WP7
 
@@ -38,14 +39,33 @@
 | 端到端验收 | 45 pass / 0 fail |
 | lead-verify p1–p3 | 7 + 11 + 10 全过 |
 | Agent 身份探针 p4b | 全部闭环（含用户反向路径仍放行） |
+| 真实攻击面自测 | PASS 10 / FAIL 0（`p5-real-attack-surface`） |
+| 综合自测 | PASS 26 / FAIL 0（`p6-broad`） |
+| 凭证绑定自测 | 篡改被拒 + 对照成功（`p7-credential-binding`） |
+| 独立方单不变量 | **PASS**（`independent-review/`） |
 | 真实 Host 审批 | 2 pass / 0 fail（真实 asar） |
 
-### 仍未独立复验（必须如实披露）
+### 独立复审：**未达成全面裁决**（必须如实披露）
 
-复审的整改**仍由实施方自测证明**，没有第二个独立 Agent 签过字。
-本轮我向 4 个后端派复审均因基础设施 product-error 中断，无一产出
-verdict。因此 `269a035` 是「整改完成 + 自测证据齐全 + 待独立复验」，
-**不是 APPROVE**。复审方明确未覆盖的范围逐条保留在
+本轮共 9 次委派独立复审（1 个 teammate + 4 个不同后端 subagent +
+3 个窄切片 + 1 个极窄单不变量任务）。前 8 次全部在无结论状态失败；
+第 9 次**成功**，但它只覆盖**一条**不变量：
+
+| 独立裁决 | 范围 | 结果 |
+| --- | --- | --- |
+| `0136e4bc-…` | 同一凭证不得跨内容复用（`task.upsert`） | **PASS** |
+
+证据：`evidence/wp6/independent-review/`（脚本由其本人编写，实施方未改一行）。
+它自己声明**未**覆盖：其他危险 op、并发抢 token、指纹字段集合、
+非 deny 模式的审批行为、整体代码审查。
+
+因此「WP6 已通过独立复审」**不成立**；完整 APPROVE **没有拿到**。
+`269a035` 的性质是「整改完成 + 自测证据齐全 + 单不变量已独立确认 + 全面复验缺失」。
+
+第 7 次失败的根因已查明并修复：`/tmp` 快照被系统清理，复审方进入不存在的
+目录。改用仓库外持久 worktree（`/Users/sylas/Developer/wp6-review-freeze`，
+基线 515/0/6）后环境可用，但后续切片仍在无结论状态结束。记录见
+`evidence/wp6/lead-verify/01-review-worktree.md`。复审方明确未覆盖的范围逐条保留在
 `evidence/wp6/lead-verify/00-README.md`：无真实浏览器 E2E；真实 DSH
 `ApprovalService` 的回合约束用 stub 模拟；F2 在生产环境的可达性未定；
 `store.js`/`validate.js`/`event.js` 与三个测试文件未逐行通读；未复现
@@ -73,7 +93,7 @@ verdict。因此 `269a035` 是「整改完成 + 自测证据齐全 + 待独立�
 
 | 项目 | 结果 | 证据 |
 | --- | --- | --- |
-| 单元/集成测试 | **514 / 514 pass，0 fail，0 skip** | `cd workbench-core && npm test` |
+| 单元/集成测试 | **515 pass / 0 fail / 6 skip** | `cd workbench-core && npm test` |
 | 变异测试 | **CAUGHT 176 / VACUUM 0 / SKIP 0** | `evidence/wp6/01-mutation-final2.log` |
 | 真实 Host 端到端探针 | **PASS 45 / FAIL 0** | `evidence/wp6/probe-wp6-e2e.{mjs,log}` |
 | 审批攻击自测 | PASS 7 / FAIL 0 | `lead-verify/p1-approval.log` |

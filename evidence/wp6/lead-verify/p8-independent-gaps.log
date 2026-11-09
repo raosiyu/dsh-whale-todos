@@ -1,0 +1,16 @@
+=== 缺口1：只改 project / 多传未知字段，是否也算 mismatch ===
+  PASS  只改 project 也算 mismatch — fingerprint-mismatch
+  PASS  多传未知字段也算 mismatch — fingerprint-mismatch
+
+=== 缺口2：其他危险 op 是否同样绑内容 ===
+  PASS  event.delete 凭证不得跨目标 — confirmation-required
+  PASS  proposal.apply 凭证不得跨提案 — confirmation-required
+
+=== 缺口3：并发抢同一 token ===
+  PASS  并发抢同一 token 只成功一次 — 成功 1 次
+
+=== 缺口4：approvalMode 非 deny（isolated）时的行为 ===
+  PASS  isolated 模式无凭证仍被拒（不直通） — confirmation-required/missing-token
+  PASS  isolated 模式带凭证放行 — ok
+
+缺口补充汇总: PASS=7 FAIL=0

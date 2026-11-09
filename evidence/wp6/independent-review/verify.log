@@ -1,0 +1,3 @@
+篡改: {"ok":false,"code":"confirmation-required","msg":"危险操作 task.upsert 需要宿主审批凭证（原因：fingerprint-mismatch）；payload 里的 confirmed 不被采信"}
+对照: {"ok":true,"v":{"task":{"id":"b1","title":"原始","priority":"low","project":"P","deleted":true}}}
+列表: []

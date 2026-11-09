@@ -75,3 +75,22 @@ preview 后目标被改 → apply 拒且保持用户改动；reject 后任务集
 全被拒）、反向（用户本人编辑与勾选完成仍放行）。
 
 **结果**：全部闭环，exit 0。日志同目录 `p4b-agent-identity.log`。
+
+## 认知纠正：isolated 审批模式**不**绕过审批门
+
+早先笔记（含本会话的探针设计）称「`approvalMode:'isolated'` +
+`allowIsolatedApproval:true` 会直通、绕过 `requireConfirmation`」，**这是错的**。
+
+实测（`p8-independent-gaps` 缺口4）：
+
+| 场景 | 实测 |
+| --- | --- |
+| isolated，无 token，软删待办 | `confirmation-required` / `missing-token` |
+| isolated，带 token | 放行 |
+
+真实语义：isolated 只让 `gate.request()` **自动签发**凭证（不问真人），
+`gate.verify()` 照旧要求 token。所以 isolated 与 deny 的区别是「能否拿到
+凭证」，不是「要不要凭证」。
+
+这条错误认知曾导致我以为「isolated 测不出门序、必须换 deny」——方向反了：
+两种模式都过门，deny 只是拿不到凭证。
