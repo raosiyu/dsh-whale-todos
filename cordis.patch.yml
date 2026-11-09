@@ -1,0 +1,13 @@
+# 鲸鱼待办 bundle 补丁层：由 DSH 加载器在 bundle 之后应用。
+#
+# rootDir 是插件的**独立数据目录**，不是 DSH profile 目录。
+# 留空（默认）时插件拒绝启动——见 index.js 的 fail-closed 校验，
+# 避免在未指定时猜测路径写进用户数据。
+#
+# 安装后请改成你自己的一个空目录，例如：
+#   rootDir: '/Users/<你>/.dsh/workbench-data'
+- insert:
+    - id: workbench-ui
+      name: 'dsh-whale-workbench'
+      config:
+        rootDir: ''
