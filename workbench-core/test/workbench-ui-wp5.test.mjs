@@ -587,13 +587,28 @@ test('WP5-UI：TaskForm 到期时间必须校验，坏值不得落盘', () => {
   const taskFormBody = code.slice(taskFormStart, code.indexOf('function ', taskFormStart + 1))
   const submitBlock = taskFormBody.slice(taskFormBody.indexOf('const submit = (ev) =>'), taskFormBody.indexOf("return h('form'"))
   assert.ok(submitBlock.length > 0, 'TaskForm submit 必须存在')
-  assert.match(submitBlock, /parseDueAt\(dueAt\)/, 'submit 必须调用 parseDueAt')
-  assert.match(submitBlock, /if \(!parsed\.ok\)/, 'submit 必须判 ok')
+  /**
+   * V1.1 改造：表单不再收裸 ISO 串，改用原生 date + time 两个控件，
+   * 由 `composeDueAt` 按本机时区拼成带偏移的时刻。
+   *
+   * 保护意图不变——坏值必须在本地被拦、且 return 必须在 onSave 之前。
+   * 但断言点跟着实现迁移：
+   *   - 入口从 `parseDueAt(dueAt)` 变成 `composeDueAt(dueDate, dueTime)`
+   *   - 「无截止」走显式 noDue 分支，不再用空串表达
+   */
+  assert.match(submitBlock, /composeDueAt\(dueDate, dueTime\)/, 'submit 必须调用 composeDueAt 拼时区')
+  assert.match(submitBlock, /composed === undefined/, 'submit 必须判拼接结果是否合法')
   assert.match(submitBlock, /setFormError\(t\('dueAtInvalid'\)\)/, '校验失败必须给出错误提示')
-  const guardIdx = submitBlock.indexOf('if (!parsed.ok)')
+  const guardIdx = submitBlock.indexOf('if (noDue === false && composed === undefined)')
+  assert.ok(guardIdx > 0, '守卫条件必须存在')
   const returnIdx = submitBlock.indexOf('return', guardIdx)
   const saveIdx = submitBlock.indexOf('onSave(next)')
   assert.ok(returnIdx > guardIdx && returnIdx < saveIdx, '守卫必须 return 在 onSave 之前，否则坏值仍会落盘')
+  /**
+   * 「无截止」必须用 delete，不能写空串。
+   * 空串不是「无到期时间」，是坏数据——提醒层会对它报「算不出提醒时刻」。
+   */
+  assert.match(submitBlock, /if \(composed === undefined\) delete next\.dueAt/, '无截止必须 delete 字段而非写空串')
 })
 
 test('core：create 显式传 timeZone=null 必须补默认时区（withDefaultZone null 分支）', async () => {

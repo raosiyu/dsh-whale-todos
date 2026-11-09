@@ -50,6 +50,15 @@ function loadClient() {
   }
 }
 
+/**
+ * 测试用 t：原样回显 key。
+ *
+ * 这样断言里写 `assert.match(text, /collabTitle/)` 就是在断言
+ * 「这个 key 被渲染了」，而不是断言某种语言的措辞 —— 文案改动不会
+ * 让行为测试变红，但丢掉渲染会。
+ */
+const T = (k) => k
+
 /** 把 h() 树展平成可检索的文本节点。 */
 function flatten(node, out = []) {
   if (node === null || node === undefined || typeof node === 'boolean') return out
@@ -187,20 +196,69 @@ test('WP6-D：PlanPanel 未生成提案时不渲染确认/拒绝按钮', () => {
 
 // ---------------------------------------------------------------- 详情面板
 
-test('WP6-D：详情面板展示会话关联 / 进度 / 执行记录 / 验收状态与按钮', () => {
-  // 源码级断言（详情区是内联 IIFE，无法用桩组件直接渲染）
-  assert.match(code, /aiSessionLinks/, '必须渲染会话关联')
-  assert.match(code, /aiExecutionLog/, '必须渲染执行记录')
-  assert.match(code, /aiAcceptance/, '必须渲染验收状态')
-  assert.match(code, /aiProgress/, '必须渲染进度')
-  assert.match(code, /decideCompletion\('accept'\)/, '必须有通过验收按钮')
-  assert.match(code, /decideCompletion\('reject'/, '必须有驳回按钮')
-  // 只在 pending 时显示验收按钮（AI 不能自行完成）
-  assert.match(code, /selected\.completion\?\.status === 'pending'/)
+/**
+ * V1.1：协作区从内联 IIFE 抽成 `CollabPanel` 组件。
+ *
+ * 原注释写「详情区是内联 IIFE，无法用桩组件直接渲染」，只能正则扫源码。
+ * 组件化之后这条限制消失了 —— 下面改成**真渲染 + 行为断言**：
+ * 「空列表时显示什么」「pending 时按钮有没有」这种问题正则扫不出来，
+ * 只有渲染出来才知道。
+ */
+test('WP6-D：协作面板展示会话关联 / 进度 / 执行记录 / 验收状态', () => {
+  const { CollabPanel } = loadClient().__test
+  const tree = CollabPanel({
+    task: {
+      id: 'T1',
+      progress: 60,
+      estimatedMinutes: 90,
+      sessionLinks: [{ sessionId: 'sess-abc', role: 'execute', note: '负责实现' }],
+      executionLog: [{ at: '2026-11-09T10:00:00+08:00', progress: 60, note: '联调通过', evidence: 'test log' }],
+      completion: { status: 'pending', summary: '初稿完成，请验收' },
+    },
+    t: T, saving: false,
+  })
+  const text = flatten(tree).join(' ')
+  assert.match(text, /collabTitle/, '必须渲染面板标题')
+  assert.match(text, /60%/, '必须渲染进度百分比')
+  assert.match(text, /sess-abc/, '必须渲染会话关联')
+  assert.match(text, /execute/, '必须渲染会话角色')
+  assert.match(text, /联调通过/, '必须渲染执行记录')
+  assert.match(text, /test log/, '必须渲染证据')
+  assert.match(text, /pendingAcceptance/, '必须渲染待验收标记')
+  assert.match(text, /初稿完成，请验收/, '必须渲染申请摘要')
+  assert.match(text, /estimateLabel/, '必须渲染预计耗时')
 })
 
-test('WP6-D：验收入口只在 selected.kind === task 时出现', () => {
-  assert.match(code, /selected\.kind === 'task' && selected\.completion\?\.status === 'pending'/)
+test('WP6-D：验收入口只在 completion.pending 时出现', () => {
+  const { CollabPanel } = loadClient().__test
+  const accept = () => {}
+  const render = (completion) => flatten(CollabPanel({
+    task: { id: 'T1', progress: 50, sessionLinks: [], executionLog: [], completion },
+    t: T, onAccept: accept, onReject: accept, saving: false,
+  })).join(' ')
+
+  // pending → 两个按钮都在
+  const pending = render({ status: 'pending', summary: 's' })
+  assert.match(pending, /acceptCompletion/, 'pending 时必须能点通过')
+  assert.match(pending, /rejectCompletion/, 'pending 时必须能点驳回')
+
+  // 非 pending → 一个都不许有（AI 不能自行完成，用户也不能重复验收）
+  for (const status of ['accepted', 'rejected', null]) {
+    const other = render(status === null ? null : { status, summary: 's', feedback: 'f' })
+    assert.doesNotMatch(other, /acceptCompletion/, `${status} 时不得出现通过按钮`)
+    assert.doesNotMatch(other, /rejectCompletion/, `${status} 时不得出现驳回按钮`)
+  }
+})
+
+test('WP6-D：协作面板三种异常都有明确文案，不静默', () => {
+  const { CollabPanel } = loadClient().__test
+  const text = (task) => flatten(CollabPanel({ task, t: T })).join(' ')
+  // 已分配但没记会话
+  assert.match(text({ id: 'T', source: 'shared-assignment', sessionLinks: [] }), /collabErrSessionMissing/)
+  // 执行日志不是数组
+  assert.match(text({ id: 'T', sessionLinks: [], executionLog: 'broken' }), /collabErrLogCorrupt/)
+  // 进度不是数字
+  assert.match(text({ id: 'T', sessionLinks: [], executionLog: [], progress: 'NaN' }), /collabErrProgressBroken/)
 })
 
 test('WP6-D：顶栏与摘要条都有 AI 规划入口', () => {

@@ -609,11 +609,75 @@ test('WP6-C/D：Agent 回写的进度与完成申请必须出现在用户的 tas
     assert.ok(row.recentLog.some((e) => e.note === '大纲已完成'), '执行记录必须对用户可见')
     assert.equal(row.completionRequest?.status, 'pending', '完成申请必须对用户可见')
     assert.equal(row.completionRequest?.summary, '初稿完成，请验收')
+    /**
+     * V1.1 缺口补测：详情面板读 `sessionLinks` / `executionLog`，
+     * 而 task.list 原来只补了 `recentLog` —— 两个键名对不上，
+     * Agent 明明关联了会话，界面却显示「暂无关联会话」。
+     * 这里按 UI 真实消费的字段名断言，不按内部字段名。
+     */
+    assert.ok(Array.isArray(row.sessionLinks) && row.sessionLinks.length === 1,
+      `用户侧必须能读到会话关联（UI 读 sessionLinks）；实际 ${JSON.stringify(row.sessionLinks)}`)
+    assert.equal(row.sessionLinks[0].sessionId, AG, '关联的 sessionId 必须对得上')
+    assert.equal(row.sessionLinks[0].role, 'execute', '角色必须保留')
+    assert.ok(Array.isArray(row.executionLog) && row.executionLog.length >= 1,
+      '用户侧必须能读到执行日志（UI 读 executionLog）')
+    assert.ok(row.executionLog.some((e) => e.note === '大纲已完成'), '执行日志内容必须完整')
 
     // 用户验收后，用户侧 done 必须为真
     ex(U, 'task.acceptCompletion', { id: 'T1' })
     const after = ex(U, 'task.list', {}).find((t) => t.id === 'T1')
     assert.equal(after.done, true, '用户验收后必须标记完成')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('V1.1：一个任务被多个会话关联时，用户侧必须看到全部会话而不是最后一个', async () => {
+  /**
+   * 真实缺口：`task.list` 合并共享 assignment 时用 `byTask.set(taskId, a)`，
+   * Map 的 set 会覆盖 —— 一个任务被「澄清→拆解→执行」三个会话关联时，
+   * 前面两个会话的认领记录、执行日志全部消失，用户只看到一个 sessionId。
+   *
+   * 这是多 Agent 协作的常态场景，不是边角 case。
+   */
+  const { createWorkbenchHostService } = await import('../src/index.js')
+  const dir = mkdtempSync(join(tmpdir(), 'wb-multi-'))
+  try {
+    const host = createWorkbenchHostService({ rootDir: dir, approvalMode: 'isolated', allowIsolatedApproval: true })
+    const U = 'sess-user-multi'
+    const ex = (sid, op, p, m = {}) => host.invoke(sid, op, p, { actor: sid === U ? 'ui' : 'agent-tool', scope: '', ...m })
+
+    ex(U, 'task.upsert', { task: { id: 'T-M', title: '多人协作任务' } })
+    /**
+     * 关联必须由**用户侧**发起（或已被分配者的工作区）。
+     *
+     * 这不是测试将就实现，而是越权红线的直接后果：Agent 不能自行认领
+     * 一个没分配给它的任务 —— 否则任何会话只要猜到 taskId 就能把自己
+     * 挂上去，读写别人的任务。真实产品里就是「用户在任务详情里挑一个
+     * 会话关联」，或前序会话已分配后再转交。
+     *
+     * 本测试要覆盖的是**多个会话关联同一个任务**之后的合并展示，
+     * 所以关联动作都从用户侧发起，符合真实契约。
+     */
+    for (const [sid, role] of [['sess-clarify', 'clarify'], ['sess-decompose', 'decompose'], ['sess-exec', 'execute']]) {
+      ex(U, 'task.linkSession', { id: 'T-M', sessionId: sid, role })
+    }
+    // 两个会话各写一条进度
+    ex('sess-decompose', 'task.writeProgress', { id: 'T-M', progress: 20, note: '拆好了' })
+    ex('sess-exec', 'task.writeProgress', { id: 'T-M', progress: 70, note: '写完了' })
+
+    const row = ex(U, 'task.list', {}).find((t) => t.id === 'T-M')
+    assert.ok(Array.isArray(row.sessionLinks), '必须返回 sessionLinks')
+    assert.equal(row.sessionLinks.length, 3,
+      `三个会话关联必须全部保留；实际 ${row.sessionLinks.length} 个（${row.sessionLinks.map((l) => l.sessionId).join(',')}）`)
+    const roles = row.sessionLinks.map((l) => l.role).sort()
+    assert.deepEqual(roles, ['clarify', 'decompose', 'execute'], '每个会话的角色都要保留')
+    // 多会话的执行日志必须合并，且按时间有序
+    assert.ok(row.executionLog.length >= 2, `两个会话的进度都要在；实际 ${row.executionLog.length} 条`)
+    assert.ok(row.executionLog.some((e) => e.note === '拆好了'), '早期会话的进度不得丢失')
+    assert.ok(row.executionLog.some((e) => e.note === '写完了'), '后期会话的进度不得丢失')
+    // 进度取最新
+    assert.equal(row.progress, 70, '进度以最近一次为准')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
