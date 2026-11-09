@@ -1,0 +1,12 @@
+  PASS  同会话 agent-tool 覆盖既有待办被拒 — confirmation-required
+  PASS  同会话 agent 覆盖既有待办被拒 — confirmation-required
+  PASS  同会话 agent_tool 覆盖既有待办被拒 — confirmation-required
+  PASS  同会话 ai 覆盖既有待办被拒 — confirmation-required
+  PASS  同会话覆盖被拒后数据未变 — title=原始
+  PASS  同会话用户本人编辑放行 — ok
+  PASS  删除凭证不得用于改写内容（Agent） — confirmation-required
+  PASS  凭证劫持失败后数据未变 — title=用户自己改
+  PASS  凭证用于其本意操作（用户删除）仍成功 — ok
+  PASS  Agent 持凭证仍不得直写既有行（走提案） — confirmation-required
+
+真实攻击面汇总: PASS=10 FAIL=0

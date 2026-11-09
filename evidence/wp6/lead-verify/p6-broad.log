@@ -1,0 +1,34 @@
+
+=== 切片 A：Agent 能否绕过审批 ===
+  PASS  A1 agent-tool 无凭证覆盖既有待办被拒 — confirmation-required
+  PASS  A1 agent 无凭证覆盖既有待办被拒 — confirmation-required
+  PASS  A1b 覆盖被拒后磁盘数据未变 — title=原始标题
+  PASS  A2 agent-tool 直置完成态 done 被拒 — validation
+  PASS  A2 agent-tool 直置完成态 status 被拒 — validation
+  PASS  A2 agent-tool 直置完成态 completion 被拒 — validation
+  PASS  A2 agent 直置完成态 done 被拒 — validation
+  PASS  A2 agent 直置完成态 status 被拒 — validation
+  PASS  A2 agent 直置完成态 completion 被拒 — validation
+  PASS  A2b 完成态攻击后数据未变 — done=undefined
+  PASS  A3 Agent 无凭证软删被拒 — confirmation-required
+  PASS  A4 用户本人编辑仍放行 — ok
+
+=== 切片 B：审批凭证是否绑定内容 ===
+  PASS  B0 删除凭证可签发
+  PASS  B1 同 op 同 target 但内容不同 → fingerprint-mismatch — confirmation-required
+  PASS  B2 删除 b1 的凭证不得用于删 b2 — confirmation-required
+  PASS  B3 凭证不得跨 op 使用 — confirmation-required
+  PASS  B4 内容一致（对照）放行 — ok
+  PASS  B5 token 一次性（已消费再用于他处被拒） — confirmation-required
+  PASS  B6 伪造 token 被拒 — confirmation-required
+  PASS  B7 无凭证指向不存在提案 → confirmation-required（不泄露存在性） — confirmation-required
+
+=== 切片 C：提案确认语义与失败安全 ===
+  PASS  C1 proposal.preview 零业务副作用 — 0 → 0
+  PASS  C2 preview 返回提案 id — 8c9c0558-9e8f-4004-8c32-012bf2c408da
+  PASS  C3 用户确认后落地 — 0 → 2
+  PASS  C4 同一提案不得二次落地 — confirmation-required / 2 → 2
+  PASS  C5 含非法项提案在 preview 阶段即被拒 — validation
+  PASS  C7 Agent 不得绕过提案直写新数据（deny 模式下无凭证被拒） — 见切片A：agent 写既有行被拒；新建行走提案
+
+复验汇总: PASS=26 FAIL=0
