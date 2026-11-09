@@ -17,14 +17,14 @@
  */
 
 window.__ModuleLoader__.load({
-  id: 'dsh-whale-workbench',
+  id: '@local/dsh-workbench-ui',
   factory(require) {
     const React = require('react')
     const h = React.createElement
     const { useState, useEffect, useCallback, useMemo, useRef } = React
 
     const PANEL_ID = 'workbench'
-    const NS = 'dsh-whale-workbench'
+    const NS = '@local/dsh-workbench-ui'
 
     /**
      * **默认文案函数**（factory 作用域）。
@@ -125,7 +125,23 @@ window.__ModuleLoader__.load({
       "requestingApproval": "Requesting approval…",
       "requestApprovalDelete": "Request approval & delete",
       "fieldTitle": "Title",
-      "dueAtLabel": "Due (ISO instant)",
+      "collabTitle": "Agent collaboration",
+      "collabStatusIdle": "Not started",
+      "collabStatusExecuting": "In progress",
+      "collabStatusAwaiting": "Awaiting your acceptance",
+      "collabStatusAccepted": "Accepted",
+      "collabStatusRejected": "Rejected",
+      "collabCopySession": "Copy",
+      "collabCopying": "Copying…",
+      "collabCopied": "Session id copied",
+      "collabCopyFailed": "Copy failed",
+      "collabCopyUnavailable": "Clipboard is not available — select the session id and copy it manually",
+      "collabErrSessionMissing": "This task is assigned to an Agent, but no session id was recorded — progress cannot be traced back to a conversation.",
+      "collabErrLogCorrupt": "Execution log is malformed (not a list); only the latest progress is shown.",
+      "collabErrProgressBroken": "Progress value is invalid; showing 0% instead of a wrong number.",
+      "dueDateLabel": "Due date",
+      "dueTimeLabel": "Due time",
+      "noDueLabel": "No due date",
       "nothingToUndo": "Nothing to undo",
       "nothingToRedo": "Nothing to redo",
       "archiveHint": "Archive this task",
@@ -339,7 +355,23 @@ window.__ModuleLoader__.load({
       "requestingApproval": "正在申请审批…",
       "requestApprovalDelete": "申请审批并删除",
       "fieldTitle": "标题",
-      "dueAtLabel": "到期时间（ISO 时刻）",
+      "collabTitle": "Agent 协作",
+      "collabStatusIdle": "未开始",
+      "collabStatusExecuting": "执行中",
+      "collabStatusAwaiting": "等待你验收",
+      "collabStatusAccepted": "已验收",
+      "collabStatusRejected": "已驳回",
+      "collabCopySession": "复制",
+      "collabCopying": "复制中…",
+      "collabCopied": "会话标识已复制",
+      "collabCopyFailed": "复制失败",
+      "collabCopyUnavailable": "剪贴板不可用，请手动选中会话标识复制",
+      "collabErrSessionMissing": "这个任务已分配给 Agent，但没有记录会话标识 —— 进度无法追溯到具体会话。",
+      "collabErrLogCorrupt": "执行日志格式异常（不是列表），只显示最近一次进度。",
+      "collabErrProgressBroken": "进度值不合法，已显示 0% 而不是错误的数字。",
+      "dueDateLabel": "到期日期",
+      "dueTimeLabel": "到期时刻",
+      "noDueLabel": "无截止日期",
       "nothingToUndo": "没有可撤销的操作",
       "nothingToRedo": "没有可重做的操作",
       "archiveHint": "归档这个待办",
@@ -542,6 +574,34 @@ window.__ModuleLoader__.load({
 .wb-reminder-more{color:var(--dsw-alias-label-tertiary);flex:none}
 .wb-reminder-warn{color:var(--dsw-alias-state-warn-label);flex:none}
 .wb-empty{padding:32px 16px;text-align:center;color:var(--dsw-alias-label-secondary)}
+/* V1.1 §2 · Agent 协作面板
+   颜色一律走 --dsw-alias-* 令牌（WP4 硬约束）：硬编码色值在深色主题下
+   会变成不可读的脏色块，而且主题切换时不会跟着变。 */
+.wb-collab{margin-top:16px;padding:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px}
+.wb-collab-title{margin:0 0 8px;font-size:14px;font-weight:600;letter-spacing:.02em;color:var(--dsw-alias-label-primary)}
+.wb-collab-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.wb-collab-progress{font-variant-numeric:tabular-nums;font-weight:600;color:var(--dsw-alias-label-primary)}
+.wb-collab-status{padding:4px 8px;border-radius:10px;font-size:12px;border:1px solid var(--dsw-alias-border-l2)}
+.wb-collab-status.wb-collab-idle{color:var(--dsw-alias-label-tertiary)}
+.wb-collab-status.wb-collab-executing{color:var(--dsw-alias-state-business-primary)}
+.wb-collab-status.wb-collab-awaiting{color:var(--dsw-alias-state-warn-label)}
+.wb-collab-status.wb-collab-accepted{color:var(--dsw-alias-state-business-primary)}
+.wb-collab-status.wb-collab-rejected{color:var(--dsw-alias-state-warn-label)}
+.wb-collab-bar{height:8px;border-radius:4px;background:var(--dsw-alias-interactive-bg-hover);overflow:hidden;margin-bottom:8px}
+.wb-collab-bar-fill{height:100%;background:var(--dsw-alias-state-business-primary);transition:width .3s ease}
+.wb-collab-section{margin-top:16px}
+.wb-collab-links,.wb-collab-log,.wb-collab-anomalies{margin:4px 0 0;padding-left:16px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.wb-collab-anomalies{color:var(--dsw-alias-state-warn-label)}
+.wb-collab-role{font-size:12px;color:var(--dsw-alias-label-tertiary)}
+.wb-collab-pending{padding:8px;border-radius:6px;border:1px solid var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-label-primary)}
+.wb-collab-pending p{margin:4px 0 0;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.wb-collab-accepted,.wb-collab-rejected{padding:8px;border-radius:6px;font-size:12px;border:1px solid var(--dsw-alias-border-l1)}
+.wb-collab-accepted{color:var(--dsw-alias-state-business-primary)}
+.wb-collab-rejected{color:var(--dsw-alias-state-warn-label)}
+.wb-collab-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+/* >=44px 点击区是 WP4 硬约束，小按钮靠 padding 撑满而不是缩字号 */
+.wb-btn-mini{padding:0 12px;font-size:12px;min-height:44px;min-width:44px}
+
 .wb-form{display:grid;gap:8px}
 .wb-form label{display:grid;gap:4px;font-size:16px;color:var(--dsw-alias-label-secondary)}
 .wb-dialog{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:16px;
@@ -644,6 +704,59 @@ window.__ModuleLoader__.load({
       if (typeof raw !== 'string' || raw === '') return null
       const d = new Date(raw.length <= 10 ? `${raw}T00:00:00` : raw)
       return Number.isNaN(d.getTime()) ? null : d
+    }
+
+    /**
+     * 把「用户选的本地日期 + 本地时刻」拼成 Host 要求的 `dueAt`。
+     *
+     * 为什么必须在客户端拼时区：`task.dueAt` 走 `isoInstant` 硬校验，只收带
+     * `Z` 或 `±HH:MM` 的时刻。裸墙钟 `2026-11-10T09:00` 会被服务端拒收。
+     * 而用户选的是**本地** 09:00，不是 UTC 09:00 —— 直接拼 `Z` 会让 GMT+8
+     * 的用户看到 17:00。所以这里按本机偏移补上后缀。
+     *
+     * 用 `new Date(y, m, d, h, min)` 构造而非 `Date.parse('YYYY-MM-DDTHH:mm')`：
+     * 后者在部分引擎里按 UTC 解析，跨天会差一天。
+     *
+     * @param {string} datePart YYYY-MM-DD（本地日期）
+     * @param {string} timePart HH:mm（本地时刻）
+     * @returns {string|undefined} 带偏移的 ISO 时刻；任一部分非法时 undefined
+     */
+    function composeDueAt(datePart, timePart) {
+      const dp = String(datePart ?? '').trim()
+      const tp = String(timePart ?? '').trim()
+      if (dp === '' || tp === '') return undefined
+      const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dp)
+      const tm = /^(\d{2}):(\d{2})$/.exec(tp)
+      if (dm === null || tm === null) return undefined
+      const [y, mo, da] = [Number(dm[1]), Number(dm[2]), Number(dm[3])]
+      const [hh, mi] = [Number(tm[1]), Number(tm[2])]
+      if (hh > 23 || mi > 59) return undefined
+      const local = new Date(y, mo - 1, da, hh, mi, 0, 0)
+      // 反查构造结果：2 月 31 日这类不存在的日期会被引擎顺延到 3 月，
+      // 必须拒绝而不是默默改期。
+      if (local.getFullYear() !== y || local.getMonth() !== mo - 1 || local.getDate() !== da) return undefined
+      const offsetMin = -local.getTimezoneOffset()
+      const sign = offsetMin >= 0 ? '+' : '-'
+      const abs = Math.abs(offsetMin)
+      return `${dp}T${tp}:00${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
+    }
+
+    /**
+     * 反向：把已存的 `dueAt` 拆回本地日期 + 本地时刻，供编辑表单回填。
+     *
+     * 关键点：不能 `slice(0, 10)`。`2026-11-09T17:00:00Z` 在 GMT+8 是
+     * **11 月 10 日 01:00**，切片后用户会看到 11-09，改个标题保存就把日期改错了。
+     * 必须用 Date 走一遍本地时区再格式化。
+     *
+     * @param {unknown} raw 已存的 dueAt
+     * @returns {{date: string, time: string}} 本地日期与时刻；坏值/空值返回空串
+     */
+    function splitDueAt(raw) {
+      const text = typeof raw === 'string' ? raw.trim() : ''
+      if (text === '') return { date: '', time: '' }
+      const d = new Date(text)
+      if (Number.isNaN(d.getTime())) return { date: '', time: '' }
+      return { date: isoDate(d), time: `${pad(d.getHours())}:${pad(d.getMinutes())}` }
     }
 
     /**
@@ -959,9 +1072,15 @@ function taskBucket(task, now) {
       parseDueAt,
       // 到期时间的展示决策：坏数据不能原样当日期显示
       dueDisplay,
+      // 到期时间的本地时区双向转换：表单提交/回填的唯一实现
+      composeDueAt,
+      splitDueAt,
       // 三个弹窗组件：渲染期异常的探针目标（第三轮 BLOCKER-1 就是它们）
       EventForm,
       TaskForm,
+      // V1.1 §2：协作面板。组件化之后能被真渲染断言，
+      // 「空列表显示什么」「pending 时按钮有没有」不再是正则猜的。
+      CollabPanel,
       ConfirmDelete,
       PlanPanel,
       WorkbenchPage,
@@ -1276,15 +1395,33 @@ function taskBucket(task, now) {
 
     function TaskForm({ initial, onSave, onCancel, saving, t = defaultT }) {
       const [title, setTitle] = useState(initial?.title ?? '')
-      const [dueAt, setDueAt] = useState(initial?.dueAt ?? '')
+      /**
+       * 到期时间的三项状态：日期、时刻、是否「无截止」。
+       *
+       * 原实现是一个裸文本框 + `placeholder='2026-11-10T09:00:00Z'`。
+       * 那个灰字**看起来像已填好的默认值**，实际 useState 拿到的是空串，
+       * 提交时走 `delete next.dueAt` —— 用户以为设了今天，落库是无截止，
+       * 待办就掉进「计划中 › 未分组」而不是「今日」。
+       *
+       * 改成真控件 + 真默认值：新建时预填今天 09:00（用户可见、可改、会被提交），
+       * 编辑时按本地时区回填已存时刻（不能 slice，否则跨天会改错日期）。
+       */
+      const initialSplit = splitDueAt(initial?.dueAt)
+      const isNew = initial?.id === undefined
+      const [dueDate, setDueDate] = useState(() => {
+        if (initialSplit.date !== '') return initialSplit.date
+        return isNew ? isoDate(new Date()) : ''
+      })
+      const [dueTime, setDueTime] = useState(() => (initialSplit.time !== '' ? initialSplit.time : '09:00'))
+      const [noDue, setNoDue] = useState(() => !isNew && initialSplit.date === '')
       const [priority, setPriority] = useState(initial?.priority ?? 'normal')
       const [formError, setFormError] = useState(null)
       const submit = (ev) => {
         ev.preventDefault()
         if (title.trim() === '') return
-        const parsed = parseDueAt(dueAt)
-        if (!parsed.ok) {
-          // 拦在本地：坏值一旦落盘，提醒层只能降级成「不会响」
+        // 两条路径都走 composeDueAt：用户填的日期和「今天」默认值用同一套时区逻辑
+        const composed = noDue ? undefined : composeDueAt(dueDate, dueTime)
+        if (noDue === false && composed === undefined) {
           setFormError(t('dueAtInvalid'))
           return
         }
@@ -1296,16 +1433,32 @@ function taskBucket(task, now) {
           done: initial?.done === true,
           status: initial?.status ?? 'planned',
         }
-        // 空串用 delete 而不是赋 ''：'' 不是「无到期时间」，是坏数据
-        if (parsed.value === undefined) delete next.dueAt
-        else next.dueAt = parsed.value
+        // 无截止用 delete 而不是赋 ''：'' 不是「无到期时间」，是坏数据
+        if (composed === undefined) delete next.dueAt
+        else next.dueAt = composed
         onSave(next)
       }
       return h('form', { className: 'wb-form', onSubmit: submit },
         h('label', null, t('fieldTitle'),
           h('input', { className: 'wb-input', value: title, onChange: (e) => setTitle(e.target.value), required: true, autoFocus: true })),
-        h('label', null, t('dueAtLabel'),
-          h('input', { className: 'wb-input', value: dueAt, onChange: (e) => setDueAt(e.target.value), placeholder: '2026-11-10T09:00:00Z' })),
+        h('label', null, t('dueDateLabel'),
+          h('input', {
+            className: 'wb-input', type: 'date', value: dueDate,
+            disabled: noDue,
+            onChange: (e) => setDueDate(e.target.value),
+          })),
+        h('label', null, t('dueTimeLabel'),
+          h('input', {
+            className: 'wb-input', type: 'time', value: dueTime,
+            disabled: noDue,
+            onChange: (e) => setDueTime(e.target.value),
+          })),
+        h('label', null, t('noDueLabel'),
+          h('input', {
+            type: 'checkbox', checked: noDue,
+            onChange: (e) => setNoDue(e.target.checked),
+            style: { minHeight: '44px', minWidth: '44px' },
+          })),
         formError === null ? null : h('div', { className: 'wb-preview-warn', role: 'alert' }, formError),
         h('label', null, t('priority'),
           h('select', { className: 'wb-input', value: priority, onChange: (e) => setPriority(e.target.value) },
@@ -1412,6 +1565,153 @@ function taskBucket(task, now) {
             : null,
           h('div', { style: { display: 'flex', gap: '8px', marginTop: '16px' } },
             h('button', { className: 'wb-btn', type: 'button', onClick: onClose }, t('planBack')))))
+    }
+
+    // ------------------------------------------------------- 协作面板组件
+    /**
+     * Agent 协作面板：把任务详情里原先内联的一段展示逻辑独立成组件。
+     *
+     * 拆出来的原因不是「代码好看」，是内联 IIFE 无法测：
+     * `TaskForm` / `EventForm` 都能通过 `__test` 直接渲染断言，唯独协作区
+     * 藏在 WorkbenchPage 的 h() 树深处，只能靠正则扫源码 —— 而正则扫不出
+     * 「空数组时显示什么」。V1.1 要交付的是**真实可用**的面板，
+     * 必须能对每种状态做行为断言。
+     *
+     * 六项能力对应：
+     *   ① 任务关联 —— sessionLinks 列表 + 复制 sessionId（契约 §7.1：插件层
+     *      无会话跳转契约，不自造 openSession，故落地为可复制的标识）
+     *   ② 执行进度 —— progress 百分比 + 当前任务 + 执行状态
+     *   ③ 完成申请 —— completion.status === 'pending' 时显著提示
+     *   ④ 人工验收 —— 只在 pending 时出现，按钮由父层传入（保持唯一入口）
+     *   ⑤ 实时刷新 —— 由父层定时 load，这里只管渲染
+     *   ⑥ 异常处理 —— 三种异常各有明确文案，不静默
+     */
+    function CollabPanel({ task, t = defaultT, onCopySession, copying = false, onAccept, onReject, saving = false }) {
+      const links = Array.isArray(task?.sessionLinks) ? task.sessionLinks : []
+      const log = Array.isArray(task?.executionLog) ? task.executionLog : []
+      const comp = task?.completion ?? null
+      const progress = Number.isFinite(task?.progress)
+        ? task.progress
+        : (log.length > 0 && Number.isFinite(log[log.length - 1]?.progress) ? log[log.length - 1].progress : 0)
+      /**
+       * 执行状态：把 progress 与 completion 合成一个用户能读的短语。
+       * 不能只显示数字 —— 「60 / 99」用户不知道是在跑还是卡住了。
+       */
+      const statusKind = comp?.status === 'pending'
+        ? 'awaiting'
+        : comp?.status === 'accepted'
+          ? 'accepted'
+          : comp?.status === 'rejected'
+            ? 'rejected'
+            : log.length > 0
+              ? 'executing'
+              : 'idle'
+      const statusLabel = {
+        awaiting: t('collabStatusAwaiting'),
+        accepted: t('collabStatusAccepted'),
+        rejected: t('collabStatusRejected'),
+        executing: t('collabStatusExecuting'),
+        idle: t('collabStatusIdle'),
+      }[statusKind]
+      /**
+       * 异常处理（V1.1 §2.6）。三种真实的读不到/不一致：
+       *   - session-missing：关联了会话但链接没有任何 sessionId
+       *   - log-corrupt：executionLog 存在但不是数组（旧数据形态）
+       *   - progress-broken：progress 有值但不是有限数字
+       * 全部显式说清楚，不用空列表掩盖。
+       */
+      const anomalies = []
+      if (links.length === 0 && task?.source === 'shared-assignment') {
+        anomalies.push({ kind: 'session-missing', text: t('collabErrSessionMissing') })
+      }
+      if (task?.executionLog !== undefined && task?.executionLog !== null && !Array.isArray(task.executionLog)) {
+        anomalies.push({ kind: 'log-corrupt', text: t('collabErrLogCorrupt') })
+      }
+      if (task?.progress !== undefined && task?.progress !== null && !Number.isFinite(task.progress)) {
+        anomalies.push({ kind: 'progress-broken', text: t('collabErrProgressBroken') })
+      }
+      return h('div', { className: 'wb-collab' },
+        h('h3', { className: 'wb-collab-title' }, t('collabTitle')),
+        // ---- ② 执行进度 + 当前任务 + 执行状态
+        h('div', { className: 'wb-collab-row' },
+          h('span', { className: 'wb-tertiary' }, t('aiProgress')),
+          h('span', { className: 'wb-collab-progress' }, `${progress}%`),
+          h('span', { className: `wb-collab-status wb-collab-${statusKind}` }, statusLabel)),
+        /**
+         * 预计耗时：原先在内联 IIFE 里展示，重构时必须原样带过来 ——
+         * 组件化不是为了减功能。Agent 排期依赖这个数字，用户看不到
+         * 就无法判断「说两小时，一天没动静」是不是异常。
+         */
+        Number.isFinite(task?.estimatedMinutes)
+          ? h('div', { className: 'wb-collab-row' },
+              h('span', { className: 'wb-tertiary' }, t('estimateLabel')),
+              h('span', null, String(task.estimatedMinutes)))
+          : null,
+        h('div', { className: 'wb-collab-bar', role: 'progressbar', 'aria-valuenow': progress, 'aria-valuemin': 0, 'aria-valuemax': 99 },
+          h('div', { className: 'wb-collab-bar-fill', style: { width: `${Math.max(0, Math.min(99, progress))}%` } })),
+        // ---- ⑥ 异常提示
+        anomalies.length === 0 ? null : h('ul', { className: 'wb-collab-anomalies', role: 'alert' },
+          anomalies.map((a, i) => h('li', { key: i, className: 'wb-collab-anomaly' }, a.text))),
+        // ---- ① 任务关联
+        h('div', { className: 'wb-collab-section' },
+          h('div', { className: 'wb-tertiary' }, t('aiSessionLinks')),
+          links.length === 0
+            ? h('div', { className: 'wb-muted' }, t('noSessions'))
+            : h('ul', { className: 'wb-collab-links' }, links.map((l, i) => h('li', { key: i },
+                h('code', null, String(l.sessionId ?? '')),
+                ' · ',
+                h('span', { className: 'wb-collab-role' }, String(l.role ?? 'other')),
+                l.note ? h('span', { className: 'wb-tertiary' }, ' — ', l.note) : null,
+                typeof onCopySession === 'function'
+                  ? h('button', {
+                      className: 'wb-btn wb-btn-mini', type: 'button',
+                      disabled: copying,
+                      'aria-label': t('collabCopySession'),
+                      onClick: () => onCopySession(String(l.sessionId ?? '')),
+                    }, copying ? t('collabCopying') : t('collabCopySession'))
+                  : null)))),
+        // ---- ③ 完成申请
+        comp === null ? null : h('div', { className: 'wb-collab-section' },
+          h('div', { className: 'wb-tertiary' }, t('aiAcceptance')),
+          comp.status === 'pending'
+            ? h('div', { className: 'wb-collab-pending', role: 'status' },
+                h('strong', null, t('pendingAcceptance')),
+                h('p', null, String(comp.summary ?? '')),
+                comp.requestedAt ? h('div', { className: 'wb-tertiary' }, String(comp.requestedAt)) : null)
+            : comp.status === 'accepted'
+              ? h('div', { className: 'wb-collab-accepted' }, t('acceptedLabel'))
+              : h('div', { className: 'wb-collab-rejected' }, t('rejectedLabel').replace('{feedback}', String(comp.feedback ?? '')))),
+        // ---- ④ 处理记录（验收决策的痕迹）
+        h('div', { className: 'wb-collab-section' },
+          h('div', { className: 'wb-tertiary' }, t('aiExecutionLog')),
+          log.length === 0
+            ? h('div', { className: 'wb-muted' }, t('noSessions'))
+            : h('ul', { className: 'wb-collab-log' }, log.slice(-5).map((e, i) => h('li', { key: i },
+                h('span', { className: 'wb-tertiary' }, String(e.at ?? '')),
+                ' · ',
+                h('strong', null, `${e.progress ?? 0}%`),
+                e.note ? ' · ' + String(e.note) : '',
+                e.evidence ? h('span', { className: 'wb-tertiary' }, ' [', String(e.evidence), ']') : null)))),
+        /**
+         * ④ 人工验收入口：**唯一入口**，只在 pending 出现。
+         *
+         * 红线：AI 工具面（27 个）刻意不暴露 acceptCompletion，
+         * 只有这里能点。任何重构都不能把这条路开给 Agent，
+         * 否则「Agent 不得自行确认完成」就破了。
+         */
+        comp?.status === 'pending'
+          ? h('div', { className: 'wb-collab-actions' },
+              h('button', {
+                className: 'wb-btn wb-btn-primary', type: 'button',
+                disabled: saving, 'aria-label': t('acceptCompletion'),
+                onClick: () => { if (typeof onAccept === 'function') onAccept() },
+              }, t('acceptCompletion')),
+              h('button', {
+                className: 'wb-btn', type: 'button',
+                disabled: saving, 'aria-label': t('rejectCompletion'),
+                onClick: () => { if (typeof onReject === 'function') onReject() },
+              }, t('rejectCompletion')))
+          : null)
     }
 
     // --------------------------------------------------------------- 主页面
@@ -1606,6 +1906,34 @@ function taskBucket(task, now) {
       }, [request, sessionId])
 
       useEffect(() => { load() }, [load])
+
+      /**
+       * V1.1 §2.5 · 实时刷新。
+       *
+       * 问题：Agent 在**自己的会话**里写进度/申请验收，数据落在 Host 的
+       * 共享 assignment 上；本页面已经渲染完，不重新 load 就永远看不到。
+       * 用户视角就是「Agent 说做完了，界面上什么也没有」。
+       *
+       * 设计取舍：
+       *   - 轮询而非事件订阅 —— 插件层没有跨会话数据变更事件契约，
+       *     自造订阅等于假装有推送。
+       *   - 8 秒间隔 —— 这是本地面板，不是高频交易；更密的轮询在
+       *     「有 6 个命令并发」的 load 下会明显增加无谓 IO。
+       *   - **编辑中/保存中/有弹窗时不刷新** —— 否则用户正在填的表单
+       *     会被一次后台 load 覆盖（tasks 状态重建会让 selected 指向旧对象）。
+       *     这条是硬约束，不是优化。
+       *   - 页面不可见时跳过 —— 后台标签页刷新没有意义，还费电。
+       */
+      useEffect(() => {
+        const id = setInterval(() => {
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+          // 弹窗/编辑/保存期间不打扰用户
+          if (editing !== null || saving === true || confirming !== null || planPanel !== null) return
+          if (loading === true) return
+          load(true)
+        }, 8000)
+        return () => clearInterval(id)
+      }, [load, editing, saving, confirming, planPanel, loading])
 
       /**
        * 快捷键要拿到**最新**的 undo/redo，而 keydown 的 effect 依赖数组是空的
@@ -2166,6 +2494,47 @@ function taskBucket(task, now) {
 
 
       /**
+       * V1.1 §2.1 · 复制会话标识。
+       *
+       * 为什么是「复制」而不是「跳转」：契约 §7.1 一手核实过，
+       * 插件层没有会话跳转/激活契约（uiSession controller 只暴露
+       * bindingSource/whenAccess/provide；schedule 明确 management reads
+       * 不激活会话；GUI 切换属于 Web shell 路由层）。自造 openSession
+       * 只会得到一个看起来能用、点了没反应的假按钮 —— 那比没有更糟。
+       *
+       * 复制是插件层**真能兑现**的动作：用户拿到 sessionId 就能在会话
+       * 列表里找到它。这是诚实的降级，不是能力缩水。
+       */
+      const [copyState, setCopyState] = useState({ busy: false, done: null })
+      const copySessionId = async (sessionId) => {
+        if (typeof sessionId !== 'string' || sessionId === '') return
+        setCopyState({ busy: true, done: null })
+        try {
+          /**
+           * 只用 navigator.clipboard，**不退回 document.body + textarea**。
+           *
+           * WP4 硬约束「不得写 document.body」不是洁癖：插件运行在宿主
+           * 的 renderer 里，往 body 里塞临时节点会和宿主的 DOM 管理冲突
+           * （实测过的形态是节点残留、焦点被抢）。而 clipboard 不可用时
+           * 静默失败同样不可接受。
+           *
+           * 所以不可用就**明确告诉用户**该手动复制 —— 会话标识一直明文
+           * 显示在面板上，用户可以直接选中。诚实的降级优于偷偷改 DOM。
+           */
+          if (navigator?.clipboard?.writeText === undefined) {
+            throw new Error(t('collabCopyUnavailable'))
+          }
+          await navigator.clipboard.writeText(sessionId)
+          setCopyState({ busy: false, done: sessionId })
+          setNotice(t('collabCopied'))
+        } catch (e) {
+          setCopyState({ busy: false, done: null })
+          // 明确报错，不静默：用户点复制没反应比报错更让人困惑
+          setError(`${t('collabCopyFailed')}: ${String(e?.message ?? e)}`)
+        }
+      }
+
+      /**
        * WP6-D · 用户人工验收（通过 / 驳回）。
        * 只有用户点这两个按钮才会调用；AI 工具面完全没有这两个 op。
        */
@@ -2630,53 +2999,26 @@ function taskBucket(task, now) {
                         (Array.isArray(selected.subtasks) ? selected.subtasks : []).map((st, i) =>
                           h('li', { key: i }, typeof st === 'string' ? st : (st.title ?? JSON.stringify(st)))))) : null,
                       /**
-                       * WP6-C/D · 任务详情里的会话协作区。
-                       * 只展示，不跳转到别的 GUI 会话（插件层无该契约，见契约 §7）。
-                       * sessionId 明文可复制，作为「从任务进入会话」的可用标识。
+                       * WP6-C/D · 任务详情里的 Agent 协作面板。
+                       *
+                       * 从内联 IIFE 抽成独立组件（V1.1 §2）：内联形态无法被
+                       * __test 渲染断言，只能正则扫源码 —— 扫不出「空列表时
+                       * 显示什么」。面板要真的可用，就必须每种状态都能测。
+                       *
+                       * 契约边界不变：插件层**没有**会话跳转契约（docs/wp6/
+                       * 00-contract.md §7.1 一手核实），故不自造 openSession，
+                       * 「进入会话」落地为可复制的 sessionId。
                        */
                       selected.kind === 'task'
-                        ? (() => {
-                            const links = Array.isArray(selected.sessionLinks) ? selected.sessionLinks : []
-                            const log = Array.isArray(selected.executionLog) ? selected.executionLog : []
-                            const progress = log.length > 0 ? log[log.length - 1].progress : 0
-                            const comp = selected.completion ?? null
-                            return [
-                              selected.estimatedMinutes !== undefined
-                                ? h('dt', { className: 'wb-tertiary' }, t('estimateLabel'))
-                                : null,
-                              selected.estimatedMinutes !== undefined
-                                ? h('dd', null, String(selected.estimatedMinutes))
-                                : null,
-                              h('dt', { className: 'wb-tertiary' }, t('aiProgress')),
-                              h('dd', null, String(progress) + ' / 99'),
-                              h('dt', { className: 'wb-tertiary' }, t('aiSessionLinks')),
-                              h('dd', null, links.length === 0
-                                ? h('span', { className: 'wb-muted' }, t('noSessions'))
-                                : h('ul', null, links.map((l, i) =>
-                                    h('li', { key: i },
-                                      h('code', null, String(l.sessionId ?? '')),
-                                      ' · ', String(l.role ?? ''),
-                                      l.note ? h('span', { className: 'wb-tertiary' }, ' — ', l.note) : null)))),
-                              h('dt', { className: 'wb-tertiary' }, t('aiExecutionLog')),
-                              h('dd', null, log.length === 0
-                                ? h('span', { className: 'wb-muted' }, t('noSessions'))
-                                : h('ul', null, log.slice(-5).map((e, i) =>
-                                    h('li', { key: i },
-                                      String(e.at ?? ''), ' · ', String(e.progress ?? 0),
-                                      e.note ? ' · ' + String(e.note) : '',
-                                      e.evidence ? h('span', { className: 'wb-tertiary' }, ' [', String(e.evidence), ']') : null)))),
-                              h('dt', { className: 'wb-tertiary' }, t('aiAcceptance')),
-                              h('dd', null, comp === null
-                                ? h('span', { className: 'wb-muted' }, t('noSessions'))
-                                : comp.status === 'pending'
-                                  ? h('div', null,
-                                      h('span', { className: 'wb-status-error' }, t('pendingAcceptance')),
-                                      h('p', null, String(comp.summary ?? '')))
-                                  : comp.status === 'accepted'
-                                    ? h('span', null, t('acceptedLabel'))
-                                    : h('span', null, t('rejectedLabel').replace('{feedback}', String(comp.feedback ?? '')))),
-                            ]
-                          })()
+                        ? h(CollabPanel, {
+                            task: selected,
+                            t,
+                            saving,
+                            copying: copyState.busy,
+                            onCopySession: copySessionId,
+                            onAccept: () => decideCompletion('accept'),
+                            onReject: () => decideCompletion('reject', t('completionFeedback')),
+                          })
                         : null,
                     ),
                     h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px' } },
@@ -2688,21 +3030,12 @@ function taskBucket(task, now) {
                         className: 'wb-btn wb-btn-danger', type: 'button',
                         onClick: () => setConfirming({ kind: selected.kind ?? 'event', id: selected.id, label: selected.title ?? '' }),
                       }, t('deleteAction')),
-                      // WP6-D：人工验收入口（AI 工具面无此能力，只有这里能点）
-                      selected.kind === 'task' && selected.completion?.status === 'pending'
-                        ? h('button', {
-                            className: 'wb-btn wb-btn-primary', type: 'button',
-                            disabled: saving, 'aria-label': t('acceptCompletion'),
-                            onClick: () => decideCompletion('accept'),
-                          }, t('acceptCompletion'))
-                        : null,
-                      selected.kind === 'task' && selected.completion?.status === 'pending'
-                        ? h('button', {
-                            className: 'wb-btn', type: 'button',
-                            disabled: saving, 'aria-label': t('rejectCompletion'),
-                            onClick: () => decideCompletion('reject', t('completionFeedback')),
-                          }, t('rejectCompletion'))
-                        : null,
+                      /**
+                       * 验收按钮已移入 CollabPanel（V1.1 §2.4）。
+                       * 移走而非复制：验收入口必须**唯一**，两处按钮意味着
+                       * 两套状态判断，迟早出现「一处可点一处不可点」。
+                       * 红线不变 —— AI 工具面仍无此能力。
+                       */
                       h('button', { className: 'wb-btn', type: 'button', onClick: () => setSelected(null) }, t('close')))))),
 
         confirming !== null

@@ -1,0 +1,21 @@
+{
+  "name": "@local/workbench-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH 工作台核心域：Event 日历域 + Task 门面 + 原子存储（零运行时依赖）",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "demo": "node demo/demo.mjs"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "license": "MIT"
+}

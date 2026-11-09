@@ -1077,13 +1077,66 @@ export function createWorkbenchService(options) {
        */
       const assignments = readSharedAssignments()
       if (assignments.length === 0) return rows
+      /**
+       * **一个任务可能被多个会话关联**（澄清 → 拆解 → 执行 → 评审），
+       * 原实现 `byTask.set(a.taskId, a)` 只留最后一条，前面所有会话的
+       * 认领记录、执行日志全部丢失 —— 用户只看到一个 sessionId。
+       *
+       * 改成按 taskId 聚合：links 累积所有会话，log 合并后按时间排序取尾部。
+       * 单条 assignment 时行为与原来一致。
+       */
       const byTask = new Map()
       for (const a of assignments) {
-        if (a && typeof a.taskId === 'string') byTask.set(a.taskId, a)
+        if (a === null || typeof a !== 'object' || typeof a.taskId !== 'string') continue
+        const group = byTask.get(a.taskId)
+        if (group === undefined) byTask.set(a.taskId, [a])
+        else group.push(a)
       }
       return rows.map((task) => {
-        const a = byTask.get(task.id)
-        if (a === undefined) return task
+        const group = byTask.get(task.id)
+        if (group === undefined) return task
+        // 主记录：进度/完成态以最近更新的一条为准（多会话并发时后者覆盖前者）
+        const a = group.length === 1
+          ? group[0]
+          : group.slice().sort((x, y) => String(x.updatedAt ?? '').localeCompare(String(y.updatedAt ?? '')))[group.length - 1]
+        /**
+         * 从**所有** assignment 合成会话关联视图。
+         *
+         * 为什么要合成：`task.linkSession` 把 link 写进了**用户工作区**的
+         * tasks 行（Agent 跨工作区时那行不在），共享 assignment 里只留
+         * 了 sessionId/role/note。而用户在 UI 上读的是 `task.list`，
+         * 结果是 Agent 明明关联了会话，界面却显示「暂无关联会话」。
+         */
+        const sharedLinks = group
+          .filter((g) => typeof g.sessionId === 'string' && g.sessionId !== '')
+          .map((g) => ({
+            sessionId: g.sessionId,
+            role: typeof g.role === 'string' && g.role !== '' ? g.role : 'other',
+            note: typeof g.note === 'string' ? g.note : '',
+            at: g.at,
+          }))
+        const localLinks = Array.isArray(task.sessionLinks) ? task.sessionLinks : []
+        // 去重：同 sessionId+role 只留一条（与 linkSession 的 ON CONFLICT 语义一致）
+        const linkSeen = new Set()
+        const sessionLinks = []
+        for (const l of [...localLinks, ...sharedLinks]) {
+          const key = `${l.sessionId}\u0000${l.role}`
+          if (linkSeen.has(key)) continue
+          linkSeen.add(key)
+          sessionLinks.push(l)
+        }
+        /**
+         * 执行日志同样要跨会话聚合：每条 assignment 各自持有自己的 log 尾段，
+         * 单取一条会漏掉其他会话写入的进度。
+         */
+        const mergedLog = []
+        for (const g of group) {
+          if (Array.isArray(g.log)) mergedLog.push(...g.log)
+        }
+        if (Array.isArray(task.executionLog)) mergedLog.push(...task.executionLog)
+        if (Array.isArray(task.recentLog)) mergedLog.push(...task.recentLog)
+        mergedLog.sort((x, y) => String(x?.at ?? '').localeCompare(String(y?.at ?? '')))
+        const executionLog = mergedLog.slice(-20)
         /**
          * 字段级优先级：**本地对象优先，共享分配只补缺**。
          *
@@ -1102,8 +1155,17 @@ export function createWorkbenchService(options) {
           progress: a.progress ?? task.progress ?? 0,
           completion,
           done: task.done === true || a.done === true,
-          recentLog: Array.isArray(a.log) ? a.log.slice(-5) : (task.recentLog ?? []),
-          completionRequest: task.completionRequest ?? a.completionRequest ?? null,
+          recentLog: executionLog.slice(-5),
+          /**
+           * 这两个字段原本**没有合并**，是「Agent 关联了会话但界面空白」的直接原因：
+           * 详情面板读 `sessionLinks` / `executionLog`，而 task.list 只补了
+           * `recentLog`，两个键名对不上，UI 永远拿到 undefined → 显示「暂无」。
+           */
+          sessionLinks,
+          executionLog,
+          completionRequest: task.completionRequest ?? a.completionRequest ?? (group.length > 1
+            ? (group.find((g) => g.completionRequest !== undefined && g.completionRequest !== null)?.completionRequest ?? null)
+            : null),
           source: 'shared-assignment',
         }
       })

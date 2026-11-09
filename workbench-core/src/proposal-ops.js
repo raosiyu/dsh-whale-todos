@@ -585,7 +585,25 @@ export function createProposalOps(ctx) {
         })
       } catch (error) { throw asServiceError(error) }
       const rows = tasks()
-      if (!rows.some((r) => r.id === id)) throw notFoundError('待办不存在', { id })
+      /**
+       * **跨工作区关联**（V1.1 §2.1 修复）。
+       *
+       * 原实现只查本工作区：`if (!rows.some(...)) throw notFound`。
+       * 任务实体在**用户**工作区，Agent 在自己工作区里永远找不到它 ——
+       * 于是「第二个 Agent 会话要关联同一个任务」直接报「待办不存在」，
+       * 多 Agent 协作（澄清 → 拆解 → 执行）从第二步就断了。
+       *
+       * 越权防线与 `task.writeProgress` 保持一致：本工作区没有该任务时，
+       * **只有** collab assignments 里已把该任务分配给本会话才允许继续。
+       * 既不在本工作区、也没分配给自己的任务仍然拒绝 —— 不能借修这个
+       * 缺陷把越权口子打开。
+       */
+      const inMyWorkspace = rows.some((r) => r.id === id)
+      if (!inMyWorkspace) {
+        const assignedToMe = readAssignmentsFresh(proposalStore)
+          .some((a) => a.taskId === id && a.sessionId === link.sessionId)
+        if (!assignedToMe) throw notFoundError('待办不存在', { id })
+      }
       store.mutate((draft) => {
         const row = draft.tasks.find((r) => r.id === id)
         if (row !== undefined) {
@@ -612,7 +630,21 @@ export function createProposalOps(ctx) {
        * 不含任务全量数据。
        */
       const row = tasks().find((r) => r.id === id)
-      if (proposalStore !== store && row !== undefined) {
+      /**
+       * 跨工作区关联时 `row` 是 undefined（任务在用户工作区）。
+       * 原条件 `row !== undefined` 让 assignment **永远写不出来** ——
+       * 于是第二个 Agent 会话再关联同一任务时，越权防线（查 assignments）
+       * 也查不到，直接拒成「待办不存在」。
+       *
+       * 修法：本工作区有任务就取真实摘要；没有就用已有 assignment 里的
+       * 摘要兜底（至少 title 等字段能保留）。两者都没有时仍然不写 ——
+       * 那种情况下越权防线已经在上面拦掉了，走不到这里。
+       */
+      const priorAssignment = proposalStore !== store && row === undefined
+        ? readAssignmentsFresh(proposalStore).find((a) => a.taskId === id)
+        : undefined
+      const summarySource = row ?? priorAssignment
+      if (proposalStore !== store && summarySource !== undefined) {
         mutateCollab(proposalStore, 'assignments', (current) => {
           const list = Array.isArray(current) ? current.slice() : []
           const entry = {
@@ -621,15 +653,17 @@ export function createProposalOps(ctx) {
             role: link.role,
             note: link.note,
             at: link.at,
-            title: String(row.title ?? ''),
-            priority: row.priority,
-            dueAt: row.dueAt,
-            estimatedMinutes: row.estimatedMinutes,
-            done: row.done === true,
-            completion: row.completion?.status ?? null,
-            progress: Array.isArray(row.executionLog) && row.executionLog.length > 0
-              ? row.executionLog[row.executionLog.length - 1].progress
-              : 0,
+            title: String(summarySource.title ?? ''),
+            priority: summarySource.priority,
+            dueAt: summarySource.dueAt,
+            estimatedMinutes: summarySource.estimatedMinutes,
+            done: summarySource.done === true,
+            completion: typeof summarySource.completion === 'object' && summarySource.completion !== null
+              ? (summarySource.completion.status ?? null)
+              : (summarySource.completion ?? null),
+            progress: Array.isArray(summarySource.executionLog) && summarySource.executionLog.length > 0
+              ? summarySource.executionLog[summarySource.executionLog.length - 1].progress
+              : (summarySource.progress ?? 0),
             updatedAt: at(),
           }
           const idx = list.findIndex((a) => a.taskId === id && a.sessionId === link.sessionId)

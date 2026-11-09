@@ -25,8 +25,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-import { createWorkbenchHostService, DANGEROUS_OPS, validationError } from './workbench-core/src/index.js'
-import { createReminderSync } from './workbench-core/src/reminder-sync.js'
+import { createWorkbenchHostService, DANGEROUS_OPS, validationError } from '../../workbench-core/src/index.js'
+import { createReminderSync } from '../../workbench-core/src/reminder-sync.js'
 
 export const name = 'workbench-ui'
 
@@ -421,7 +421,7 @@ export function apply(ctx, config = {}) {
 
   ctx.effect(function* () {
     yield ctx.commands.register({
-      definitionId: 'dsh-whale-workbench/workbench',
+      definitionId: '@local/dsh-workbench-ui/workbench',
       name: 'workbench',
       description: 'Workbench calendar and todo operations (structured JSON)',
       input: { hint: '<json>' },
