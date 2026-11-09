@@ -1672,9 +1672,41 @@ function taskBucket(task, now) {
       const links = Array.isArray(task?.sessionLinks) ? task.sessionLinks : []
       const log = Array.isArray(task?.executionLog) ? task.executionLog : []
       const comp = task?.completion ?? null
-      const progress = Number.isFinite(task?.progress)
-        ? task.progress
-        : (log.length > 0 && Number.isFinite(log[log.length - 1]?.progress) ? log[log.length - 1].progress : 0)
+      /**
+       * 进度取值：优先用任务行上的 progress，否则取**时间戳最新**的那条日志。
+       *
+       * 为什么不能取 `log[log.length - 1]`（V1.2 缺陷修复）：
+       * `task.list` 会把多个会话的 executionLog 合并后按 `at` 字符串排序再截断，
+       * 合并结果的数组末位**不等于**最新一次写入。实测：先写 66、再写 99，
+       * 界面显示 66 —— 用户以为 Agent 卡住了，实际早就到 99。
+       *
+       * 按 `Date.parse(at)` 取最大值才是「最新进度」的正确语义；
+       * 时间戳解析不出来时才退回数组末位。
+       */
+      const latestLogEntry = (() => {
+        if (log.length === 0) return null
+        let best = null
+        let bestMs = -Infinity
+        for (const e of log) {
+          const ms = Date.parse(String(e?.at ?? ''))
+          if (!Number.isFinite(ms)) continue
+          if (ms >= bestMs) { bestMs = ms; best = e }
+        }
+        return best ?? log[log.length - 1]
+      })()
+      /**
+       * `task.progress` 是共享 assignment 上的**快照值**，可能落后于 executionLog。
+       *
+       * 实测：日志已有 66 和 99 两条，而 assignment 上的 progress 还停在 66，
+       * 于是界面显示 66% —— 用户看到的是「卡住了」而不是「快完成了」。
+       * 日志里存在更晚的写入时，以日志为准。
+       */
+      const logProgress = latestLogEntry !== null && Number.isFinite(latestLogEntry.progress)
+        ? latestLogEntry.progress
+        : null
+      const progress = logProgress !== null
+        ? logProgress
+        : (Number.isFinite(task?.progress) ? task.progress : 0)
       /**
        * 执行状态：把 progress 与 completion 合成一个用户能读的短语。
        * 不能只显示数字 —— 「60 / 99」用户不知道是在跑还是卡住了。
@@ -2027,12 +2059,32 @@ function taskBucket(task, now) {
             const id = inst.eventId ?? inst.sourceId ?? inst.id
             if (typeof id === 'string') recurrenceCount.set(id, (recurrenceCount.get(id) ?? 0) + 1)
           }
-          setEvents((Array.isArray(ev.value) ? ev.value : []).map((e) => ({
+          const nextEvents = (Array.isArray(ev.value) ? ev.value : []).map((e) => ({
             ...e,
             ...(conflictIds.has(e.id) ? { conflict: true } : {}),
             ...(recurrenceCount.has(e.id) ? { recurrenceOccurrences: recurrenceCount.get(e.id) } : {}),
-          })))
-          setTasks(Array.isArray(tk.value) ? tk.value : [])
+          }))
+          setEvents(nextEvents)
+          const nextTasks = Array.isArray(tk.value) ? tk.value : []
+          setTasks(nextTasks)
+          /**
+           * **选中项必须跟着数据刷新**（V1.2 缺陷修复）。
+           *
+           * `selected` 是渲染那一刻的**快照副本**，不是引用。刷新只更新 tasks、
+           * 不重绑 selected，详情面板就会一直显示旧内容 —— 实测：
+           * Agent 写入新的会话关联/进度后，列表已是最新，右侧面板仍是旧的，
+           * 用户只能先点别处再点回来才看得到。这直接打掉了「可靠状态刷新」。
+           *
+           * 用 id 重新取一行即可；取不到说明它已被删，那就取消选中。
+           */
+          setSelected((prev) => {
+            if (prev === null || prev.id === undefined) return prev
+            // 任务与事件都要重绑：两类详情面板都会因为旧快照显示过期内容
+            const pool = prev.kind === 'task' ? nextTasks : nextEvents
+            const fresh = pool.find((r) => r.id === prev.id)
+            if (fresh === undefined) return null
+            return { kind: prev.kind, ...fresh }
+          })
           /**
            * 提醒只保留「未来 7 天内、按触发时刻升序」的部分。
            * skipped 不静默丢弃——算不出提醒的条目单独计数，状态栏里如实显示。

@@ -342,3 +342,37 @@ test('V1.2：回滚审批请求体绑具体备份名，不绑 latest', () => {
   assert.notEqual(r.payload.target, 'latest')
   assert.ok(typeof r.payload.summary === 'string' && r.payload.summary.length > 0)
 })
+
+test('V1.2：协作面板进度取时间戳最新的一条，不是数组末位', () => {
+  /**
+   * 真实缺陷：task.list 跨会话合并 executionLog 后按 `at` 排序再截断，
+   * 数组末位不等于最新写入。实测先写 66 再写 99，界面显示 66。
+   */
+  const { CollabPanel } = loadClient().__test
+  const task = {
+    id: 'T1',
+    // 故意把较旧的放在后面：数组末位是 40，但时间戳最新的是 99
+    executionLog: [
+      { at: '2026-11-09T08:32:05.637Z', progress: 99, note: '最新' },
+      { at: '2026-11-09T08:30:00.000Z', progress: 40, note: '较早' },
+    ],
+    sessionLinks: [], completion: null,
+  }
+  const tree = CollabPanel({ task, t: T, saving: false })
+  // 只看「进度」这一处，不看执行记录列表（列表本来就该展示历史条目）
+  const progressNode = tree.children.find((c) => c?.props?.className === 'wb-collab-row')
+  const progressText = flatten(progressNode).join(' ')
+  assert.match(progressText, /99%/, '必须显示时间戳最新的进度 99%')
+  assert.doesNotMatch(progressText, /40%/, '不能显示数组末位的旧进度')
+})
+
+test('V1.2：没有 timeStamp 时退回数组末位，不炸', () => {
+  const { CollabPanel } = loadClient().__test
+  const task = {
+    id: 'T1',
+    executionLog: [{ progress: 10 }, { progress: 70 }],  // 都没有 at
+    sessionLinks: [], completion: null,
+  }
+  const text = flatten(CollabPanel({ task, t: T, saving: false })).join(' ')
+  assert.match(text, /70%/, '无时间戳时退回末位')
+})
