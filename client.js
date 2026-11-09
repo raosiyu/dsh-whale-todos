@@ -16,8 +16,19 @@
  * 不用 iframe、不 require Client primitives、不写 document.body。
  */
 
+/**
+ * 模块 id **必须等于发布包名**（package.json 的 name）。
+ *
+ * 宿主按包名查找 client 半边：包名是 `dsh-whale-workbench`，注册成
+ * `@local/dsh-workbench-ui`（开发仓库的包名）就会得到
+ * 「loaded without registering "dsh-whale-workbench" via __ModuleLoader__.load」
+ * —— 整个 web 启动失败，界面只剩 Failed to load plugins。
+ *
+ * 开发仓库那份保持 `@local/dsh-workbench-ui` 是对的（它的包名就是它），
+ * 发布分支这里必须跟着发布的包名走。
+ */
 window.__ModuleLoader__.load({
-  id: '@local/dsh-workbench-ui',
+  id: 'dsh-whale-workbench',
   factory(require) {
     const React = require('react')
     const h = React.createElement
