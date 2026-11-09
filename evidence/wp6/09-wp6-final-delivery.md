@@ -2,10 +2,24 @@
 
 > 冻结 commit：`27c4298d9e21a8a9f5db33e49d02508d1bc8db4d`
 > 整改 commit：`269a035`（复审 3 P0 + 4 P1 闭环）
-> 当前 HEAD：`e5ed621`（证据与自测探针；不改产品代码）
-> tree digest：`e5f59a0635f89965c7c8278ab63818a750b82a48`
+> 当前 HEAD：`cadf4b1`（用户可见性修复 + 证据探针）
+> 已推送：`6f6dbe7..cadf4b1` → `origin/main`（快进，非 force，`git rev-parse` 双向一致）
 > 基线：`d81e99a96f12f15269c21b998def43c284d6e5be`
 > 范围：WP6 完成即停，未进入 WP7
+
+## 交付后审计发现并修复的真实缺陷（`1455fc7` / `cadf4b1`）
+
+真机走 WP6-C 主链路（用户建任务 → 关联 Agent 会话 → Agent 回写进度 →
+申请完成 → 用户验收）时发现：**Agent 干完了，用户在界面上看不见**。
+
+| 项 | 事实 |
+| --- | --- |
+| 现象 | 用户 `task.list` 里 `progress = undefined`、`completionRequest = null` |
+| 根因 | `task.writeProgress` / `task.requestCompletion` 写的是 scope 级 `shared assignments`，**不在**用户工作区的 `tasks` 行上；而 UI 唯一数据源是 `task.list`，从不合并 assignments |
+| 影响 | WP6-C「进度回写」与 WP6-D「人工验收入口」的价值链断开——数据在库里，但用户看不到 |
+| 修复 | `task.list` 对已关联任务做**只读投影**合并执行态；不写回、不进 undo、不改分片 |
+| 回归 | 首次修复把本地 `completion` **对象**覆盖成 assignment 的**状态字符串**，导致 `completion.decidedBy` 读不到（e2e E1.19 / E2.3 变红）→ `cadf4b1` 改为「本地对象优先，共享分配只补缺」 |
+| 验证 | 单测 516 pass / 0 fail / 6 skipped；e2e 45 pass / 0 fail；杀手测试废掉合并逻辑即红（515/1 实测） |
 
 ## 复审结论与整改状态（这一节先于功能描述）
 
