@@ -119,6 +119,30 @@ export function buildPlanSuggestion(input) {
       reason: `优先级 ${entry.priority}、预计 ${entry.minutes} 分钟，安排在时间窗内空闲时段`,
     })
   }
+
+  // 3b) 把排期结果回填到对应「新建任务」的 dueAt。
+  //
+  // 为什么必须回填：新建任务的原注释写着「dueAt 由排期阶段补」，但排期阶段
+  // 此前只产出了 event.create，没有回写任务。用户在界面确认写入后拿到一条
+  // **没有任何日期**的待办——它同时进不了「今日」，只能落进「计划中」，
+  // 于是刚拆出来的任务看起来像"消失"了。日程与任务是同一次拆解的两个侧面，
+  // 既然已经算出它几点做，就应该把那个时间写回任务本身。
+  //
+  // 只回填本次新建的任务（`__new_i`），既有任务的时间由用户自己掌控，不覆盖。
+  //
+  // 注意：entry.end 是 wallClock 产出的**去时区本地墙钟**串，event.create 接受它，
+  // 但 task.dueAt 有硬校验「必须带 Z 或 ±HH:MM」。因此这里补上本机偏移，
+  // 语义等价（同一瞬间），不改变用户看到的时间。
+  for (const entry of schedule.placed) {
+    if (typeof entry.id !== 'string' || !entry.id.startsWith('__new_')) continue
+    const idx = Number(entry.id.slice('__new_'.length))
+    if (!Number.isInteger(idx) || idx < 0 || idx >= newTitles.length) continue
+    const title = newTitles[idx]
+    const target = items.find((it) => it.op === 'task.create' && it.payload.title === title)
+    if (target === undefined) continue
+    const dueAt = withLocalOffset(entry.end)
+    if (dueAt !== undefined) target.payload.dueAt = dueAt
+  }
   reasons.push(`按优先级与预计耗时，在真实空闲时段排出 ${schedule.placed.length} 个专注时段`)
 
   // ---- 4) 冲突/过载检测（复用传入的真实冲突与容量账本，不自己造）
@@ -307,4 +331,28 @@ export function assertPlanItemsSafe(items) {
     }
   }
   return true
+}
+
+/**
+ * 把去时区的本地墙钟串（wallClock 的输出）补上本机时区偏移，变成合规 ISO 瞬间。
+ *
+ * 为什么需要：`event.create` 的 start/end 接受本地墙钟串（由事件层按时区解释），
+ * 但 `task.dueAt` 走 `isoInstant` 硬校验，必须带 `Z` 或 `±HH:MM`。同一段排期
+ * 结果要同时喂给两者，就必须在写回任务时补上偏移。
+ *
+ * 无效输入返回 undefined——调用方据此跳过回填，绝不产出半截时间串骗过校验。
+ */
+function withLocalOffset(wall) {
+  if (typeof wall !== 'string' || wall === '') return undefined
+  // 已经是合规 ISO（带 Z 或偏移）就直接用
+  if (/(?:Z|[+-]\d{2}:\d{2})$/.test(wall)) {
+    return Number.isFinite(Date.parse(wall)) ? wall : undefined
+  }
+  const parsed = new Date(wall)
+  if (Number.isNaN(parsed.getTime())) return undefined
+  const pad = (n) => String(n).padStart(2, '0')
+  const offsetMin = -parsed.getTimezoneOffset()
+  const sign = offsetMin >= 0 ? '+' : '-'
+  const abs = Math.abs(offsetMin)
+  return `${wall}${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
 }

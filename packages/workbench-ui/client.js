@@ -548,8 +548,12 @@ window.__ModuleLoader__.load({
   margin-bottom:16px}
 .wb-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;
   align-items:center;justify-content:center;z-index:1000}
-.wb-overlay-panel{background:var(--dsw-alias-interactive-bg-hover);
-  border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:24px;
+/* 弹窗必须是**不透明**的浮起面：早先用 interactive-bg-hover（悬停态半透明色），
+   底层页面文字会透出来，标题出现重影。改用 overlay 专用 token。
+   边框用 l2（更强的一档）把浮起面和背后内容分开——不用 box-shadow，
+   因为样式规范禁止硬编码颜色，而阴影色没有对应的 --dsw-alias-* 令牌。 */
+.wb-overlay-panel{background:var(--dsw-alias-bg-overlay);
+  border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:24px;
   min-width:320px;max-width:min(560px,90vw);max-height:80vh;overflow:auto}
 .wb-overlay-panel h2{font-size:20px;margin:0 0 16px 0}
 .wb-kbd{font:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--dsw-alias-border-l1);
