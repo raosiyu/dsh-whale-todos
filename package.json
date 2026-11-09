@@ -1,6 +1,6 @@
 {
   "name": "dsh-whale-workbench",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "鲸鱼待办：日历 + 待办 + AI 智能规划 + 提醒 + Agent 工具，全部数据留在本机",
   "type": "module",
   "main": "index.js",
@@ -18,7 +18,8 @@
     "cordis.patch.yml",
     "icon.svg",
     "README.md",
-    "LICENSES"
+    "LICENSES",
+    "CHANGELOG.md"
   ],
   "engines": {
     "dsh": ">=0.1.7",

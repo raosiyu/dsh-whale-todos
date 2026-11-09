@@ -2,7 +2,7 @@
 
 日历、待办、AI 智能规划、提醒与 Agent 工具，全部数据留在本机。
 
-- 版本：**1.0.0**
+- 版本：**1.2.0**
 - 包名：`dsh-whale-workbench`
 - 数据：仅本机，无网络请求
 
@@ -14,7 +14,7 @@
 
 ```bash
 cd ~/.dsh/profiles/desktop
-pnpm add /path/to/dsh-whale-workbench-1.0.0.tgz
+pnpm add /path/to/dsh-whale-workbench-1.2.0.tgz
 ```
 
 ### 2. 声明为 bundle

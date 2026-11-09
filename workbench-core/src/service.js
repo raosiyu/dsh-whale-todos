@@ -1608,6 +1608,20 @@ export function createWorkbenchService(options) {
           op, reason: 'approval-mode-deny',
         })
       }
+      /**
+       * **V1.2 P0：每个操作执行前先回盘**（跨进程可见性）。
+       *
+       * 旧行为下 store 只在构造时 load 一次，之后永远用内存快照：
+       * Desktop 长驻进程看不到另一个进程（Agent / 脚本 / 第二个窗口）的写入，
+       * 用户界面就一直显示启动那一刻的数据 ——「Agent 说做完了，界面空着」。
+       *
+       * 放在 execute 这一个入口，而不是散落到每个 handler：
+       * 少一处就是一条看不到新数据的路径，而这种缺口不会自己报错。
+       *
+       * refresh 自身失败不抛（保留上一次已知状态），读失败不该让整个界面空白。
+       */
+      store.refresh()
+      if (collabStore !== null) collabStore.refresh()
       return handler(payload, meta)
     },
     listOps() {

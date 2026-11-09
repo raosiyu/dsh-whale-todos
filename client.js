@@ -16,17 +16,6 @@
  * 不用 iframe、不 require Client primitives、不写 document.body。
  */
 
-/**
- * 模块 id **必须等于发布包名**（package.json 的 name）。
- *
- * 宿主按包名查找 client 半边：包名是 `dsh-whale-workbench`，注册成
- * `@local/dsh-workbench-ui`（开发仓库的包名）就会得到
- * 「loaded without registering "dsh-whale-workbench" via __ModuleLoader__.load」
- * —— 整个 web 启动失败，界面只剩 Failed to load plugins。
- *
- * 开发仓库那份保持 `@local/dsh-workbench-ui` 是对的（它的包名就是它），
- * 发布分支这里必须跟着发布的包名走。
- */
 window.__ModuleLoader__.load({
   id: 'dsh-whale-workbench',
   factory(require) {
@@ -142,6 +131,20 @@ window.__ModuleLoader__.load({
       "collabStatusAwaiting": "Awaiting your acceptance",
       "collabStatusAccepted": "Accepted",
       "collabStatusRejected": "Rejected",
+      "backupPanel": "Backups",
+      "backupPanelHint": "Restoring replaces current data with that snapshot. It requires approval.",
+      "backupCreate": "Back up now",
+      "backupCreated": "Backup created",
+      "backupCreateFailed": "Backup failed",
+      "backupLoadFailed": "Could not list backups",
+      "backupEmpty": "No backups yet",
+      "backupRolledBack": "Restored from backup",
+      "backupRollbackFailed": "Restore failed",
+      "collabOpenSession": "Open",
+      "collabOpened": "Switched to that session",
+      "collabOpenFailed": "Could not open session",
+      "collabOpenUnavailable": "This window does not expose the session switcher",
+      "collabSessionGone": "This session is no longer available in this window",
       "collabCopySession": "Copy",
       "collabCopying": "Copying…",
       "collabCopied": "Session id copied",
@@ -372,6 +375,20 @@ window.__ModuleLoader__.load({
       "collabStatusAwaiting": "等待你验收",
       "collabStatusAccepted": "已验收",
       "collabStatusRejected": "已驳回",
+      "backupPanel": "备份",
+      "backupPanelHint": "恢复会用该快照替换当前数据，需要审批。",
+      "backupCreate": "立即备份",
+      "backupCreated": "已创建备份",
+      "backupCreateFailed": "备份失败",
+      "backupLoadFailed": "无法读取备份列表",
+      "backupEmpty": "还没有备份",
+      "backupRolledBack": "已从备份恢复",
+      "backupRollbackFailed": "恢复失败",
+      "collabOpenSession": "打开",
+      "collabOpened": "已切换到该会话",
+      "collabOpenFailed": "打开会话失败",
+      "collabOpenUnavailable": "当前窗口没有暴露会话切换能力",
+      "collabSessionGone": "该会话已不在当前窗口，无法跳转",
       "collabCopySession": "复制",
       "collabCopying": "复制中…",
       "collabCopied": "会话标识已复制",
@@ -585,6 +602,15 @@ window.__ModuleLoader__.load({
 .wb-reminder-more{color:var(--dsw-alias-label-tertiary);flex:none}
 .wb-reminder-warn{color:var(--dsw-alias-state-warn-label);flex:none}
 .wb-empty{padding:32px 16px;text-align:center;color:var(--dsw-alias-label-secondary)}
+/* V1.2 · 议程里的日期分组 */
+.wb-backup-panel{margin:8px 0 0;padding:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px}
+.wb-backup-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wb-backup-head strong{flex:1 1 auto;font-size:13px}
+.wb-backup-list{margin:0;padding-left:16px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.wb-backup-list li{display:flex;align-items:center;gap:8px;min-height:44px}
+.wb-daygroup{margin-bottom:8px}
+.wb-daygroup-head{font-size:12px;font-weight:600;color:var(--dsw-alias-label-tertiary);
+  padding:8px 0 4px;border-bottom:1px solid var(--dsw-alias-border-l1);margin-bottom:4px}
 /* V1.1 §2 · Agent 协作面板
    颜色一律走 --dsw-alias-* 令牌（WP4 硬约束）：硬编码色值在深色主题下
    会变成不可读的脏色块，而且主题切换时不会跟着变。 */
@@ -871,6 +897,24 @@ function buildPlanApprovalRequest(proposalId, summary) {
   }
 }
 
+/**
+ * V1.2 · 回滚审批请求体。
+ *
+ * 回滚在 DANGEROUS_OPS 里，必须带一次性审批 token 才能执行。
+ * `target` 绑**具体备份名**——不是 'latest'：审批通过后如果又生成了更新的
+ * 备份，指纹会不匹配而被拒，而不是悄悄回滚到别的目标。
+ */
+function buildRollbackApprovalRequest(backupName) {
+  return {
+    op: 'confirmUserAction',
+    payload: {
+      approvalOp: 'store.rollback',
+      target: backupName,
+      summary: '回滚到备份 ' + backupName,
+    },
+  }
+}
+
 /** WP6-D：规划落地执行请求体，token 必须在顶层。 */
 function buildPlanApplyRequest(proposalId, token) {
   return {
@@ -1075,6 +1119,8 @@ function taskBucket(task, now) {
       buildReorderRequest, buildArchiveRequest, buildIcsCounts,
       // WP6-D：规划审批/执行请求体构造器
       buildPlanApprovalRequest, buildPlanApplyRequest,
+      // V1.2：备份回滚审批请求体
+      buildRollbackApprovalRequest,
       // 纯函数：软删判定与分桶。行为测试要能直接调，不能只靠正则看源码。
       isSoftDeleted,
       taskBucket,
@@ -1221,11 +1267,20 @@ function taskBucket(task, now) {
         }))
     }
 
-    function AgendaList({ events, onSelect, emptyText, drag, setDrag, t = defaultT }) {
+    function AgendaList({ events, onSelect, emptyText, drag, setDrag, t = defaultT, groupByDay = false }) {
       if (events.length === 0) return h('div', { className: 'wb-empty' }, emptyText)
       const d = drag ?? null
       const set = setDrag ?? (() => {})
-      return h('div', null, events.map((e) => {
+      /**
+       * **按天分组**（V1.2）。
+       *
+       * 周/日视图原来是一根扁平列表：用户看不出哪天有安排、哪天是空的，
+       * 而「这周哪几天空着」恰恰是周视图唯一要回答的问题。
+       *
+       * 只有显式传 groupByDay 才分组 —— 「今日 & 接下来 7 天」那块本来就是
+       * 连续时间线，分组反而把它割碎。
+       */
+      const emitRow = (e) => {
         const dragging = d !== null && d.id === e.id
         const main = h('button', {
           className: 'wb-row-main', type: 'button',
@@ -1239,7 +1294,7 @@ function taskBucket(task, now) {
             // 源日必须随拖拽一起走：漏了就会回退成落点，静默写坏重复事件（M-2）
             set({ kind: 'event', id: e.id, title: e.title, allDay: e.allDay === true,
               recurring: e.recurrence != null,
-              occurrenceDate: (() => { const d = eventDay(e); return d === null ? null : isoDate(d) })() })
+              occurrenceDate: (() => { const d2 = eventDay(e); return d2 === null ? null : isoDate(d2) })() })
           },
           onDragEnd: () => set(null),
         },
@@ -1256,7 +1311,23 @@ function taskBucket(task, now) {
           key: e.id,
           className: 'wb-row' + (dragging ? ' wb-drag-source' : ''),
         }, main, more)
-      }))
+      }
+
+      if (groupByDay !== true) return h('div', null, events.map(emitRow))
+
+      // 按本地日期键分组，保持原始时间顺序
+      const groups = []
+      const index = new Map()
+      for (const e of events) {
+        const day = eventDay(e)
+        const key = day === null ? '' : isoDate(day)
+        let g = index.get(key)
+        if (g === undefined) { g = { key, items: [] }; index.set(key, g); groups.push(g) }
+        g.items.push(e)
+      }
+      return h('div', null, groups.map((g) => h('div', { key: g.key || 'undated', className: 'wb-daygroup' },
+        h('div', { className: 'wb-daygroup-head' }, g.key === '' ? t('fieldCustom') : g.key),
+        g.items.map(emitRow))))
     }
 
     /**
@@ -1597,13 +1668,45 @@ function taskBucket(task, now) {
      *   ⑤ 实时刷新 —— 由父层定时 load，这里只管渲染
      *   ⑥ 异常处理 —— 三种异常各有明确文案，不静默
      */
-    function CollabPanel({ task, t = defaultT, onCopySession, copying = false, onAccept, onReject, saving = false }) {
+    function CollabPanel({ task, t = defaultT, onCopySession, copying = false, onAccept, onReject, saving = false, onOpenSession, isKnownSession }) {
       const links = Array.isArray(task?.sessionLinks) ? task.sessionLinks : []
       const log = Array.isArray(task?.executionLog) ? task.executionLog : []
       const comp = task?.completion ?? null
-      const progress = Number.isFinite(task?.progress)
-        ? task.progress
-        : (log.length > 0 && Number.isFinite(log[log.length - 1]?.progress) ? log[log.length - 1].progress : 0)
+      /**
+       * 进度取值：优先用任务行上的 progress，否则取**时间戳最新**的那条日志。
+       *
+       * 为什么不能取 `log[log.length - 1]`（V1.2 缺陷修复）：
+       * `task.list` 会把多个会话的 executionLog 合并后按 `at` 字符串排序再截断，
+       * 合并结果的数组末位**不等于**最新一次写入。实测：先写 66、再写 99，
+       * 界面显示 66 —— 用户以为 Agent 卡住了，实际早就到 99。
+       *
+       * 按 `Date.parse(at)` 取最大值才是「最新进度」的正确语义；
+       * 时间戳解析不出来时才退回数组末位。
+       */
+      const latestLogEntry = (() => {
+        if (log.length === 0) return null
+        let best = null
+        let bestMs = -Infinity
+        for (const e of log) {
+          const ms = Date.parse(String(e?.at ?? ''))
+          if (!Number.isFinite(ms)) continue
+          if (ms >= bestMs) { bestMs = ms; best = e }
+        }
+        return best ?? log[log.length - 1]
+      })()
+      /**
+       * `task.progress` 是共享 assignment 上的**快照值**，可能落后于 executionLog。
+       *
+       * 实测：日志已有 66 和 99 两条，而 assignment 上的 progress 还停在 66，
+       * 于是界面显示 66% —— 用户看到的是「卡住了」而不是「快完成了」。
+       * 日志里存在更晚的写入时，以日志为准。
+       */
+      const logProgress = latestLogEntry !== null && Number.isFinite(latestLogEntry.progress)
+        ? latestLogEntry.progress
+        : null
+      const progress = logProgress !== null
+        ? logProgress
+        : (Number.isFinite(task?.progress) ? task.progress : 0)
       /**
        * 执行状态：把 progress 与 completion 合成一个用户能读的短语。
        * 不能只显示数字 —— 「60 / 99」用户不知道是在跑还是卡住了。
@@ -1668,19 +1771,45 @@ function taskBucket(task, now) {
           h('div', { className: 'wb-tertiary' }, t('aiSessionLinks')),
           links.length === 0
             ? h('div', { className: 'wb-muted' }, t('noSessions'))
-            : h('ul', { className: 'wb-collab-links' }, links.map((l, i) => h('li', { key: i },
-                h('code', null, String(l.sessionId ?? '')),
-                ' · ',
-                h('span', { className: 'wb-collab-role' }, String(l.role ?? 'other')),
-                l.note ? h('span', { className: 'wb-tertiary' }, ' — ', l.note) : null,
-                typeof onCopySession === 'function'
-                  ? h('button', {
-                      className: 'wb-btn wb-btn-mini', type: 'button',
-                      disabled: copying,
-                      'aria-label': t('collabCopySession'),
-                      onClick: () => onCopySession(String(l.sessionId ?? '')),
-                    }, copying ? t('collabCopying') : t('collabCopySession'))
-                  : null)))),
+            : h('ul', { className: 'wb-collab-links' }, links.map((l, i) => {
+                const sid = String(l.sessionId ?? '')
+                /**
+                 * 「能否打开这个会话」取决于它是否**还在当前窗口的会话列表里**。
+                 *
+                 * 插件层能做的跳转只有 `uiWorkspace.openSession(sessionId)`
+                 * （dsh-client-ui-workspace 公开服务，内部走 sessions.retain
+                 * + mainView 选中 + layout.selectPanel(null)）。
+                 * 它只能切到**已存在**的会话；会话被删/属于别的工作区时，
+                 * 调了也不会有反应 —— 所以在按钮层就先判定，并明确说为什么。
+                 */
+                const known = typeof isKnownSession === 'function' ? isKnownSession(sid) : null
+                return h('li', { key: i },
+                  h('code', null, sid),
+                  ' · ',
+                  h('span', { className: 'wb-collab-role' }, String(l.role ?? 'other')),
+                  l.note ? h('span', { className: 'wb-tertiary' }, ' — ', l.note) : null,
+                  typeof onOpenSession === 'function'
+                    ? h('button', {
+                        className: 'wb-btn wb-btn-mini', type: 'button',
+                        disabled: known === false,
+                        title: known === false ? t('collabSessionGone') : t('collabOpenSession'),
+                        'aria-label': t('collabOpenSession'),
+                        onClick: () => onOpenSession(sid),
+                      }, t('collabOpenSession'))
+                    : null,
+                  typeof onCopySession === 'function'
+                    ? h('button', {
+                        className: 'wb-btn wb-btn-mini', type: 'button',
+                        disabled: copying,
+                        'aria-label': t('collabCopySession'),
+                        onClick: () => onCopySession(sid),
+                      }, copying ? t('collabCopying') : t('collabCopySession'))
+                    : null,
+                  // 会话已不在列表里时给出人话解释，而不是给个点了没反应的按钮
+                  known === false
+                    ? h('div', { className: 'wb-collab-anomaly', role: 'note' }, t('collabSessionGone'))
+                    : null)
+              }))),
         // ---- ③ 完成申请
         comp === null ? null : h('div', { className: 'wb-collab-section' },
           h('div', { className: 'wb-tertiary' }, t('aiAcceptance')),
@@ -1815,6 +1944,54 @@ function taskBucket(task, now) {
        * planPanel: null（未打开）| 'input'（输入目标）| {proposal, stats}（有提案）
        */
       const [planPanel, setPlanPanel] = useState(null)
+      /**
+       * V1.2 · 备份面板：列表 / 手动备份 / 回滚。
+       *
+       * 回滚是**破坏性**操作，必须走审批（Host 侧 store.rollback 在
+       * DANGEROUS_OPS 清单里）。这里不复制审批逻辑，只发请求。
+       */
+      const [backupPanel, setBackupPanel] = useState(false)
+      const [backupList, setBackupList] = useState([])
+      const [backupBusy, setBackupBusy] = useState(false)
+      const loadBackups = async () => {
+        try {
+          const r = await request({ op: 'store.listBackups', payload: {} })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'store.listBackups failed')
+          setBackupList(Array.isArray(r.value) ? r.value : [])
+        } catch (e) {
+          setError(`${t('backupLoadFailed')}: ${String(e?.message ?? e)}`)
+          setBackupList([])
+        }
+      }
+      const makeBackup = async () => {
+        setBackupBusy(true)
+        try {
+          const r = await request({ op: 'store.backup', payload: { label: 'manual' } })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'store.backup failed')
+          setNotice(t('backupCreated'))
+          await loadBackups()
+        } catch (e) {
+          setError(`${t('backupCreateFailed')}: ${String(e?.message ?? e)}`)
+        } finally { setBackupBusy(false) }
+      }
+      const rollbackTo = async (name) => {
+        if (typeof name !== 'string' || name === '') return
+        setBackupBusy(true)
+        try {
+          // 回滚是危险 op：先申请一次性审批，再带 token 执行
+          const req = buildRollbackApprovalRequest(name)
+          const token = await request(req)
+          if (token.ok !== true) throw new Error(token.error?.message ?? 'approval failed')
+          // approvalToken 必须在**顶层**（bridge 只从顶层读）
+          const r = await request({ op: 'store.rollback', payload: { name }, approvalToken: token.value?.token ?? token.value })
+          if (r.ok !== true) throw new Error(r.error?.message ?? 'store.rollback failed')
+          setNotice(t('backupRolledBack'))
+          setBackupPanel(false)
+          await load(true)
+        } catch (e) {
+          setError(`${t('backupRollbackFailed')}: ${String(e?.message ?? e)}`)
+        } finally { setBackupBusy(false) }
+      }
       const [planGoal, setPlanGoal] = useState('')
       const [planWindow, setPlanWindow] = useState('week')
       const [planGenerating, setPlanGenerating] = useState(false)
@@ -1882,12 +2059,32 @@ function taskBucket(task, now) {
             const id = inst.eventId ?? inst.sourceId ?? inst.id
             if (typeof id === 'string') recurrenceCount.set(id, (recurrenceCount.get(id) ?? 0) + 1)
           }
-          setEvents((Array.isArray(ev.value) ? ev.value : []).map((e) => ({
+          const nextEvents = (Array.isArray(ev.value) ? ev.value : []).map((e) => ({
             ...e,
             ...(conflictIds.has(e.id) ? { conflict: true } : {}),
             ...(recurrenceCount.has(e.id) ? { recurrenceOccurrences: recurrenceCount.get(e.id) } : {}),
-          })))
-          setTasks(Array.isArray(tk.value) ? tk.value : [])
+          }))
+          setEvents(nextEvents)
+          const nextTasks = Array.isArray(tk.value) ? tk.value : []
+          setTasks(nextTasks)
+          /**
+           * **选中项必须跟着数据刷新**（V1.2 缺陷修复）。
+           *
+           * `selected` 是渲染那一刻的**快照副本**，不是引用。刷新只更新 tasks、
+           * 不重绑 selected，详情面板就会一直显示旧内容 —— 实测：
+           * Agent 写入新的会话关联/进度后，列表已是最新，右侧面板仍是旧的，
+           * 用户只能先点别处再点回来才看得到。这直接打掉了「可靠状态刷新」。
+           *
+           * 用 id 重新取一行即可；取不到说明它已被删，那就取消选中。
+           */
+          setSelected((prev) => {
+            if (prev === null || prev.id === undefined) return prev
+            // 任务与事件都要重绑：两类详情面板都会因为旧快照显示过期内容
+            const pool = prev.kind === 'task' ? nextTasks : nextEvents
+            const fresh = pool.find((r) => r.id === prev.id)
+            if (fresh === undefined) return null
+            return { kind: prev.kind, ...fresh }
+          })
           /**
            * 提醒只保留「未来 7 天内、按触发时刻升序」的部分。
            * skipped 不静默丢弃——算不出提醒的条目单独计数，状态栏里如实显示。
@@ -2505,16 +2702,64 @@ function taskBucket(task, now) {
 
 
       /**
-       * V1.1 §2.1 · 复制会话标识。
+       * V1.2 · 从任务跳到真实 DSH 会话。
        *
-       * 为什么是「复制」而不是「跳转」：契约 §7.1 一手核实过，
-       * 插件层没有会话跳转/激活契约（uiSession controller 只暴露
-       * bindingSource/whenAccess/provide；schedule 明确 management reads
-       * 不激活会话；GUI 切换属于 Web shell 路由层）。自造 openSession
-       * 只会得到一个看起来能用、点了没反应的假按钮 —— 那比没有更糟。
+       * ## 为什么这次能真做（以及为什么之前的结论是错的）
        *
-       * 复制是插件层**真能兑现**的动作：用户拿到 sessionId 就能在会话
-       * 列表里找到它。这是诚实的降级，不是能力缩水。
+       * V1.1 的注释写着「插件层没有会话跳转契约」，据此只做了「复制 sessionId」。
+       * 那个结论来自只看 `dsh-client-ui-session`：它确实只暴露
+       * bindingSource / whenAccess / provide。**但真正负责 GUI 切换的不是它。**
+       *
+       * 一手核实（解包 app.asar 读源码）：
+       *   - `dsh-client-ui-workspace` 的 `UiWorkspaceService` 用
+       *     `super(ctx, "uiWorkspace")` 把服务注册进 ctx；
+       *   - 它的公开方法 `openSession(target)` → `replaceMain(...)` →
+       *     `sessions.retain(target, { source: "mainView" })`
+       *     + 更新选中 + `layout.selectPanel(null)`；
+       *   - 插件模板自己就在用 `ctx.get("sessions")` 这类服务（我们的
+       *     WorkbenchPage 已经在读 `ctx.sessions.list`）。
+       *
+       * 所以 `ctx.get('uiWorkspace')?.openSession(sessionId)` 是**真实契约**，
+       * 不是自造接口。拿不到服务时明确报错，不做假按钮。
+       */
+      const openSessionById = (sessionId) => {
+        if (typeof sessionId !== 'string' || sessionId === '') return
+        try {
+          const svc = typeof ctx?.get === 'function' ? ctx.get('uiWorkspace') : undefined
+          if (svc === undefined || svc === null || typeof svc.openSession !== 'function') {
+            setError(t('collabOpenUnavailable'))
+            return
+          }
+          svc.openSession(sessionId)
+          setNotice(t('collabOpened'))
+        } catch (e) {
+          setError(`${t('collabOpenFailed')}: ${String(e?.message ?? e)}`)
+        }
+      }
+
+      /**
+       * 该 sessionId 是否还在当前窗口的会话列表里。
+       *
+       * `openSession` 只能切到**已存在**的会话：被删掉的、或属于本窗口未加载
+       * 工作区的会话，调用后不会报错但也不会切过去 —— 用户会以为按钮坏了。
+       * 所以先判定，把「会话已丢失」当成显式状态展示。
+       *
+       * 返回 null 表示「无法判定」（拿不到列表），此时不拦截，让用户去试。
+       */
+      const isKnownSession = (sessionId) => {
+        try {
+          const snap = ctx?.sessions?.list?.getSnapshot?.()
+          const byId = snap?.byId
+          if (byId === null || byId === undefined || typeof byId !== 'object') return null
+          return Object.prototype.hasOwnProperty.call(byId, sessionId)
+        } catch { return null }
+      }
+
+      /**
+       * V1.1 §2.1 · 复制会话标识（保留）。
+       *
+       * 复制仍然是必要的补充：会话不在当前窗口时打不开，但 sessionId
+       * 仍然可以用来在别处定位它。两个动作并存，各自诚实。
        */
       const [copyState, setCopyState] = useState({ busy: false, done: null })
       const copySessionId = async (sessionId) => {
@@ -2747,6 +2992,18 @@ function taskBucket(task, now) {
             disabled: exporting !== null,
             onClick: () => exportData('json'),
           }, exporting === 'json' ? t('exporting') : t('exportJsonShort')),
+          /**
+           * V1.2：数据备份入口。
+           *
+           * 后端 `store.backup` / `store.listBackups` / `store.rollback` 一直都在，
+           * 但界面上没有任何入口 —— 用户能导出文件，却不能用插件自己的
+           * 带时间戳的备份体系。这是「后端已实现、UI 缺失」的典型缺口。
+           */
+          h('button', {
+            className: 'wb-btn', type: 'button', 'aria-label': t('backupPanel'),
+            title: t('backupPanelHint'),
+            onClick: () => { setBackupPanel(true); loadBackups() },
+          }, t('backupPanel')),
           // WP6-D：AI 智能规划入口（只生成提案，确认前不写任何数据）
           h('button', {
             className: 'wb-btn', type: 'button', 'aria-label': t('aiPlan'),
@@ -2755,6 +3012,25 @@ function taskBucket(task, now) {
           }, '✦ ', t('aiPlan')),
           h('button', { className: 'wb-btn wb-btn-primary', type: 'button', onClick: openNew }, '+ ', t('new'))),
         h(StatusBar, { loading, error, onRetry: load, t }),
+        // V1.2 · 备份面板：列出可用备份、手动备份、审批后回滚
+        backupPanel !== true ? null : h('div', { className: 'wb-backup-panel', role: 'region', 'aria-label': t('backupPanel') },
+          h('div', { className: 'wb-backup-head' },
+            h('strong', null, t('backupPanel')),
+            h('button', { className: 'wb-btn', type: 'button', disabled: backupBusy, onClick: makeBackup },
+              backupBusy ? t('saving') : t('backupCreate')),
+            h('button', { className: 'wb-btn', type: 'button', onClick: () => setBackupPanel(false) }, t('close'))),
+          h('p', { className: 'wb-tertiary', style: { margin: '4px 0 8px' } }, t('backupPanelHint')),
+          backupList.length === 0
+            ? h('div', { className: 'wb-muted' }, t('backupEmpty'))
+            : h('ul', { className: 'wb-backup-list' }, backupList.slice().reverse().slice(0, 10).map((name) => h('li', { key: name },
+                h('code', null, name),
+                h('button', {
+                  className: 'wb-btn wb-btn-mini', type: 'button',
+                  disabled: backupBusy,
+                  'aria-label': `${t('restore')} ${name}`,
+                  onClick: () => rollbackTo(name),
+                }, t('restore')))))),
+
         // role=status 默认就是 polite，但显式写 aria-live 才能保证读屏真的播报
         // （部分实现只在节点已存在时才生效，动态插入需要这层兜底）
         notice ? h('div', { className: 'wb-status', role: 'status', 'aria-live': 'polite' }, notice) : null,
@@ -2834,6 +3110,9 @@ function taskBucket(task, now) {
                         events: view === 'week' ? weekEvents : view === 'day' ? dayEvents : todayEvents,
                         onSelect: (e) => setSelected({ kind: 'event', ...e }),
                         emptyText: view === 'agenda' ? t('noEvents7d') : t('noEventsRange'),
+                        // 周/日/议程按天分组：这三个视图要回答的是「哪天有什么事」，
+                        // 扁平列表看不出空档。「今日 & 接下来 7 天」是时间线，不分组。
+                        groupByDay: true,
                         drag, setDrag, t,
                       }),
                   h('div', { className: 'wb-section', style: { marginTop: '24px' } },
@@ -3027,6 +3306,8 @@ function taskBucket(task, now) {
                             saving,
                             copying: copyState.busy,
                             onCopySession: copySessionId,
+                            onOpenSession: openSessionById,
+                            isKnownSession,
                             onAccept: () => decideCompletion('accept'),
                             onReject: () => decideCompletion('reject', t('completionFeedback')),
                           })

@@ -25,17 +25,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-/**
- * 路径必须是**包内相对路径**，不能是 `../../workbench-core/...`。
- *
- * `../../` 是开发仓库的层级（packages/workbench-ui → 仓库根）。在发布包里
- * 它会跳出包目录：pnpm 把包放成 `node_modules/dsh-whale-workbench` 的符号
- * 链接，`../..` 解析到 profile 根，于是 `Cannot find module
- * .../profiles/<name>/workbench-core/src/index.js`。
- *
- * 用 `link:` 安装时恰好指回开发目录，所以本地一直"好用"—— 这个缺陷只在
- * 真实 tarball 安装下暴露。V1.1 独立安装验证就是为了抓它。
- */
 import { createWorkbenchHostService, DANGEROUS_OPS, validationError } from './workbench-core/src/index.js'
 import { createReminderSync } from './workbench-core/src/reminder-sync.js'
 
