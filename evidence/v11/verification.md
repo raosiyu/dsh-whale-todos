@@ -55,3 +55,32 @@
 
 - 正式 Desktop 升级（等用户确认）
 - 跨机安装验证
+
+## 独立安装验证（全新环境）
+
+| 项 | 结果 |
+|---|---|
+| 环境 | `/tmp/dsh-iso-install`（全新 DSH_HOME，端口 3082） |
+| 安装 | `dsh plugin --profile inst add dsh-whale-workbench-1.1.0.tgz` |
+| 加载 | `import('dsh-whale-workbench')` → `name = workbench-ui` |
+| 界面 | 侧栏出现「鲸鱼待办」，日历/待办正常渲染 |
+| 日期 | 新建表单预填今天 09:00，保存后 `dueAt = "2026-11-09T09:00:00+08:00"` |
+
+### 独立安装才发现的两个打包缺陷（1.0.0 同样存在）
+
+1. **相对导入跳出包目录**
+   `index.js` 用 `../../workbench-core/src/index.js`（开发仓库层级）。
+   发布包里 `../..` 解析到 profile 根目录 → `Cannot find module
+   .../profiles/<name>/workbench-core/src/index.js`。
+   用 `link:` 安装时恰好指回开发目录，所以本地一直"好用"。
+   修复：改为包内相对路径 `./workbench-core/src/...`。
+
+2. **模块注册 id 与包名不一致**
+   `client.js` 注册 `id: '@local/dsh-workbench-ui'`（开发包名），
+   宿主按发布包名 `dsh-whale-workbench` 查找 →
+   `loaded without registering "dsh-whale-workbench" via __ModuleLoader__.load`，
+   整个 web 启动失败，界面只剩 "Failed to load plugins"。
+   修复：发布分支的注册 id 改为包名。
+
+**这两个缺陷 1.0.0 的发布包同样存在** —— 之前只做过 `link:` 安装，
+没做过真实 tarball 独立安装，所以从未暴露。
