@@ -292,3 +292,53 @@ test('WP6-D：CSS 只引用 --dsw-alias-* 令牌（不硬编码颜色）', () =>
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,6}/)
   assert.doesNotMatch(css, /rgba?\(/)
 })
+
+test('V1.2：协作面板提供「打开会话」入口，且能区分会话已丢失', () => {
+  const { CollabPanel } = loadClient().__test
+  const task = {
+    id: 'T1', progress: 50,
+    sessionLinks: [{ sessionId: 'sess-ok', role: 'execute' }],
+    executionLog: [], completion: null,
+  }
+
+  // 会话存在 → 按钮可用，点了会带上 sessionId
+  const opened = []
+  const live = flatten(CollabPanel({
+    task, t: T, saving: false,
+    onOpenSession: (id) => opened.push(id),
+    isKnownSession: () => true,
+  })).join(' ')
+  assert.match(live, /collabOpenSession/, '必须渲染打开入口')
+  assert.doesNotMatch(live, /collabSessionGone/, '会话存在时不该报丢失')
+
+  // 会话已丢失 → 文案明确，不当成可用按钮
+  const gone = flatten(CollabPanel({
+    task, t: T, saving: false,
+    onOpenSession: () => {},
+    isKnownSession: () => false,
+  })).join(' ')
+  assert.match(gone, /collabSessionGone/, '会话丢失必须有明确提示')
+})
+
+test('V1.2：拿不到会话服务时不渲染跳转按钮，不做假入口', () => {
+  const { CollabPanel } = loadClient().__test
+  const tree = CollabPanel({
+    task: { id: 'T1', progress: 0, sessionLinks: [{ sessionId: 's1', role: 'execute' }], executionLog: [], completion: null },
+    t: T, saving: false,
+    // 不传 onOpenSession
+  })
+  const text = flatten(tree).join(' ')
+  assert.doesNotMatch(text, /collabOpenSession/, '没有服务就不该给出跳转按钮')
+})
+
+test('V1.2：回滚审批请求体绑具体备份名，不绑 latest', () => {
+  const { buildRollbackApprovalRequest } = loadClient().__test
+  const r = buildRollbackApprovalRequest('0003-pre-2026-11-09T08-00-00-000Z.json')
+  assert.equal(r.op, 'confirmUserAction')
+  assert.equal(r.payload.approvalOp, 'store.rollback')
+  // 必须是具体文件名：审批通过后若出现更新的备份，指纹不匹配 → 拒绝，
+  // 而不是「悄悄回滚到别的目标」
+  assert.equal(r.payload.target, '0003-pre-2026-11-09T08-00-00-000Z.json')
+  assert.notEqual(r.payload.target, 'latest')
+  assert.ok(typeof r.payload.summary === 'string' && r.payload.summary.length > 0)
+})
