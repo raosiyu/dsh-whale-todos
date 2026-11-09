@@ -1084,14 +1084,26 @@ export function createWorkbenchService(options) {
       return rows.map((task) => {
         const a = byTask.get(task.id)
         if (a === undefined) return task
+        /**
+         * 字段级优先级：**本地对象优先，共享分配只补缺**。
+         *
+         * 两边的 `completion` 形态不同 —— 任务行是含 `decidedBy/decidedAt`
+         * 的对象，assignment 只有 `'pending' | 'accepted'` 这样的状态字符串。
+         * 早期版本直接 `a.completion ?? task.completion`，把对象覆盖成字符串，
+         * 结果 `completion.decidedBy`、`completion.status` 全部读不到
+         * （e2e E1.19 / E2.3 实测变红）。共享分配是**执行态**的补充来源，
+         * 不是本地业务字段的替代品。
+         */
+        const completion = task.completion !== undefined && task.completion !== null
+          ? task.completion
+          : (typeof a.completion === 'string' ? { status: a.completion } : null)
         return {
           ...task,
-          // 已关联本会话才承认执行态，避免把别人的进度贴到自己的行上
           progress: a.progress ?? task.progress ?? 0,
-          completion: a.completion ?? task.completion ?? null,
+          completion,
           done: task.done === true || a.done === true,
           recentLog: Array.isArray(a.log) ? a.log.slice(-5) : (task.recentLog ?? []),
-          completionRequest: a.completionRequest ?? task.completionRequest ?? null,
+          completionRequest: task.completionRequest ?? a.completionRequest ?? null,
           source: 'shared-assignment',
         }
       })
