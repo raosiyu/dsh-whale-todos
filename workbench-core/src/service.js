@@ -19,6 +19,8 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { conflictError, confirmationRequired, notFoundError, unsupportedError, validationError } from './errors.js'
 import { checkEventConflicts, findConflicts, findFreeSlots } from './conflict.js'
@@ -130,6 +132,24 @@ export function createWorkbenchService(options) {
     : null
   const events = createEventRepo(store, { now: options.now, idFactory: options.idFactory })
   const now = options.now ?? (() => new Date())
+  /**
+   * 读**跨会话共享的 assignments**（scope 级 collab 文件）。
+   *
+   * 与 `proposal-ops.js` 的 `readAssignmentsFresh` 同义：跨 session 的 service
+   * 实例各自持有 collabStore 的内存快照，只有写方会更新自己那份，读方必须
+   * 回盘才看得到别人的写入。读失败一律返回空数组 —— 宁可少显示，不崩。
+   */
+  const readSharedAssignments = () => {
+    try {
+      const dir = collabStore?.dataDir
+      if (typeof dir === 'string' && dir !== '') {
+        const parsed = JSON.parse(readFileSync(join(dir, 'workbench.json'), 'utf8'))
+        return Array.isArray(parsed?.assignments) ? parsed.assignments : []
+      }
+      const list = collabStore?.collection ? collabStore.collection('assignments') : []
+      return Array.isArray(list) ? list : []
+    } catch { return [] }
+  }
   /**
    * 默认时区：全天事件不带 timeZone 时用它补齐，避免"存 UTC、读本地"造成偏移。
    * 缺省 UTC（跨时区仍读作同一本地日），调用方应按用户所在时区传入。
@@ -1042,8 +1062,39 @@ export function createWorkbenchService(options) {
     },
     'task.list': (payload = {}) => {
       const includeDeleted = payload.includeDeleted === true
-      return store.collection('tasks')
+      const rows = store.collection('tasks')
         .filter((task) => includeDeleted || !isTaskDeleted(task))
+      /**
+       * **合并跨会话执行态**（WP6-C/D 的可视化闭环）。
+       *
+       * Agent 回写进度/申请完成时，数据落在 scope 级 shared assignments 里
+       * （`via: 'shared-assignment'`），**不在**用户工作区的 tasks 行上。
+       * UI 只调 `task.list`，不在这里合并的结果是：Agent 把 progress 写到 60、
+       * 申请了验收，用户界面上进度仍是空、申请也看不到 —— 实测确实如此。
+       *
+       * 这里只做**只读投影**：不写回、不进 undo、不改 tasks 分片。
+       * 认领关系由 `task.linkSession` 建立，故只对已关联本会话的行合并。
+       */
+      const assignments = readSharedAssignments()
+      if (assignments.length === 0) return rows
+      const byTask = new Map()
+      for (const a of assignments) {
+        if (a && typeof a.taskId === 'string') byTask.set(a.taskId, a)
+      }
+      return rows.map((task) => {
+        const a = byTask.get(task.id)
+        if (a === undefined) return task
+        return {
+          ...task,
+          // 已关联本会话才承认执行态，避免把别人的进度贴到自己的行上
+          progress: a.progress ?? task.progress ?? 0,
+          completion: a.completion ?? task.completion ?? null,
+          done: task.done === true || a.done === true,
+          recentLog: Array.isArray(a.log) ? a.log.slice(-5) : (task.recentLog ?? []),
+          completionRequest: a.completionRequest ?? task.completionRequest ?? null,
+          source: 'shared-assignment',
+        }
+      })
     },
     'task.upsert': (payload, meta) => {
       const task = payload?.task
@@ -1312,6 +1363,12 @@ export function createWorkbenchService(options) {
     ...createProposalOps({
       store,
       now,
+      /**
+       * 供 `task.list` 合并跨会话执行态用：本会话工作区里的任务行不含
+       * Agent 回写的 progress/completion（那些写在 shared assignments 里），
+       * UI 只调 task.list，不合并就等于「Agent 干完了用户看不见」。
+       */
+      readAssignments: () => readSharedAssignments(),
       requireConfirmation,
       assertTokenUsable,
       validateTaskInput: (t) => {

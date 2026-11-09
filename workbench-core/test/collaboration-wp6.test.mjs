@@ -579,3 +579,42 @@ test('WP6-E/P1-2：apply 落地阶段失败后 undo 栈与任务数据都保持�
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('WP6-C/D：Agent 回写的进度与完成申请必须出现在用户的 task.list 里', async () => {
+  /**
+   * 真实缺口回归（审计发现）：Agent 的 progress/completion 写在 scope 级
+   * shared assignments 里，不在用户工作区的 tasks 行上；UI 只调 task.list。
+   * 合并缺失时用户侧 progress 恒为 undefined、完成申请也看不到 ——
+   * 「Agent 干完了用户看不见」，WP6-C 与 WP6-D 的价值链断在这里。
+   */
+  const { createWorkbenchHostService } = await import('../src/index.js')
+  const dir = mkdtempSync(join(tmpdir(), 'wb-cd-'))
+  try {
+    const host = createWorkbenchHostService({ rootDir: dir, approvalMode: 'isolated', allowIsolatedApproval: true })
+    const U = 'sess-user-cd'
+    const AG = 'sess-agent-cd'
+    const ex = (sid, op, p, m = {}) => host.invoke(sid, op, p, { actor: sid === AG ? 'agent-tool' : 'ui', scope: '', ...m })
+
+    ex(U, 'task.upsert', { task: { id: 'T1', title: '写季度复盘', priority: 'high' } })
+    ex(U, 'task.linkSession', { id: 'T1', sessionId: AG, role: 'execute' })
+
+    // Agent 回写进度并申请完成
+    ex(AG, 'task.writeProgress', { id: 'T1', progress: 60, note: '大纲已完成' })
+    ex(AG, 'task.requestCompletion', { id: 'T1', summary: '初稿完成，请验收' })
+
+    // 用户侧（UI 唯一数据源）必须看得到
+    const row = ex(U, 'task.list', {}).find((t) => t.id === 'T1')
+    assert.equal(row.progress, 60, '用户侧必须能看到 Agent 回写的进度')
+    assert.equal(row.source, 'shared-assignment', '必须标明执行态来自共享分配')
+    assert.ok(row.recentLog.some((e) => e.note === '大纲已完成'), '执行记录必须对用户可见')
+    assert.equal(row.completionRequest?.status, 'pending', '完成申请必须对用户可见')
+    assert.equal(row.completionRequest?.summary, '初稿完成，请验收')
+
+    // 用户验收后，用户侧 done 必须为真
+    ex(U, 'task.acceptCompletion', { id: 'T1' })
+    const after = ex(U, 'task.list', {}).find((t) => t.id === 'T1')
+    assert.equal(after.done, true, '用户验收后必须标记完成')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
